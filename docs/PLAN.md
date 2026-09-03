@@ -493,7 +493,23 @@ Acceptance criteria
 - [x] Wrong `VITE_FIREBASE_PROJECT_ID` shows a visible error, not a blank page.
 
 ### Milestone 5 — Patterns page and managers page
-Status: not started
+Status: done 175900a
+
+**Implementation note:** `top_signals` (one of the 8 E-tables, part of `Signals`/`signals/{period}`)
+is intentionally not rendered as an 11th patterns section — the task list names exactly 10
+sections and `top_signals` isn't among them. The data is still computed and stored (used
+elsewhere / available for later), just not given its own section here.
+
+Verified live (Playwright against the dev server, real Firestore data): all 10 sections render on
+`/patterns` under a working sticky nav + period `Select`; sector rotation bars are green for
+positive / red for negative avg change, matching the table beneath; the similarity heatmap's
+diagonal reads 1.00, cell hover title shows both manager names and the value, and the "most
+similar" lists (computed client-side from the already-loaded matrix, no extra reads) agree with
+the heatmap's own numbers; Put/Call rows expand via `<details>` into Equity Long / Reported Calls
+/ Reported Puts name lists — "Reported Puts" appears, "short" does not, anywhere on the page;
+`/managers` groups all 11 managers into their 8 clusters with common holdings and top sector,
+including the edge cases of a single-member cluster and a manager absent from the given period.
+Zero console errors on either page.
 
 Tasks
 1. `PatternsPage.tsx`: loads `signals/{latestPeriod}` (period `Select` in the header of the page); sticky in-page nav with anchors to 10 sections; each section is one small component in `pages/patterns/`:
@@ -503,13 +519,13 @@ Tasks
 3. Commit `feat: patterns page and managers page`.
 
 Acceptance criteria
-- [ ] `/patterns` renders all 10 sections from one Firestore read (check the network tab: 1 `signals` doc + `meta`).
-- [ ] Tables show the columns listed in "Consensus tables"; sort order matches.
-- [ ] Sector rotation bar chart colors positive and negative moves differently.
-- [ ] Heatmap: diagonal is 1.00; hovering a cell shows both manager names and the value.
-- [ ] Put/Call section: expanding a row lists manager names per group; puts are labelled "Reported Puts", never "short".
-- [ ] `/managers` groups all 11 managers by cluster with common holdings and top sector.
-- [ ] `npm run build` zero TS errors; `npm run test` green.
+- [x] `/patterns` renders all 10 sections from one Firestore read (check the network tab: 1 `signals` doc + `meta`). (`meta` fetched once at app level via `MetaProvider`; `signals/{period}` fetched once per period in `PatternsPage`.)
+- [x] Tables show the columns listed in "Consensus tables"; sort order matches. (Rendered in server-given order; `derive.py`/`store.py` already sort each table.)
+- [x] Sector rotation bar chart colors positive and negative moves differently.
+- [x] Heatmap: diagonal is 1.00; hovering a cell shows both manager names and the value.
+- [x] Put/Call section: expanding a row lists manager names per group; puts are labelled "Reported Puts", never "short".
+- [x] `/managers` groups all 11 managers by cluster with common holdings and top sector.
+- [x] `npm run build` zero TS errors; `npm run test` green.
 
 ### Milestone 6 — CI/CD and custom domain
 Status: not started

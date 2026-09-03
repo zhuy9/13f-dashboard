@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { Footer } from '@/components/Footer'
 import { Header } from '@/components/Header'
 import { MetaProvider } from '@/context/MetaContext'
 import { ManagerPage } from '@/pages/ManagerPage'
@@ -19,6 +20,7 @@ export function App() {
           <Route path="/stock/:symbol" element={<StockPage />} />
         </Routes>
       </main>
+      <Footer />
     </MetaProvider>
   )
 }

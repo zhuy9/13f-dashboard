@@ -13,10 +13,9 @@ from dotenv import load_dotenv
 from firebase_admin import firestore
 
 from enrich import attach, ensure_securities
-from fetch import edgar_ticker_hints, fetch_filings, filing_rows, normalize
+from fetch import BASE_COLUMNS, edgar_ticker_hints, fetch_filings, filing_rows, normalize
 
 HERE = Path(__file__).parent
-BASE_COLUMNS = ["cik", "short", "period", "filed_at", "cusip", "name", "cls", "value", "shares", "put_call"]
 
 
 def load_funds() -> list[dict]:

@@ -76,12 +76,10 @@ def ensure_securities(
     collection = db.collection("securities")
 
     cached: dict[str, dict] = {}
-    for i in range(0, len(cusips), 30):
-        batch_ids = cusips[i : i + 30]
-        refs = [collection.document(cusip) for cusip in batch_ids]
-        for snap in db.get_all(refs):
-            if snap.exists:
-                cached[snap.id] = snap.to_dict()
+    refs = [collection.document(cusip) for cusip in cusips]
+    for snap in db.get_all(refs):
+        if snap.exists:
+            cached[snap.id] = snap.to_dict()
 
     to_enrich = [
         c for c in cusips if c not in cached or (refresh_unknown and cached[c].get("sector") == "Unknown")
@@ -107,7 +105,6 @@ def ensure_securities(
                 "sector": sector,
             }
 
-        entries = list(cached.items())
         for i in range(0, len(to_enrich), 400):
             batch = db.batch()
             for cusip in to_enrich[i : i + 400]:

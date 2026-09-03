@@ -15,13 +15,15 @@ export function Footer() {
           <span>Signals derived from public SEC 13F filings.</span>
           <span>Not investment advice. Positions are reported up to 45 days after quarter-end.</span>
         </div>
-        <span
-          className="flex cursor-not-allowed items-center gap-1.5 opacity-50"
-          title="Repo is private for now"
+        <a
+          href="https://github.com/zhuy9/13f-dashboard"
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-1.5 hover:text-ink"
         >
           <GithubIcon />
           GitHub
-        </span>
+        </a>
       </div>
     </footer>
   )

@@ -76,6 +76,8 @@ A script runs once a month. It downloads the latest filings and computes every s
 
 Each run also saves a small file, `data/last_ingest.json`, into the repo. It shows when the data was last updated. It also keeps the schedule alive. GitHub turns off schedules in repos with no activity for 60 days.
 
+For diagrams of the full system and the data pipeline, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
 ## Set up your own copy
 
 You need a Google account and a GitHub account. Some values are **secret**. Never put a secret in the code.

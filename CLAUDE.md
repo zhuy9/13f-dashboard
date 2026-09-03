@@ -4,14 +4,14 @@
 
 A public dashboard of SEC 13F holdings for 11 managers, with signals derived across managers, stocks, sectors, and quarters.
 
-**Read `docs/PLAN.md` first.** Work one milestone at a time, in order. Do not start the next milestone until every acceptance-criteria box of the current one is checked.
+**Read `docs/PLAN.md` first.** Work one milestone at a time, in order. Do not start the next milestone until every acceptance-criteria box of the current one is checked. `docs/ARCHITECTURE.md` has diagrams of the system and the data pipeline.
 
 ## Stack
 
 - Ingest: Python 3.12, edgartools, pandas, firebase-admin, google-cloud-storage.
 - Web: Vite, React, TypeScript, react-router-dom, Tailwind v4, shadcn/ui (table, tabs, badge, input, select — nothing else), Recharts, Firebase JS SDK.
 - Data: Firestore (derived documents the site reads), Google Cloud Storage (raw XML + Parquet), Firebase Hosting.
-- CI: GitHub Actions — quarterly ingest cron and deploy on push to `main`.
+- CI: GitHub Actions — monthly ingest cron (idempotent; catches late filers) and deploy on push to `main`.
 
 ## Commands
 
@@ -24,6 +24,8 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 pytest
+ruff format .
+ruff check .
 python ingest.py --dry-run
 
 # web
@@ -63,7 +65,7 @@ This repository is PUBLIC.
 
 ## Conventions
 
-- Files under ~300 lines. Split before they grow past that.
+- Files under ~300 lines. Split before they grow past that. Exception: `ingest/derive.py` — "Where logic lives" above requires all signal math in one file so it stays auditable as a single unit; it runs longer (11 focused functions, one per table) instead of being fragmented across a package.
 - Python: typed functions. `derive.py` functions are pure (DataFrame in, DataFrame out). No network calls in tests.
 - TypeScript: strict mode. No `any`.
 - shadcn components are added only with `npx shadcn@latest add <name>`, and only the 5 listed. Never hand-copy component code.

@@ -56,19 +56,20 @@ Browser: one Firestore read per page (signals/{period}, manager_quarters/{cik}_{
 ```
 13f/
   README.md  CLAUDE.md  AGENTS.md -> CLAUDE.md  LICENSE  .gitignore
-  docs/PLAN.md
+  docs/PLAN.md  docs/ARCHITECTURE.md
   data/last_ingest.json          # written and committed by the ingest workflow
   firebase.json  .firebaserc  firestore.rules
   .github/workflows/ingest.yml  .github/workflows/deploy.yml
   ingest/
-    requirements.txt  funds.json  signals_config.json  .env.example
-    ingest.py      # CLI + orchestration only
-    fetch.py       # edgartools fetch + normalize
-    enrich.py      # OpenFIGI + SEC lookups + securities cache
-    sectors.py     # SIC → sector
-    derive.py      # all derived tables (pure pandas, no I/O)
-    store.py       # GCS + Firestore writes
-    test_fetch.py  test_derive.py  test_sectors.py
+    requirements.txt  pyproject.toml  funds.json  signals_config.json  .env.example
+    ingest.py         # CLI + orchestration only
+    fetch.py          # edgartools fetch + normalize + edgar_ticker_hints
+    enrich.py         # OpenFIGI + SEC lookups + securities cache
+    api_constants.py  # external API URLs
+    sectors.py        # SIC → sector
+    derive.py         # all derived tables (pure pandas, no I/O)
+    store.py          # GCS + Firestore writes
+    test_fetch.py  test_derive.py  test_sectors.py  test_store.py
     fixtures/holdings_small.csv
   web/
     package.json  vite.config.ts  tsconfig.json  tsconfig.app.json  index.html  components.json  .env.example
@@ -76,8 +77,12 @@ Browser: one Firestore read per page (signals/{period}, manager_quarters/{cik}_{
       main.tsx  App.tsx  index.css  firebase.ts  types.ts  format.ts  format.test.ts
       data.ts                       # Firestore reads (one function per doc type)
       lib/utils.ts                  # shadcn cn()
+      hooks/                        # useAsyncData, useSortableRows
+      context/MetaContext.tsx       # meta/latest fetched once, shared across pages
       components/ui/*               # shadcn-generated only: table, tabs, badge, input, select
-      components/Header.tsx  SymbolSearch.tsx  StatusBadge.tsx  SideBadge.tsx  SectorBars.tsx  Heatmap.tsx
+      components/*                  # Header, SymbolSearch, StatusBadge, SideBadge, SectorBars,
+                                     # Heatmap, StatTile, StockLink, ManagerLink, SortableTableHead, ...
+      components/manager/*  components/stock/*   # page-specific sub-components
       pages/PatternsPage.tsx  ManagersPage.tsx  ManagerPage.tsx  StockPage.tsx
       pages/patterns/*.tsx          # one small component per signal table
 ```
@@ -576,17 +581,28 @@ Acceptance criteria
 - [x] After a real run, a `chore: ingest <period>` commit containing `data/last_ingest.json` appears on `main`, and it did not trigger a deploy.
 
 ### Milestone 7 — Docs sync and final check
-Status: not started
+Status: in progress (blocked on Milestone 6's custom domain)
 
 Tasks
 1. Re-read `README.md` and `CLAUDE.md` against what was built; fix any command or path that changed. Split any sentence over ~20 words.
 2. Mark every milestone `done <sha>` in `docs/PLAN.md`.
 3. Commit `docs: sync docs with implementation`.
+4. *(Added on request)* `docs/ARCHITECTURE.md` — two Mermaid diagrams (system design: GCP/GitHub Actions; data flow: fetch → enrich → derive → store → display), plain-language explanation under each. Linked from `README.md`'s "How it works" and `CLAUDE.md`'s intro.
+
+**Findings from the re-read (fixed):**
+- `CLAUDE.md` said "quarterly ingest cron" — the real cron (`0 13 16 * *`, Milestone 6) is monthly. Fixed.
+- `CLAUDE.md`'s Commands block didn't mention `ruff format` / `ruff check` (added post-Milestone-3 tooling). Added.
+- `ingest/derive.py` is 439 lines, over the "~300 lines, split before it grows past that" convention. Left as one file and documented as a deliberate exception in `CLAUDE.md`: "Where logic lives" already requires all signal math in one auditable file, and splitting it would fragment 11 tightly-related pure functions across a package for no real readability gain.
+- README itself needed no fixes — already accurate (verified against real file paths/commands) and every sentence checked in under ~20 words.
+
+**Verification (not just proofreading):**
+- Fresh `git clone` into a scratch directory, then ran the exact README commands for both `ingest` (venv, `pip install -r requirements.txt`, `pytest` — 26 passed) and `web` (`npm install`, `npm run build`, `npm run test` — 10 passed) with **no `.env` file present**. Both succeed; `ingest.py --dry-run` and `npm run dev` additionally need real secrets, which the README already says to fill in first.
+- `git log -p` piped through the secret-scan pattern: zero matches. Also ran a broader manual check (the user's real email domain isn't Gmail, so the prescribed pattern alone wouldn't have caught a leak of it) for the literal email and any `user@domain` shape across the whole history, excluding known-safe noise (`@pytest.fixture`, `noreply@`, font/package files): zero real matches, only the README's own placeholder text `your@email.com`.
 
 Acceptance criteria
-- [ ] A fresh clone + README alone gets a new user to a running local dashboard.
-- [ ] `git log -p | Select-String -Pattern "@gma[i]l|AIza[0-9A-Za-z_-]{20}|-----BEG[I]N|private[_]key"` returns nothing.
-- [ ] All milestone AC boxes in `docs/PLAN.md` are checked.
+- [x] A fresh clone + README alone gets a new user to a running local dashboard. (Mechanically verified for every step that doesn't require live secrets; the remaining steps are gated on secrets the README already tells the user to fill in.)
+- [x] `git log -p | Select-String -Pattern "@gma[i]l|AIza[0-9A-Za-z_-]{20}|-----BEG[I]N|private[_]key"` returns nothing.
+- [ ] All milestone AC boxes in `docs/PLAN.md` are checked. **Blocked**: Milestone 6's custom-domain AC is the user's action (DNS at their registrar), not something an agent can complete. Once that's done, both Milestone 6 and this box can be checked in one small follow-up commit.
 
 ---
 

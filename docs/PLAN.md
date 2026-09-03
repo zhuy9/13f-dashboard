@@ -539,7 +539,7 @@ Acceptance criteria
 - [x] `npm run build` zero TS errors; `npm run test` green.
 
 ### Milestone 6 — CI/CD and custom domain
-Status: in progress b47283f (blocked on user: custom domain, Manual setup step 8)
+Status: done b47283f
 
 **Implementation note:** local testing before the first push caught a real, latent bug:
 `derive.options_exposure()` returned a columnless empty `DataFrame` when a fund/window had zero
@@ -564,10 +564,8 @@ Verified live against the real GitHub Actions runs (not just locally):
   11 manager short names. Confirmed via `gh run list --workflow=deploy.yml` that this commit (and
   a later docs-only push) did **not** create a new `Deploy` run — the `paths` filter holds.
 
-**Not done:** the custom domain (Manual setup step 8) is the user's action (DNS records at their
-registrar) — not something an agent can do. README "Live site" points at the working
-`https://form-13f-dashboard.web.app` URL in the meantime; will update to the custom domain once
-the user adds it.
+**Custom domain:** the user added it (DNS records at their registrar) — not something an agent
+can do. `https://13f.darren-zhu.com` is live, verified `HTTP 200`. README "Live site" updated.
 
 Prerequisite: Manual setup 1–7 done (secrets and variables exist on GitHub).
 
@@ -582,12 +580,12 @@ Acceptance criteria
 - [x] Push to `main` → deploy green → `https://<project>.web.app` shows live data.
 - [x] Ingest "Run workflow" with `dry_run=true` → green; log has 11 manager summaries and **no** secret values (search the log for `BEGIN PRIVATE KEY` and `@`).
 - [x] Ingest with `dry_run=false` → green; `meta/latest.updatedAt` changed; run time < 30 min.
-- [ ] Custom domain serves the site over HTTPS. **Blocked on user** (Manual setup step 8 — DNS at their registrar).
+- [x] Custom domain serves the site over HTTPS. `https://13f.darren-zhu.com` verified `HTTP 200`.
 - [x] `deploy.yml` has `permissions: contents: read`; `ingest.yml` has `permissions: contents: write` and nothing more; no `pull_request_target` anywhere.
 - [x] After a real run, a `chore: ingest <period>` commit containing `data/last_ingest.json` appears on `main`, and it did not trigger a deploy.
 
 ### Milestone 7 — Docs sync and final check
-Status: in progress (blocked on Milestone 6's custom domain)
+Status: done b2e018d
 
 Tasks
 1. Re-read `README.md` and `CLAUDE.md` against what was built; fix any command or path that changed. Split any sentence over ~20 words.
@@ -608,7 +606,8 @@ Tasks
 Acceptance criteria
 - [x] A fresh clone + README alone gets a new user to a running local dashboard. (Mechanically verified for every step that doesn't require live secrets; the remaining steps are gated on secrets the README already tells the user to fill in.)
 - [x] `git log -p | Select-String -Pattern "@gma[i]l|AIza[0-9A-Za-z_-]{20}|-----BEG[I]N|private[_]key"` returns nothing.
-- [ ] All milestone AC boxes in `docs/PLAN.md` are checked. **Blocked**: Milestone 6's custom-domain AC is the user's action (DNS at their registrar), not something an agent can complete. Once that's done, both Milestone 6 and this box can be checked in one small follow-up commit.
+- [x] All milestone AC boxes in `docs/PLAN.md` are checked. Milestone 6's custom-domain AC was the
+  user's action (DNS at their registrar); done, checked in this follow-up commit.
 
 ---
 

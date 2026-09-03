@@ -6,9 +6,7 @@ This site shows what big investors own. The data comes from SEC Form 13F filings
 
 ## Live site
 
-[https://form-13f-dashboard.web.app](https://form-13f-dashboard.web.app)
-
-A custom domain is not set up yet. This link will move there once it is (Manual setup step 8).
+[https://13f.darren-zhu.com](https://13f.darren-zhu.com)
 
 ## What 13F data is (and is not)
 

@@ -94,7 +94,7 @@ def _build_meta(tables: dict, funds: list[dict], periods: list[str]) -> dict:
         "periods": periods,
         "managers": managers,
         "clusters": _clean(clusters_at_latest),
-        "symbols": _records(tables["symbols"][["symbol", "name"]]),
+        "symbols": _records(tables["symbols"][["symbol", "name", "sector"]]),
         "updatedAt": firestore.SERVER_TIMESTAMP,
     }
 

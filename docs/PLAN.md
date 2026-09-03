@@ -175,7 +175,7 @@ Per cluster: members, `common_holdings` (symbols held by ≥ half the members, t
 
 | Doc | Content | Read by |
 |---|---|---|
-| `meta/latest` | `latestPeriod, periods[], managers[{cik, short, name, cluster}], clusters[{label, members, commonHoldings, topSector}], symbols[{symbol, name}], updatedAt` | every page, once |
+| `meta/latest` | `latestPeriod, periods[], managers[{cik, short, name, cluster}], clusters[{label, members, commonHoldings, topSector}], symbols[{symbol, name, sector}], updatedAt` | every page, once |
 | `managers/{cik}` | `cik, name, short, cluster, periods[]` | manager page |
 | `manager_quarters/{cik}_{period}` | `filedAt, totalValue, count, counts{new,added,trimmed,unchanged,soldOut}, positions[A rows incl. SOLD_OUT], sectors[B rows], mostSimilar[{cik, short, score}]` | manager page |
 | `stocks/{symbol}` | `symbol, name, sector, trend[D rows], latest{C summary + holders + soldOut + options{calls[], puts[]}}` | stock page |
@@ -425,7 +425,48 @@ Python 3.10 (matches the local/CI compat requirement). Not part of the runtime p
 format` / `ruff check` are run manually before commits, not wired into CI in this MVP.
 
 ### Milestone 4 — Web app shell, manager page, stock page
-Status: not started
+Status: done (pending commit sha)
+
+**Implementation notes (deviations from spec):**
+- shadcn's CLI has been redesigned since the plan was written: `init` now asks for a component
+  library (`base`, `radix`, `aria` — chose `radix`, matching the ecosystem the plan assumed) and a
+  design "preset" (`nova`, `vega`, `maia`, ...; no more literal "neutral" choice, though
+  `components.json`'s `baseColor` is still `"neutral"` under the hood). Ran
+  `npx shadcn@latest init -t vite -b radix -p nova -y`. `init` also auto-creates a `button.tsx`
+  component; deleted it immediately since it's not one of the 5 listed and nothing in `table`,
+  `tabs`, `badge`, `input`, `select` depends on it — `src/components/ui/` holds exactly the 5.
+- `meta/latest.symbols` gained a `sector` field (`{symbol, name, sector}`, was `{symbol, name}`).
+  The Positions treemap needs to color 25 cells by sector, and neither `manager_quarters.positions`
+  nor the old `meta.symbols` carried that — the only place sector lived was `stocks/{symbol}`,
+  which would have meant up to 25 extra reads per page load. Added it to `derive_all`'s existing
+  `symbols` table (already had sector) via `store.py`'s `_build_meta`; one extra field on an
+  already-cached read, zero extra reads. `ingest/test_store.py` updated to assert it.
+- Fixed a real bug found while building this: `signals/{period}`'s top-level keys were an
+  accidental mix of snake_case (`consensus_buys`, `fastest_growing`, `sector_rotation`) and
+  camelCase (`managerSimilarity`, `optionsExposure`) in `store.py`. Made fully camelCase before
+  writing `types.ts` against it, so the TS contract wouldn't encode the inconsistency. Re-ran the
+  real ingest to overwrite `signals/*` with corrected field names.
+- Firestore's JS SDK retries a bad project/network config indefinitely and never rejects a
+  `getDoc()` promise on its own — a wrong `VITE_FIREBASE_PROJECT_ID` would otherwise hang on
+  "Loading…" forever instead of surfacing an error. `src/data.ts`'s `fetchDoc` now races every
+  read against a 10s timeout. Found and fixed by actually testing the AC in a browser (Playwright,
+  no `chromium-cli` available in this environment), not just by inspection.
+- `main.tsx` uses a dynamic `import('./App')` instead of a static one specifically so the
+  synchronous throw in `firebase.ts` (empty env vars) rejects an awaitable promise instead of
+  crashing before React ever renders — a static import's error isn't catchable by a try/catch or
+  error boundary, since ES module evaluation happens before the importing module's own code runs.
+- Chart entrance animations (Recharts `Line`/`Bar`) are disabled (`isAnimationActive={false}`)
+  after a Playwright screenshot briefly looked like a broken line chart — it was mid-animation,
+  not a data bug, but a dense ledger-style UI shouldn't animate on every load regardless.
+
+Verified live (Playwright against the dev server, real Firestore data): treemap/sector
+bars/QoQ table/positions/four lists/similar-managers all render on `/manager/1067983`; period
+`Select` switching refetches and updates the total-value tile; `/stock/AAPL` shows tiles, holders,
+options `<details>` groups (Reported Put Exposure correctly shows Third Point, matching the PUT
+row seen in Milestone 2/3 dry runs), and both trend charts with all 4 points connected; header
+search `nvd` → NVDA → Enter navigates; symbol/manager links cross-navigate both directions; 375px
+viewport has zero horizontal overflow (`scrollWidth === clientWidth`); zero console errors on any
+page. Both empty and non-empty-but-wrong `VITE_FIREBASE_PROJECT_ID` show a visible error message.
 
 Tasks
 1. Scaffold `npm create vite@latest web -- --template react-ts`; `npm i`.
@@ -442,14 +483,14 @@ Tasks
 12. Commit `feat: app shell, manager page, stock page`.
 
 Acceptance criteria
-- [ ] `src/components/ui/` contains exactly `table tabs badge input select` (+ `lib/utils.ts`).
-- [ ] `npm run test` green; `npm run build` zero TS errors.
-- [ ] `/manager/1067983` shows Berkshire: treemap, sector bars and QoQ table, positions with statuses, four lists, similar managers; period `Select` switches quarters.
-- [ ] `/stock/AAPL` shows the summary tiles, holders with status, options groups (may be empty), and both trend charts with 4 points.
-- [ ] Header search: typing `nvd` offers NVDA; Enter opens `/stock/NVDA`.
-- [ ] Clicking a symbol on a manager page opens the stock page; clicking a manager on a stock page opens the manager page.
-- [ ] At 375 px wide nothing scrolls horizontally except inside tables.
-- [ ] Wrong `VITE_FIREBASE_PROJECT_ID` shows a visible error, not a blank page.
+- [x] `src/components/ui/` contains exactly `table tabs badge input select` (+ `lib/utils.ts`).
+- [x] `npm run test` green; `npm run build` zero TS errors.
+- [x] `/manager/1067983` shows Berkshire: treemap, sector bars and QoQ table, positions with statuses, four lists, similar managers; period `Select` switches quarters.
+- [x] `/stock/AAPL` shows the summary tiles, holders with status, options groups (may be empty), and both trend charts with 4 points.
+- [x] Header search: typing `nvd` offers NVDA; Enter opens `/stock/NVDA`.
+- [x] Clicking a symbol on a manager page opens the stock page; clicking a manager on a stock page opens the manager page.
+- [x] At 375 px wide nothing scrolls horizontally except inside tables.
+- [x] Wrong `VITE_FIREBASE_PROJECT_ID` shows a visible error, not a blank page.
 
 ### Milestone 5 — Patterns page and managers page
 Status: not started

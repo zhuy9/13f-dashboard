@@ -43,7 +43,7 @@ def test_build_meta_shape(tables):
     meta = _build_meta(tables, FUNDS, tables["periods"])
     assert meta["latestPeriod"] == tables["periods"][-1]
     assert len(meta["managers"]) == 3
-    assert {"symbol", "name"} <= meta["symbols"][0].keys()
+    assert {"symbol", "name", "sector"} <= meta["symbols"][0].keys()
     assert meta["clusters"][0]["commonHoldings"]  # camelCase, non-empty at latest period
 
 

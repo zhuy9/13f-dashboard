@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from derive import conviction_score, derive_all, options_exposure
+from derive import _OPTIONS_EXPOSURE_COLUMNS, conviction_score, derive_all, options_exposure
 
 FIXTURE = Path(__file__).parent / "fixtures" / "holdings_small.csv"
 
@@ -176,7 +176,7 @@ def test_options_exposure_has_columns_with_zero_option_rows(h):
     DataFrame -- store.py indexes options_exposure by period/symbol unconditionally."""
     no_options = h[h["put_call"].isna()]
     result = options_exposure(no_options)
-    assert list(result.columns) == ["period", "symbol", "equity_holders", "call_holders", "put_holders"]
+    assert list(result.columns) == _OPTIONS_EXPOSURE_COLUMNS
     assert len(result) == 0
 
 

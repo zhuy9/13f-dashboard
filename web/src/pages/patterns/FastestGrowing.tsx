@@ -1,24 +1,32 @@
+import { SortableTableHead } from '@/components/SortableTableHead'
 import { StockLink } from '@/components/StockLink'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table'
+import { useSortableRows } from '@/hooks/useSortableRows'
 import type { FastestGrowingRow } from '@/types'
 
 export function FastestGrowing({ rows }: { rows: FastestGrowingRow[] }) {
+  const { sorted, sortKey, direction, toggleSort } = useSortableRows(rows, 'netChange')
   if (rows.length === 0) return <p className="text-sm text-ink-muted">No fast-growing names this quarter.</p>
+
+  const head = (label: string, key: keyof FastestGrowingRow, align: 'left' | 'right' = 'left') => (
+    <SortableTableHead label={label} sortKey={key} activeKey={sortKey} direction={direction} onSort={toggleSort} align={align} />
+  )
+
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Symbol</TableHead>
-          <TableHead>Name</TableHead>
-          <TableHead className="text-right">Prev Count</TableHead>
-          <TableHead className="text-right">Count</TableHead>
-          <TableHead className="text-right">New Managers</TableHead>
-          <TableHead className="text-right">Exited Managers</TableHead>
-          <TableHead className="text-right">Net Change</TableHead>
+          {head('Symbol', 'symbol')}
+          {head('Name', 'name')}
+          {head('Prev Count', 'prevCount', 'right')}
+          {head('Count', 'count', 'right')}
+          {head('New Managers', 'newManagers', 'right')}
+          {head('Exited Managers', 'exitedManagers', 'right')}
+          {head('Net Change', 'netChange', 'right')}
         </TableRow>
       </TableHeader>
       <TableBody>
-        {rows.map((r) => (
+        {sorted.map((r) => (
           <TableRow key={r.symbol}>
             <TableCell>
               <StockLink symbol={r.symbol} />

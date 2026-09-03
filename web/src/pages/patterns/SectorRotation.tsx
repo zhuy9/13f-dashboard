@@ -1,13 +1,20 @@
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/SortableTableHead'
+import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table'
 import { pct, pp, STATUS_COLORS } from '@/format'
+import { useSortableRows } from '@/hooks/useSortableRows'
 import type { SectorRotationRow } from '@/types'
 
 const RISING_COLOR = STATUS_COLORS.ADDED
 const FALLING_COLOR = STATUS_COLORS.SOLD_OUT
 
 export function SectorRotation({ rows }: { rows: SectorRotationRow[] }) {
+  const { sorted, sortKey, direction, toggleSort } = useSortableRows(rows, 'avgChange')
   if (rows.length === 0) return <p className="text-sm text-ink-muted">No sector data this quarter.</p>
+
+  const head = (label: string, key: keyof SectorRotationRow, align: 'left' | 'right' = 'left') => (
+    <SortableTableHead label={label} sortKey={key} activeKey={sortKey} direction={direction} onSort={toggleSort} align={align} />
+  )
 
   return (
     <div className="flex flex-col gap-4">
@@ -27,16 +34,16 @@ export function SectorRotation({ rows }: { rows: SectorRotationRow[] }) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Sector</TableHead>
-            <TableHead className="text-right">Avg Weight</TableHead>
-            <TableHead className="text-right">Avg Prev Weight</TableHead>
-            <TableHead className="text-right">Avg Change</TableHead>
-            <TableHead className="text-right">Increasing</TableHead>
-            <TableHead className="text-right">Decreasing</TableHead>
+            {head('Sector', 'sector')}
+            {head('Avg Weight', 'avgWeight', 'right')}
+            {head('Avg Prev Weight', 'avgPrevWeight', 'right')}
+            {head('Avg Change', 'avgChange', 'right')}
+            {head('Increasing', 'increasing', 'right')}
+            {head('Decreasing', 'decreasing', 'right')}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map((r) => (
+          {sorted.map((r) => (
             <TableRow key={r.sector}>
               <TableCell>{r.sector}</TableCell>
               <TableCell className="font-tabular text-right">{pct(r.avgWeight)}</TableCell>

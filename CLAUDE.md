@@ -53,7 +53,7 @@ This repository is PUBLIC.
 - Never print, log, or echo a secret. Not in scripts, not in workflows.
 - The service-account key file lives OUTSIDE the repo (for example `~/keys/13f-sa.json`). Point `GOOGLE_APPLICATION_CREDENTIALS` at it.
 - The `VITE_FIREBASE_*` values are public identifiers, not secrets. Access is controlled by `firestore.rules`.
-- Workflows use `push`, `schedule`, and `workflow_dispatch` only. Never `pull_request_target`. Always `permissions: contents: read`.
+- Workflows use `push`, `schedule`, and `workflow_dispatch` only. Never `pull_request_target`. `permissions: contents: read`, except `ingest.yml` which needs `contents: write` for its keepalive commit (see `docs/PLAN.md`, Milestone 6).
 
 ## Where logic lives
 

@@ -38,7 +38,7 @@ Data changes 4×/year. So: **all derived tables are computed once at ingest in P
 ## Architecture
 
 ```
-GitHub Actions (cron 4x/year + manual)
+GitHub Actions (monthly cron + manual; commits data/last_ingest.json so GitHub keeps the schedule enabled)
   └─ ingest/ingest.py
        ├─ fetch.py   : EDGAR ──► last 4 13F-HR per manager (edgartools) ──► normalized rows
        ├─ enrich.py  : CUSIP→ticker (OpenFIGI), ticker→CIK→SIC (SEC), SIC→sector (sectors.py); cached in Firestore securities/
@@ -57,6 +57,7 @@ Browser: one Firestore read per page (signals/{period}, manager_quarters/{cik}_{
 13f/
   README.md  CLAUDE.md  AGENTS.md -> CLAUDE.md  LICENSE  .gitignore
   docs/PLAN.md
+  data/last_ingest.json          # written and committed by the ingest workflow
   firebase.json  .firebaserc  firestore.rules
   .github/workflows/ingest.yml  .github/workflows/deploy.yml
   ingest/
@@ -203,7 +204,7 @@ The repo is PUBLIC. Follow exactly.
 | `FIREBASE_PROJECT_ID` | variable | GitHub variable | Used by deploy. |
 | `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID` | variable | GitHub variables + `web/.env` | Firebase **web** config. Public by design (ships in the JS bundle). Access is controlled by `firestore.rules`. |
 
-Rules: never print a secret; workflows use `push` / `schedule` / `workflow_dispatch` only, never `pull_request_target`; `permissions: contents: read` everywhere; the service-account JSON goes to `$RUNNER_TEMP/sa.json` via an `env:` mapping; locally the key file lives **outside** the repo; `ingest.py` fails fast with a clear message when `EDGAR_IDENTITY` or credentials are missing.
+Rules: never print a secret; workflows use `push` / `schedule` / `workflow_dispatch` only, never `pull_request_target`; `permissions: contents: read` everywhere except `ingest.yml`, which needs `contents: write` for its keepalive commit; the service-account JSON goes to `$RUNNER_TEMP/sa.json` via an `env:` mapping; locally the key file lives **outside** the repo; `ingest.py` fails fast with a clear message when `EDGAR_IDENTITY` or credentials are missing.
 
 Secret scan used by the AC below (the pattern is written so it does not match its own text):
 ```
@@ -432,16 +433,18 @@ Prerequisite: Manual setup 1–7 done (secrets and variables exist on GitHub).
 
 Tasks
 1. `.github/workflows/deploy.yml`: `on: push: branches: [main], paths: [web/**, firebase.json, .github/workflows/deploy.yml]` + `workflow_dispatch`; `permissions: contents: read`; checkout → `actions/setup-node@v4` (node 22, `cache: npm`, `cache-dependency-path: web/package-lock.json`) → `npm ci` + `npm run build` in `web/` with `env:` `VITE_FIREBASE_*` from `vars` → `FirebaseExtended/action-hosting-deploy@v0` (`firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}`, `channelId: live`, `projectId: ${{ vars.FIREBASE_PROJECT_ID }}`).
-2. `.github/workflows/ingest.yml`: `on: schedule: - cron: "0 13 16 2,5,8,11 *"` + `workflow_dispatch` (inputs `fund`, `dry_run`); `permissions: contents: read`; `concurrency: ingest`; checkout → `actions/setup-python@v5` (3.12, `cache: pip`) → `pip install -r ingest/requirements.txt` → write secret to `$RUNNER_TEMP/sa.json` from an `env:` var → `python ingest/ingest.py` with `env:` `GOOGLE_APPLICATION_CREDENTIALS`, `EDGAR_IDENTITY`, `OPENFIGI_API_KEY`, `GCS_BUCKET` and the optional flags.
-3. Commit `ci: deploy on push and quarterly ingest`. Push.
-4. User adds the custom domain (Manual setup 8). Update README "Live site". Commit `docs: live site link`.
+2. `.github/workflows/ingest.yml`: `on: schedule: - cron: "0 13 16 * *"` (monthly on the 16th — re-running a quarter is idempotent and catches late filers) + `workflow_dispatch` (inputs `fund`, `dry_run`); `permissions: contents: write` (needed only for task 3); `concurrency: ingest`; checkout → `actions/setup-python@v5` (3.12, `cache: pip`) → `pip install -r ingest/requirements.txt` → write secret to `$RUNNER_TEMP/sa.json` from an `env:` var → `python ingest/ingest.py` with `env:` `GOOGLE_APPLICATION_CREDENTIALS`, `EDGAR_IDENTITY`, `OPENFIGI_API_KEY`, `GCS_BUCKET` and the optional flags.
+3. Keepalive: GitHub disables scheduled workflows in a public repo after 60 days without repository activity, so the workflow must create activity. On a real (non-dry) run, `ingest.py` writes `data/last_ingest.json` (`{period, ranAt, managers}`); a final workflow step commits it as `chore: ingest <period>` using the `github-actions[bot]` identity and pushes with `GITHUB_TOKEN`. Skip the commit when the file is unchanged. `deploy.yml`'s `paths` filter already ignores `data/**`, so this commit does not trigger a deploy.
+4. Commit `ci: deploy on push and monthly ingest`. Push.
+5. User adds the custom domain (Manual setup 8). Update README "Live site". Commit `docs: live site link`.
 
 Acceptance criteria
 - [ ] Push to `main` → deploy green → `https://<project>.web.app` shows live data.
 - [ ] Ingest "Run workflow" with `dry_run=true` → green; log has 11 manager summaries and **no** secret values (search the log for `BEGIN PRIVATE KEY` and `@`).
 - [ ] Ingest with `dry_run=false` → green; `meta/latest.updatedAt` changed; run time < 30 min.
 - [ ] Custom domain serves the site over HTTPS.
-- [ ] Both workflows have `permissions: contents: read`; no `pull_request_target`.
+- [ ] `deploy.yml` has `permissions: contents: read`; `ingest.yml` has `permissions: contents: write` and nothing more; no `pull_request_target` anywhere.
+- [ ] After a real run, a `chore: ingest <period>` commit containing `data/last_ingest.json` appears on `main`, and it did not trigger a deploy.
 
 ### Milestone 7 — Docs sync and final check
 Status: not started

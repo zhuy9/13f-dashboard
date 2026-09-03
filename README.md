@@ -59,7 +59,7 @@ The site computes these signals once per quarter.
 ## How it works
 
 ```
-GitHub Actions (4 times a year, or by hand)
+GitHub Actions (once a month, or by hand)
   └─ ingest/ingest.py (Python)
        ├─ fetch   : SEC EDGAR → last 4 quarters of 13F filings per manager
        ├─ enrich  : CUSIP → ticker (OpenFIGI) → sector (SEC industry code)
@@ -70,7 +70,9 @@ GitHub Actions (on every push to main)
   └─ build the site → Firebase Hosting → your domain
 ```
 
-A script runs after each filing deadline. It downloads the filings and computes every signal. It writes the results to Firestore. The website only reads and displays them. Nothing is computed live.
+A script runs once a month. It downloads the latest filings and computes every signal. It writes the results to Firestore. The website only reads and displays them. Nothing is computed live.
+
+Each run also saves a small file, `data/last_ingest.json`, into the repo. It shows when the data was last updated. It also keeps the schedule alive. GitHub turns off schedules in repos with no activity for 60 days.
 
 ## Set up your own copy
 

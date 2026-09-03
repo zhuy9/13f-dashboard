@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import edgar
@@ -72,6 +73,19 @@ def print_dry_run_signals(tables: dict) -> None:
     print("\nmanager_similarity ciks:", sim["ciks"])
     for row in sim["matrix"][:5]:
         print(["%.2f" % v for v in row])
+
+
+def write_last_ingest(tables: dict, base_by_fund: list[tuple[dict, pd.DataFrame]]) -> None:
+    """Keepalive marker for the ingest workflow: a real run commits this file so GitHub
+    doesn't disable the scheduled workflow after 60 days of no repo activity."""
+    path = HERE.parent / "data" / "last_ingest.json"
+    path.parent.mkdir(exist_ok=True)
+    payload = {
+        "period": tables["periods"][-1],
+        "ranAt": datetime.now(timezone.utc).isoformat(),
+        "managers": [fund["short"] for fund, _ in base_by_fund],
+    }
+    path.write_text(json.dumps(payload, indent=2) + "\n")
 
 
 def init_firestore():
@@ -158,6 +172,7 @@ def main() -> int:
             print_dry_run_signals(tables)
         else:
             write_firestore(db, tables, funds, tables["periods"])
+            write_last_ingest(tables, base_by_fund)
 
     return 1 if failed else 0
 

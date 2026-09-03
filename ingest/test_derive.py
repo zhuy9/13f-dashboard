@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from derive import conviction_score, derive_all
+from derive import conviction_score, derive_all, options_exposure
 
 FIXTURE = Path(__file__).parent / "fixtures" / "holdings_small.csv"
 
@@ -169,6 +169,15 @@ def test_options_exposure_lists(out):
     aaa_p2 = opts.loc[(P2, "AAA")]
     assert aaa_p2["equity_holders"] == ["1111111111"]
     assert aaa_p2["call_holders"] == ["1111111111"]
+
+
+def test_options_exposure_has_columns_with_zero_option_rows(h):
+    """Regression: a fund/window with no PUT/CALL rows must not produce a columnless
+    DataFrame -- store.py indexes options_exposure by period/symbol unconditionally."""
+    no_options = h[h["put_call"].isna()]
+    result = options_exposure(no_options)
+    assert list(result.columns) == ["period", "symbol", "equity_holders", "call_holders", "put_holders"]
+    assert len(result) == 0
 
 
 def test_cluster_common_holdings(out):

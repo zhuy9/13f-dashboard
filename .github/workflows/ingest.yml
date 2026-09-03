@@ -1,0 +1,70 @@
+name: Ingest
+
+on:
+  schedule:
+    - cron: "0 13 16 * *"
+  workflow_dispatch:
+    inputs:
+      fund:
+        description: "CIK of a single fund (optional; all funds if empty)"
+        required: false
+        type: string
+      dry_run:
+        description: "Dry run (no Firestore/GCS writes)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency: ingest
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r ingest/requirements.txt
+
+      - name: Write service account key
+        env:
+          SA_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: echo "$SA_JSON" > "$RUNNER_TEMP/sa.json"
+
+      - name: Run ingest
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+          EDGAR_IDENTITY: ${{ secrets.EDGAR_IDENTITY }}
+          OPENFIGI_API_KEY: ${{ secrets.OPENFIGI_API_KEY }}
+          GCS_BUCKET: ${{ vars.GCS_BUCKET }}
+          FUND: ${{ github.event.inputs.fund }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          args=()
+          if [ -n "$FUND" ]; then args+=(--fund "$FUND"); fi
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          python ingest/ingest.py "${args[@]}"
+
+      - name: Commit keepalive marker
+        run: |
+          if [ ! -f data/last_ingest.json ]; then
+            echo "No data/last_ingest.json written (dry run); skipping commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/last_ingest.json
+          if git diff --cached --quiet; then
+            echo "data/last_ingest.json unchanged; skipping commit."
+            exit 0
+          fi
+          period=$(python -c "import json; print(json.load(open('data/last_ingest.json'))['period'])")
+          git commit -m "chore: ingest $period"
+          git push

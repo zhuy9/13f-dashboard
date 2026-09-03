@@ -354,6 +354,9 @@ def manager_similarity(mqs: pd.DataFrame) -> dict:
     return result
 
 
+_OPTIONS_EXPOSURE_COLUMNS = ["period", "symbol", "equity_holders", "call_holders", "put_holders"]
+
+
 def options_exposure(h: pd.DataFrame) -> pd.DataFrame:
     """Table H: per (period, symbol) with any option row."""
     options = h[h["put_call"].notna()]
@@ -369,7 +372,9 @@ def options_exposure(h: pd.DataFrame) -> pd.DataFrame:
                 "put_holders": sorted(at_symbol[at_symbol["put_call"] == "PUT"]["cik"].unique().tolist()),
             }
         )
-    return pd.DataFrame(rows)
+    # An empty rows list would otherwise produce a DataFrame with no columns at all,
+    # which breaks every caller that indexes options_exposure by "period"/"symbol".
+    return pd.DataFrame(rows, columns=_OPTIONS_EXPOSURE_COLUMNS)
 
 
 def clusters(mqs: pd.DataFrame, mse: pd.DataFrame, funds: list[dict]) -> dict:

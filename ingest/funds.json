@@ -1,0 +1,13 @@
+[
+  { "cik": "1067983", "name": "Berkshire Hathaway Inc", "short": "Berkshire", "cluster": "Value / Quality" },
+  { "cik": "1336528", "name": "Pershing Square Capital Management, L.P.", "short": "Pershing", "cluster": "Activist / Quality" },
+  { "cik": "1647251", "name": "TCI Fund Management Ltd", "short": "TCI", "cluster": "Quality / Compounders" },
+  { "cik": "1061768", "name": "Baupost Group LLC/MA", "short": "Baupost", "cluster": "Value / Event Driven" },
+  { "cik": "1656456", "name": "Appaloosa LP", "short": "Appaloosa", "cluster": "Macro / Value" },
+  { "cik": "1536411", "name": "Duquesne Family Office LLC", "short": "Duquesne", "cluster": "Macro" },
+  { "cik": "1135730", "name": "Coatue Management LLC", "short": "Coatue", "cluster": "Tech / Growth" },
+  { "cik": "1167483", "name": "Tiger Global Management LLC", "short": "Tiger Global", "cluster": "Tech / Growth" },
+  { "cik": "1103804", "name": "Viking Global Investors LP", "short": "Viking", "cluster": "Tech / Growth" },
+  { "cik": "1061165", "name": "Lone Pine Capital LLC", "short": "Lone Pine", "cluster": "Tech / Growth" },
+  { "cik": "1040273", "name": "Third Point LLC", "short": "Third Point", "cluster": "Event Driven / Activist" }
+]

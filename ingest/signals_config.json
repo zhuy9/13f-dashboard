@@ -1,0 +1,15 @@
+{
+  "quarters": 4,
+  "consensus_min_managers": 2,
+  "high_conviction_min_weight": 0.03,
+  "high_conviction_min_managers": 3,
+  "sector_move_threshold": 0.005,
+  "top_n": 25,
+  "score": {
+    "weight_scale": 0.05,
+    "new_bonus": 0.5,
+    "added_bonus": 0.25,
+    "accumulation_scale": 0.02,
+    "accumulation_cap": 3
+  }
+}

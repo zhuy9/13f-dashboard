@@ -8,7 +8,8 @@ import { getStock } from '@/data'
 import { useAsyncData } from '@/hooks/useAsyncData'
 
 export function StockPage() {
-  const { symbol = '' } = useParams<{ symbol: string }>()
+  const { symbol: rawSymbol = '' } = useParams<{ symbol: string }>()
+  const symbol = decodeURIComponent(rawSymbol)
   const stockState = useAsyncData(() => getStock(symbol), [symbol])
 
   if (stockState.loading) return <LoadingState />

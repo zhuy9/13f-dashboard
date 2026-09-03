@@ -2,6 +2,7 @@
 
 import io
 import logging
+from urllib.parse import quote
 
 import pandas as pd
 from firebase_admin import firestore
@@ -217,7 +218,9 @@ def write_firestore(db, tables: dict, funds: list[dict], periods: list[str]) -> 
     for doc_id, doc in _build_manager_quarter_docs(tables, funds).items():
         writes.append((f"manager_quarters/{doc_id}", doc))
     for symbol, doc in _build_stock_docs(tables, funds).items():
-        writes.append((f"stocks/{symbol}", doc))
+        # quote() so a ticker with a "/" (SPAC units/warrants: "ABC/U", "ABC/WS") can't
+        # split into extra Firestore path segments. Ordinary tickers are untouched.
+        writes.append((f"stocks/{quote(symbol, safe='')}", doc))
     for period, doc in _build_signals_docs(tables, periods).items():
         writes.append((f"signals/{period}", doc))
 

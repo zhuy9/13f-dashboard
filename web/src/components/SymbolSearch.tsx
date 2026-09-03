@@ -19,7 +19,7 @@ export function SymbolSearch({ symbols }: { symbols: SymbolRef[] }) {
   function goToSymbol(symbol: string) {
     setQuery('')
     setOpen(false)
-    navigate(`/stock/${symbol}`)
+    navigate(`/stock/${encodeURIComponent(symbol)}`)
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {

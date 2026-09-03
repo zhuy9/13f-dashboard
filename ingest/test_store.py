@@ -1,4 +1,5 @@
 from pathlib import Path
+from urllib.parse import quote
 
 import pandas as pd
 import pytest
@@ -62,3 +63,10 @@ def test_stock_doc_has_options_and_trend(tables):
     aaa = docs["AAA"]
     assert aaa["latest"]["options"]["calls"] == [{"cik": "1111111111", "short": "M1"}]
     assert len(aaa["trend"]) == 2
+
+
+def test_stock_doc_id_encodes_slash_matching_web_encodeuricomponent():
+    # write_firestore() keys stocks/{doc_id} with quote(symbol, safe=""). A SPAC
+    # unit/warrant ticker like "ABC/U" would otherwise split into a bad nested path.
+    assert quote("ABC/U", safe="") == "ABC%2FU"
+    assert quote("BRK.B", safe="") == "BRK.B"  # ordinary tickers are untouched

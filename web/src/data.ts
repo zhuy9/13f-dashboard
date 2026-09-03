@@ -37,7 +37,9 @@ export function getManagerQuarter(cik: string, period: string): Promise<ManagerQ
 }
 
 export function getStock(symbol: string): Promise<Stock | null> {
-  return fetchDoc<Stock>(`stocks/${symbol}`)
+  // encodeURIComponent matches store.py's quote() so a ticker with a "/" (e.g. SPAC
+  // units "ABC/U") resolves to one Firestore path segment instead of splitting in two.
+  return fetchDoc<Stock>(`stocks/${encodeURIComponent(symbol)}`)
 }
 
 export function getSignals(period: string): Promise<Signals | null> {

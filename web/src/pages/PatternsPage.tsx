@@ -68,7 +68,10 @@ export function PatternsPage() {
     return map
   }, [meta])
 
-  const sections = signalsState.data ? buildSections(signalsState.data, labelByCik) : []
+  const sections = useMemo(
+    () => (signalsState.data ? buildSections(signalsState.data, labelByCik) : []),
+    [signalsState.data, labelByCik],
+  )
   const sectionIds = useMemo(() => sections.map((s) => s.id), [sections])
   const activeId = useActiveSection(sectionIds)
 

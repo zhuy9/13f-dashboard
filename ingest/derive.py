@@ -77,10 +77,19 @@ def manager_quarter_summary(h: pd.DataFrame, periods: list[str]) -> pd.DataFrame
         change = (weight - prev_weight) if prev_weight is not None else None
         rows.append(
             {
-                "cik": cik, "period": period, "symbol": symbol, "short": short, "name": name,
-                "value": value, "shares": shares, "weight": weight,
-                "prev_value": prev_value, "prev_shares": prev_shares, "prev_weight": prev_weight,
-                "change": change, "status": status,
+                "cik": cik,
+                "period": period,
+                "symbol": symbol,
+                "short": short,
+                "name": name,
+                "value": value,
+                "shares": shares,
+                "weight": weight,
+                "prev_value": prev_value,
+                "prev_shares": prev_shares,
+                "prev_weight": prev_weight,
+                "change": change,
+                "status": status,
             }
         )
     return pd.DataFrame(rows)
@@ -105,7 +114,9 @@ def manager_sector_exposure(h: pd.DataFrame, periods: list[str]) -> pd.DataFrame
         else:
             prev_weight = None
             change = None
-        rows.append({"cik": cik, "period": period, "sector": sector, "weight": weight, "prev_weight": prev_weight, "change": change})
+        rows.append(
+            {"cik": cik, "period": period, "sector": sector, "weight": weight, "prev_weight": prev_weight, "change": change}
+        )
     return pd.DataFrame(rows)
 
 
@@ -126,8 +137,11 @@ def stock_quarter_summary(mqs: pd.DataFrame, managers_per_period: dict) -> pd.Da
 
         rows.append(
             {
-                "period": period, "symbol": symbol, "name": name,
-                "manager_count": len(holders_df), "managers_total": managers_total,
+                "period": period,
+                "symbol": symbol,
+                "name": name,
+                "manager_count": len(holders_df),
+                "managers_total": managers_total,
                 "pct_holding": len(holders_df) / managers_total if managers_total else 0.0,
                 "avg_weight": float(holders_df["weight"].mean()) if len(holders_df) else 0.0,
                 "median_weight": float(holders_df["weight"].median()) if len(holders_df) else 0.0,
@@ -159,9 +173,14 @@ def stock_trend(sqs: pd.DataFrame) -> pd.DataFrame:
                 exited_managers = len(prev_holder_ciks - holder_ciks)
             rows.append(
                 {
-                    "symbol": symbol, "period": r["period"], "manager_count": r["manager_count"],
-                    "avg_weight": r["avg_weight"], "median_weight": r["median_weight"], "max_weight": r["max_weight"],
-                    "new_managers": new_managers, "exited_managers": exited_managers,
+                    "symbol": symbol,
+                    "period": r["period"],
+                    "manager_count": r["manager_count"],
+                    "avg_weight": r["avg_weight"],
+                    "median_weight": r["median_weight"],
+                    "max_weight": r["max_weight"],
+                    "new_managers": new_managers,
+                    "exited_managers": exited_managers,
                     "net_change": new_managers - exited_managers,
                 }
             )
@@ -175,11 +194,15 @@ def conviction_score(sqs: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     out = sqs.copy()
 
     def avg_change(holders: list[dict]) -> float:
-        vals = [h["weight"] if h["status"] == "NEW" else h["change"] for h in holders if h["status"] == "NEW" or pd.notna(h["change"])]
+        vals = [
+            h["weight"] if h["status"] == "NEW" else h["change"] for h in holders if h["status"] == "NEW" or pd.notna(h["change"])
+        ]
         return sum(vals) / len(vals) if vals else 0.0
 
     out["avg_change"] = out["holders"].apply(avg_change)
-    accumulation = (out["avg_change"].clip(lower=0) / score_cfg["accumulation_scale"] + 1).clip(upper=score_cfg["accumulation_cap"])
+    accumulation = (out["avg_change"].clip(lower=0) / score_cfg["accumulation_scale"] + 1).clip(
+        upper=score_cfg["accumulation_cap"]
+    )
     out["raw"] = (
         out["manager_count"]
         * (1 + out["avg_weight"] / score_cfg["weight_scale"])
@@ -226,15 +249,21 @@ def consensus_tables(sqs: pd.DataFrame, mqs: pd.DataFrame, trend: pd.DataFrame, 
     buys["avg_weight_increase"] = buys["holders"].apply(lambda hs: _status_change(hs, {"NEW", "ADDED"}))
     tables["consensus_buys"] = _top_per_period(
         buys[["period", "symbol", "name", "new_buyers", "added", "avg_weight", "avg_weight_increase", "score"]],
-        "score", False, None,
+        "score",
+        False,
+        None,
     )
 
     exits = sqs[(sqs["sold_out_count"] + sqs["trimmed_count"]) >= cfg["consensus_min_managers"]].copy()
     exits["sold_out"] = exits["sold_out_count"]
     exits["trimmed"] = exits["trimmed_count"]
-    exits["avg_reduction"] = mqs[mqs["status"].isin(["SOLD_OUT", "TRIMMED"])].groupby(["period", "symbol"])["change"].mean().reindex(
-        list(zip(exits["period"], exits["symbol"]))
-    ).values
+    exits["avg_reduction"] = (
+        mqs[mqs["status"].isin(["SOLD_OUT", "TRIMMED"])]
+        .groupby(["period", "symbol"])["change"]
+        .mean()
+        .reindex(list(zip(exits["period"], exits["symbol"])))
+        .values
+    )
     exits = exits.sort_values(["period", "sold_out", "trimmed"], ascending=[True, False, False])
     tables["consensus_exits"] = exits[["period", "symbol", "name", "sold_out", "trimmed", "avg_reduction"]]
 
@@ -253,11 +282,18 @@ def consensus_tables(sqs: pd.DataFrame, mqs: pd.DataFrame, trend: pd.DataFrame, 
         mqs[mqs["status"] == "NEW"][["period", "cik", "short", "symbol", "name", "weight", "value"]], "weight", False, top_n
     )
     tables["biggest_adds"] = _top_per_period(
-        mqs[mqs["status"] == "ADDED"][["period", "cik", "short", "symbol", "name", "weight", "change", "value"]], "change", False, top_n
+        mqs[mqs["status"] == "ADDED"][["period", "cik", "short", "symbol", "name", "weight", "change", "value"]],
+        "change",
+        False,
+        top_n,
     )
     tables["biggest_trims"] = _top_per_period(
-        mqs[mqs["status"].isin(["TRIMMED", "SOLD_OUT"])][["period", "cik", "short", "symbol", "name", "weight", "change", "value"]],
-        "change", True, top_n,
+        mqs[mqs["status"].isin(["TRIMMED", "SOLD_OUT"])][
+            ["period", "cik", "short", "symbol", "name", "weight", "change", "value"]
+        ],
+        "change",
+        True,
+        top_n,
     )
 
     trend_sorted = trend.sort_values(["symbol", "period"])
@@ -272,7 +308,9 @@ def consensus_tables(sqs: pd.DataFrame, mqs: pd.DataFrame, trend: pd.DataFrame, 
         sqs[sqs["manager_count"] >= cfg["consensus_min_managers"]][
             ["period", "symbol", "name", "score", "manager_count", "avg_weight", "new_count", "added_count"]
         ],
-        "score", False, top_n,
+        "score",
+        False,
+        top_n,
     )
     return tables
 
@@ -281,13 +319,17 @@ def sector_rotation(mse: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     """Table F: per (period, sector), over managers with a defined QoQ change."""
     valid = mse.dropna(subset=["change"])
     threshold = cfg["sector_move_threshold"]
-    grouped = valid.groupby(["period", "sector"]).agg(
-        avg_weight=("weight", "mean"),
-        avg_prev_weight=("prev_weight", "mean"),
-        avg_change=("change", "mean"),
-        increasing=("change", lambda s: int((s > threshold).sum())),
-        decreasing=("change", lambda s: int((s < -threshold).sum())),
-    ).reset_index()
+    grouped = (
+        valid.groupby(["period", "sector"])
+        .agg(
+            avg_weight=("weight", "mean"),
+            avg_prev_weight=("prev_weight", "mean"),
+            avg_change=("change", "mean"),
+            increasing=("change", lambda s: int((s > threshold).sum())),
+            decreasing=("change", lambda s: int((s < -threshold).sum())),
+        )
+        .reset_index()
+    )
     return grouped.sort_values(["period", "avg_change"], ascending=[True, False])
 
 
@@ -320,7 +362,8 @@ def options_exposure(h: pd.DataFrame) -> pd.DataFrame:
         at_symbol = h[(h["period"] == period) & (h["symbol"] == symbol)]
         rows.append(
             {
-                "period": period, "symbol": symbol,
+                "period": period,
+                "symbol": symbol,
                 "equity_holders": sorted(at_symbol[at_symbol["put_call"].isna()]["cik"].unique().tolist()),
                 "call_holders": sorted(at_symbol[at_symbol["put_call"] == "CALL"]["cik"].unique().tolist()),
                 "put_holders": sorted(at_symbol[at_symbol["put_call"] == "PUT"]["cik"].unique().tolist()),
@@ -352,9 +395,16 @@ def clusters(mqs: pd.DataFrame, mse: pd.DataFrame, funds: list[dict]) -> dict:
                 common_holdings = common.head(10).index.tolist()
 
                 cluster_sectors = period_mse[period_mse["cik"].isin(members)]
-                top_sector = (cluster_sectors.groupby("sector")["weight"].sum() / len(members)).idxmax() if len(cluster_sectors) else None
+                top_sector = (
+                    (cluster_sectors.groupby("sector")["weight"].sum() / len(members)).idxmax() if len(cluster_sectors) else None
+                )
 
-            result[period][label] = {"label": label, "members": members, "common_holdings": common_holdings, "top_sector": top_sector}
+            result[period][label] = {
+                "label": label,
+                "members": members,
+                "common_holdings": common_holdings,
+                "top_sector": top_sector,
+            }
     return result
 
 

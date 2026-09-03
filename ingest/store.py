@@ -13,9 +13,20 @@ logger = logging.getLogger(__name__)
 # latest-period-only by definition) aren't split-and-archived here -- archival only,
 # not consumed by the live site. `# ponytail: JSON export for those if BigQuery needs them.`
 _PARQUET_TABLES = [
-    "holdings", "manager_quarter_summary", "manager_sector_exposure", "stock_quarter_summary",
-    "stock_trend", "consensus_buys", "consensus_exits", "high_conviction", "biggest_new",
-    "biggest_adds", "biggest_trims", "top_signals", "sector_rotation", "options_exposure",
+    "holdings",
+    "manager_quarter_summary",
+    "manager_sector_exposure",
+    "stock_quarter_summary",
+    "stock_trend",
+    "consensus_buys",
+    "consensus_exits",
+    "high_conviction",
+    "biggest_new",
+    "biggest_adds",
+    "biggest_trims",
+    "top_signals",
+    "sector_rotation",
+    "options_exposure",
 ]
 
 _FIRESTORE_BATCH_SIZE = 400
@@ -91,7 +102,13 @@ def _build_meta(tables: dict, funds: list[dict], periods: list[str]) -> dict:
 def _build_manager_docs(tables: dict, funds: list[dict]) -> dict[str, dict]:
     manager_periods = tables["totals"].groupby("cik")["period"].apply(lambda s: sorted(s)).to_dict()
     return {
-        f["cik"]: {"cik": f["cik"], "name": f["name"], "short": f["short"], "cluster": f["cluster"], "periods": manager_periods.get(f["cik"], [])}
+        f["cik"]: {
+            "cik": f["cik"],
+            "name": f["name"],
+            "short": f["short"],
+            "cluster": f["cluster"],
+            "periods": manager_periods.get(f["cik"], []),
+        }
         for f in funds
     }
 
@@ -112,13 +129,17 @@ def _build_manager_quarter_docs(tables: dict, funds: list[dict]) -> dict[str, di
             "totalValue": int(totals_idx.loc[(cik, period), "total_value"]),
             "count": int((grp["value"] > 0).sum()),
             "counts": {
-                "new": int(counts.get("NEW", 0)), "added": int(counts.get("ADDED", 0)),
-                "trimmed": int(counts.get("TRIMMED", 0)), "unchanged": int(counts.get("UNCHANGED", 0)),
+                "new": int(counts.get("NEW", 0)),
+                "added": int(counts.get("ADDED", 0)),
+                "trimmed": int(counts.get("TRIMMED", 0)),
+                "unchanged": int(counts.get("UNCHANGED", 0)),
                 "soldOut": int(counts.get("SOLD_OUT", 0)),
             },
             "positions": _records(grp.drop(columns=["cik", "period"])),
             "sectors": _records(mse[(mse["cik"] == cik) & (mse["period"] == period)].drop(columns=["cik", "period"])),
-            "mostSimilar": [{"cik": s["cik"], "short": short_by_cik.get(s["cik"], s["cik"]), "score": s["score"]} for s in similar],
+            "mostSimilar": [
+                {"cik": s["cik"], "short": short_by_cik.get(s["cik"], s["cik"]), "score": s["score"]} for s in similar
+            ],
         }
     return docs
 
@@ -144,7 +165,9 @@ def _build_stock_docs(tables: dict, funds: list[dict]) -> dict[str, dict]:
             latest["options"] = {"calls": calls, "puts": puts}
 
         docs[symbol] = {
-            "symbol": symbol, "name": meta["name"], "sector": meta["sector"],
+            "symbol": symbol,
+            "name": meta["name"],
+            "sector": meta["sector"],
             "trend": _records(trend[trend["symbol"] == symbol].drop(columns=["symbol"])),
             "latest": latest,
         }
@@ -153,8 +176,13 @@ def _build_stock_docs(tables: dict, funds: list[dict]) -> dict[str, dict]:
 
 def _build_signals_docs(tables: dict, periods: list[str]) -> dict[str, dict]:
     e_tables = [
-        "consensus_buys", "consensus_exits", "high_conviction", "biggest_new",
-        "biggest_adds", "biggest_trims", "top_signals",
+        "consensus_buys",
+        "consensus_exits",
+        "high_conviction",
+        "biggest_new",
+        "biggest_adds",
+        "biggest_trims",
+        "top_signals",
     ]
     docs = {}
     for period in periods:

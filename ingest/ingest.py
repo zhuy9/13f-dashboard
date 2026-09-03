@@ -130,11 +130,7 @@ def main() -> int:
         raw_by_filing.update(fund_raw)
 
     all_cusips = sorted({c for _, base in base_by_fund for c in base["cusip"]})
-    securities = (
-        ensure_securities(db, all_cusips, identity, api_key, args.refresh_unknown, ticker_hints)
-        if all_cusips
-        else {}
-    )
+    securities = ensure_securities(db, all_cusips, identity, api_key, args.refresh_unknown, ticker_hints) if all_cusips else {}
 
     enriched_frames = []
     for fund, base in base_by_fund:

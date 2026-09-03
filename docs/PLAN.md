@@ -413,6 +413,11 @@ Acceptance criteria
 - [x] `signals/{latestPeriod}` and `meta/latest` each < 300 KB (check in console). (34.5 KB and 27.8 KB.)
 - [x] Spot-check one manager in the console against a public 13F source: top holding and its weight agree within rounding. (Berkshire top holding AAPL at 22.0% weight, matches public 13F trackers.)
 
+**Tooling addendum (post-M3, dev-only dependency):** `ruff` added to `ingest/requirements.txt` for
+formatting + linting (replaces manual style review). Config in `ingest/pyproject.toml`, target
+Python 3.10 (matches the local/CI compat requirement). Not part of the runtime pipeline; `ruff
+format` / `ruff check` are run manually before commits, not wired into CI in this MVP.
+
 ### Milestone 4 — Web app shell, manager page, stock page
 Status: not started
 

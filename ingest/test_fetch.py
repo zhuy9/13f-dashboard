@@ -6,12 +6,60 @@ from fetch import edgar_ticker_hints, normalize
 def test_normalize_uppercases_merges_drops_and_ints():
     raw = pd.DataFrame(
         [
-            {"Issuer": "APPLE INC", "Class": "COM", "Cusip": "037833100", "Ticker": "AAPL", "PutCall": "", "Value": 1000, "SharesPrnAmount": 10},
-            {"Issuer": "APPLE INC", "Class": "COM", "Cusip": "037833100", "Ticker": "AAPL", "PutCall": "", "Value": 500, "SharesPrnAmount": 5},
-            {"Issuer": "MICRON TECH INC", "Class": "COM", "Cusip": "595112103", "Ticker": "MU", "PutCall": "put", "Value": 200, "SharesPrnAmount": 20},
-            {"Issuer": "BLANK CUSIP CO", "Class": "COM", "Cusip": "", "Ticker": "", "PutCall": "", "Value": 999, "SharesPrnAmount": 99},
-            {"Issuer": "META PLATFORMS INC", "Class": "COM", "Cusip": "30303M102", "Ticker": "META", "PutCall": "Call", "Value": 300, "SharesPrnAmount": 30},
-            {"Issuer": "TAIWAN SEMI", "Class": "SPONS ADS", "Cusip": "874039100", "Ticker": "TSM", "PutCall": "", "Value": 400, "SharesPrnAmount": 40},
+            {
+                "Issuer": "APPLE INC",
+                "Class": "COM",
+                "Cusip": "037833100",
+                "Ticker": "AAPL",
+                "PutCall": "",
+                "Value": 1000,
+                "SharesPrnAmount": 10,
+            },
+            {
+                "Issuer": "APPLE INC",
+                "Class": "COM",
+                "Cusip": "037833100",
+                "Ticker": "AAPL",
+                "PutCall": "",
+                "Value": 500,
+                "SharesPrnAmount": 5,
+            },
+            {
+                "Issuer": "MICRON TECH INC",
+                "Class": "COM",
+                "Cusip": "595112103",
+                "Ticker": "MU",
+                "PutCall": "put",
+                "Value": 200,
+                "SharesPrnAmount": 20,
+            },
+            {
+                "Issuer": "BLANK CUSIP CO",
+                "Class": "COM",
+                "Cusip": "",
+                "Ticker": "",
+                "PutCall": "",
+                "Value": 999,
+                "SharesPrnAmount": 99,
+            },
+            {
+                "Issuer": "META PLATFORMS INC",
+                "Class": "COM",
+                "Cusip": "30303M102",
+                "Ticker": "META",
+                "PutCall": "Call",
+                "Value": 300,
+                "SharesPrnAmount": 30,
+            },
+            {
+                "Issuer": "TAIWAN SEMI",
+                "Class": "SPONS ADS",
+                "Cusip": "874039100",
+                "Ticker": "TSM",
+                "PutCall": "",
+                "Value": 400,
+                "SharesPrnAmount": 40,
+            },
         ]
     )
 

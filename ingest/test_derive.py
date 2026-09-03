@@ -187,19 +187,29 @@ def test_conviction_score_rewards_concentrated_recent_over_widely_held_stale():
     sqs = pd.DataFrame(
         [
             {
-                "period": "P", "symbol": "WIDE", "manager_count": 12, "avg_weight": 0.025,
-                "new_count": 0, "added_count": 0,
+                "period": "P",
+                "symbol": "WIDE",
+                "manager_count": 12,
+                "avg_weight": 0.025,
+                "new_count": 0,
+                "added_count": 0,
                 "holders": [{"status": "UNCHANGED", "change": 0.0, "weight": 0.025} for _ in range(12)],
             },
             {
-                "period": "P", "symbol": "HOT", "manager_count": 4, "avg_weight": 0.09,
-                "new_count": 3, "added_count": 0,
+                "period": "P",
+                "symbol": "HOT",
+                "manager_count": 4,
+                "avg_weight": 0.09,
+                "new_count": 3,
+                "added_count": 0,
                 "holders": [{"status": "NEW", "change": None, "weight": 0.09} for _ in range(3)]
                 + [{"status": "UNCHANGED", "change": 0.09, "weight": 0.09}],
             },
         ]
     )
-    cfg = {"score": {"weight_scale": 0.05, "new_bonus": 0.5, "added_bonus": 0.25, "accumulation_scale": 0.02, "accumulation_cap": 3}}
+    cfg = {
+        "score": {"weight_scale": 0.05, "new_bonus": 0.5, "added_bonus": 0.25, "accumulation_scale": 0.02, "accumulation_cap": 3}
+    }
     scored = conviction_score(sqs, cfg).set_index("symbol")
     assert scored.loc["HOT", "score"] > scored.loc["WIDE", "score"]
     assert scored.loc["HOT", "score"] == 100  # highest raw in its period -> normalized to 100

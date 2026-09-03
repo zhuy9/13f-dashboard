@@ -81,9 +81,7 @@ def ensure_securities(
         if snap.exists:
             cached[snap.id] = snap.to_dict()
 
-    to_enrich = [
-        c for c in cusips if c not in cached or (refresh_unknown and cached[c].get("sector") == "Unknown")
-    ]
+    to_enrich = [c for c in cusips if c not in cached or (refresh_unknown and cached[c].get("sector") == "Unknown")]
 
     if to_enrich:
         need_openfigi = [c for c in to_enrich if not ticker_hints.get(c)]

@@ -1,0 +1,25 @@
+# secrets and local config
+.env
+.env.*
+!.env.example
+*service-account*.json
+*serviceAccount*.json
+*-firebase-adminsdk-*.json
+
+# firebase
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+
+# node
+node_modules/
+dist/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# os
+.DS_Store

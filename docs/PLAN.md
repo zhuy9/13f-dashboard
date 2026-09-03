@@ -77,14 +77,15 @@ Browser: one Firestore read per page (signals/{period}, manager_quarters/{cik}_{
       main.tsx  App.tsx  index.css  firebase.ts  types.ts  format.ts  format.test.ts
       data.ts                       # Firestore reads (one function per doc type)
       lib/utils.ts                  # shadcn cn()
-      hooks/                        # useAsyncData, useSortableRows
+      hooks/                        # useAsyncData, useSortableRows, useActiveSection
       context/MetaContext.tsx       # meta/latest fetched once, shared across pages
       components/ui/*               # shadcn-generated only: table, tabs, badge, input, select
-      components/*                  # Header, SymbolSearch, StatusBadge, SideBadge, SectorBars,
+      components/*                  # Header, Footer, SymbolSearch, StatusBadge, SideBadge, SectorBars,
                                      # Heatmap, StatTile, StockLink, ManagerLink, SortableTableHead, ...
       components/manager/*  components/stock/*   # page-specific sub-components
       pages/PatternsPage.tsx  ManagersPage.tsx  ManagerPage.tsx  StockPage.tsx
       pages/patterns/*.tsx          # one small component per signal table
+    public/                         # favicon.svg, icons.svg (sprite; only github-icon is used)
 ```
 
 ## Base dataset and derived tables (the contract for `derive.py`)
@@ -565,7 +566,8 @@ Verified live against the real GitHub Actions runs (not just locally):
   a later docs-only push) did **not** create a new `Deploy` run — the `paths` filter holds.
 
 **Custom domain:** the user added it (DNS records at their registrar) — not something an agent
-can do. `https://13f.darren-zhu.com` is live, verified `HTTP 200`. README "Live site" updated.
+can do. `https://13f.darren-zhu.com` is live, verified `HTTP 200`, and set as the GitHub repo's
+"website" field. README no longer duplicates the URL in its own section.
 
 Prerequisite: Manual setup 1–7 done (secrets and variables exist on GitHub).
 
@@ -574,7 +576,7 @@ Tasks
 2. `.github/workflows/ingest.yml`: `on: schedule: - cron: "0 13 16 * *"` (monthly on the 16th — re-running a quarter is idempotent and catches late filers) + `workflow_dispatch` (inputs `fund`, `dry_run`); `permissions: contents: write` (needed only for task 3); `concurrency: ingest`; checkout → `actions/setup-python@v5` (3.12, `cache: pip`) → `pip install -r ingest/requirements.txt` → write secret to `$RUNNER_TEMP/sa.json` from an `env:` var → `python ingest/ingest.py` with `env:` `GOOGLE_APPLICATION_CREDENTIALS`, `EDGAR_IDENTITY`, `OPENFIGI_API_KEY`, `GCS_BUCKET` and the optional flags.
 3. Keepalive: GitHub disables scheduled workflows in a public repo after 60 days without repository activity, so the workflow must create activity. On a real (non-dry) run, `ingest.py` writes `data/last_ingest.json` (`{period, ranAt, managers}`); a final workflow step commits it as `chore: ingest <period>` using the `github-actions[bot]` identity and pushes with `GITHUB_TOKEN`. Skip the commit when the file is unchanged. `deploy.yml`'s `paths` filter already ignores `data/**`, so this commit does not trigger a deploy.
 4. Commit `ci: deploy on push and monthly ingest`. Push.
-5. User adds the custom domain (Manual setup 8). Update README "Live site". Commit `docs: live site link`.
+5. User adds the custom domain (Manual setup 8). Set it as the GitHub repo's "website" field. Commit `docs: live site link`.
 
 Acceptance criteria
 - [x] Push to `main` → deploy green → `https://<project>.web.app` shows live data.
@@ -619,17 +621,18 @@ Tone sample: "This site shows what big investors own. The data comes from SEC Fo
 
 Sections, in order:
 1. **What this is** — 3 sentences.
-2. **Live site** — link (TBD until Milestone 6).
-3. **What 13F data is (and is not)** — bullets: quarterly; up to 45 days late; long positions only; no shorts; no cash; options are reported but puts are not shorts; values in dollars; **not investment advice**.
-4. **Managers tracked** — 11 names, one line each with the person behind it and the cluster label.
-5. **The signals** — one plain sentence per signal (13), e.g. "Consensus Buys: stocks that two or more managers bought or added in the same quarter."
-6. **How it works** — the architecture block, then 4 short sentences. Say signals are computed once per quarter, not live.
-7. **Set up your own copy** — Manual setup 1–9 in plain words. Say which values are secret and which are public.
-8. **Run locally** — exact commands for `ingest/` and `web/`. PowerShell first, then bash.
-9. **Add a manager** — edit `ingest/funds.json`, verify the CIK, run the ingest workflow.
-10. **Tuning the signals** — `ingest/signals_config.json`, one line per knob.
-11. **Sector data** — coarse (SIC ranges); where to improve.
-12. **License** — MIT.
+2. **What 13F data is (and is not)** — bullets: quarterly; up to 45 days late; long positions only; no shorts; no cash; options are reported but puts are not shorts; values in dollars; **not investment advice**.
+3. **Managers tracked** — 11 names, one line each with the person behind it and the cluster label.
+4. **The signals** — one plain sentence per signal (13), e.g. "Consensus Buys: stocks that two or more managers bought or added in the same quarter."
+5. **How it works** — the architecture block, then 4 short sentences. Say signals are computed once per quarter, not live.
+6. **Set up your own copy** — Manual setup 1–9 in plain words. Say which values are secret and which are public.
+7. **Run locally** — exact commands for `ingest/` and `web/`. PowerShell first, then bash.
+8. **Add a manager** — edit `ingest/funds.json`, verify the CIK, run the ingest workflow.
+9. **Tuning the signals** — `ingest/signals_config.json`, one line per knob.
+10. **Sector data** — coarse (SIC ranges); where to improve.
+11. **License** — MIT.
+
+The live site URL lives in the GitHub repo's own "website" field (repo Settings → homepage), not duplicated in the README.
 
 ### CLAUDE.md (dev agent; AGENTS.md is a symlink to it)
 1. **Project** — 2 lines. "Read `docs/PLAN.md` first. Work one milestone at a time, in order. Do not start the next milestone until every AC box is checked."

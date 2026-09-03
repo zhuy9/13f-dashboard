@@ -4,10 +4,6 @@
 
 This site shows what big investors own. The data comes from SEC Form 13F filings. It also finds patterns across managers, like which stocks many of them are buying at the same time.
 
-## Live site
-
-[https://13f.darren-zhu.com](https://13f.darren-zhu.com)
-
 ## What 13F data is (and is not)
 
 A 13F is a report. Large US investment managers must file it with the SEC every quarter.

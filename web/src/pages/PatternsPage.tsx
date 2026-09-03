@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useMeta } from '@/context/MetaContext'
 import { getSignals } from '@/data'
 import { quarterLabel } from '@/format'
+import { useActiveSection } from '@/hooks/useActiveSection'
 import { useAsyncData } from '@/hooks/useAsyncData'
 import { BiggestAdds } from '@/pages/patterns/BiggestAdds'
 import { BiggestNew } from '@/pages/patterns/BiggestNew'
@@ -67,37 +68,45 @@ export function PatternsPage() {
     return map
   }, [meta])
 
+  const sections = signalsState.data ? buildSections(signalsState.data, labelByCik) : []
+  const sectionIds = useMemo(() => sections.map((s) => s.id), [sections])
+  const activeId = useActiveSection(sectionIds)
+
   if (metaLoading) return <LoadingState />
   if (metaError) return <ErrorState message={metaError} />
   if (!meta) return <EmptyState message="No data available." />
 
-  const sections = signalsState.data ? buildSections(signalsState.data, labelByCik) : []
-
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 p-4">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">Patterns</h1>
-        <Select value={period ?? undefined} onValueChange={(value) => setSearchParams({ period: value })}>
-          <SelectTrigger>
-            <SelectValue placeholder="Period" />
-          </SelectTrigger>
-          <SelectContent>
-            {meta.periods.map((p) => (
-              <SelectItem key={p} value={p}>
-                {quarterLabel(p)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </header>
+      <div className="sticky top-14 z-10 -mx-4 flex flex-col gap-3 border-b border-line bg-paper px-4 py-3">
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <h1 className="text-2xl font-semibold">Patterns</h1>
+          <Select value={period ?? undefined} onValueChange={(value) => setSearchParams({ period: value })}>
+            <SelectTrigger>
+              <SelectValue placeholder="Period" />
+            </SelectTrigger>
+            <SelectContent>
+              {meta.periods.map((p) => (
+                <SelectItem key={p} value={p}>
+                  {quarterLabel(p)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </header>
 
-      <nav className="sticky top-14 z-10 flex flex-wrap gap-x-4 gap-y-1 border-b border-line bg-paper py-2 text-sm">
-        {sections.map((s) => (
-          <a key={s.id} href={`#${s.id}`} className="text-ink-muted hover:text-ink">
-            {s.label}
-          </a>
-        ))}
-      </nav>
+        <nav className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+          {sections.map((s) => (
+            <a
+              key={s.id}
+              href={`#${s.id}`}
+              className={s.id === activeId ? 'font-medium text-ink' : 'text-ink-muted hover:text-ink'}
+            >
+              {s.label}
+            </a>
+          ))}
+        </nav>
+      </div>
 
       {signalsState.loading && <LoadingState />}
       {signalsState.error && <ErrorState message={signalsState.error} />}
@@ -106,7 +115,7 @@ export function PatternsPage() {
       )}
 
       {sections.map((s) => (
-        <section key={s.id} id={s.id} className="scroll-mt-28">
+        <section key={s.id} id={s.id} className="scroll-mt-40">
           <h2 className="mb-2 text-lg font-medium">{s.label}</h2>
           {s.node}
         </section>

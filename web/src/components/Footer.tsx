@@ -13,6 +13,7 @@ export function Footer() {
         <div className="flex flex-col gap-1">
           <span className="font-medium text-ink">Consensus Sheet</span>
           <span>Signals derived from public SEC 13F filings.</span>
+          <span>Not investment advice. Positions are reported up to 45 days after quarter-end.</span>
         </div>
         <span
           className="flex cursor-not-allowed items-center gap-1.5 opacity-50"

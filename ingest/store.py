@@ -175,22 +175,28 @@ def _build_stock_docs(tables: dict, funds: list[dict]) -> dict[str, dict]:
 
 
 def _build_signals_docs(tables: dict, periods: list[str]) -> dict[str, dict]:
+    # (Firestore field name, source table name) -- table names stay snake_case (Python side);
+    # doc field names are camelCase (JS side), converted explicitly since these are top-level
+    # document keys, not row fields that flow through _records()/_clean()'s recursive _camel().
     e_tables = [
-        "consensus_buys",
-        "consensus_exits",
-        "high_conviction",
-        "biggest_new",
-        "biggest_adds",
-        "biggest_trims",
-        "top_signals",
+        ("consensusBuys", "consensus_buys"),
+        ("consensusExits", "consensus_exits"),
+        ("highConviction", "high_conviction"),
+        ("biggestNew", "biggest_new"),
+        ("biggestAdds", "biggest_adds"),
+        ("biggestTrims", "biggest_trims"),
+        ("topSignals", "top_signals"),
     ]
     docs = {}
     for period in periods:
-        doc = {name: _records(tables[name][tables[name]["period"] == period].drop(columns=["period"])) for name in e_tables}
-        doc["fastest_growing"] = _records(tables["fastest_growing"]) if period == periods[-1] else []
+        doc = {
+            field: _records(tables[table][tables[table]["period"] == period].drop(columns=["period"]))
+            for field, table in e_tables
+        }
+        doc["fastestGrowing"] = _records(tables["fastest_growing"]) if period == periods[-1] else []
 
         rotation = tables["sector_rotation"]
-        doc["sector_rotation"] = _records(rotation[rotation["period"] == period].drop(columns=["period"]))
+        doc["sectorRotation"] = _records(rotation[rotation["period"] == period].drop(columns=["period"]))
 
         sim = tables["manager_similarity"].get(period, {"ciks": [], "matrix": [], "most_similar": {}})
         # Firestore forbids arrays nested directly inside arrays, so each row is a {values: [...]} map.

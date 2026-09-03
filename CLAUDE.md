@@ -2,7 +2,7 @@
 
 ## Project
 
-A public dashboard of SEC 13F holdings for 11 managers, with signals derived across managers, stocks, sectors, and quarters.
+A public dashboard of SEC 13F holdings for a tracked list of hedge fund managers (see `ingest/funds.json`), with signals derived across managers, stocks, sectors, and quarters.
 
 **Read `docs/PLAN.md` first.** Work one milestone at a time, in order. Do not start the next milestone until every acceptance-criteria box of the current one is checked. `docs/ARCHITECTURE.md` has diagrams of the system and the data pipeline.
 
@@ -91,6 +91,16 @@ This repository is PUBLIC.
 - Position status (NEW / ADDED / TRIMMED / UNCHANGED / SOLD_OUT) uses **shares**. Weight change uses **portfolio weight**.
 - A manager with no filing in the previous quarter gets `status = null`, not `NEW`.
 - edgartools column names vary between versions. Print `df.columns` once and map them explicitly.
+
+## Adding a manager
+
+No code changes — it's data-driven end to end.
+
+1. Find their 10-digit CIK on [EDGAR full-text search](https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany).
+2. Add one entry to `ingest/funds.json`: `{ "cik": "...", "name": "Exact EDGAR filer name", "short": "ShortName", "cluster": "Some Label" }`.
+   `cluster` is freeform — reuse an existing label or start a new one; `clusters()` in `derive.py` just groups by whatever's there.
+3. `python ingest.py --dry-run` first — check the new manager's top-10 holdings and PUT/CALL counts print sanely — then a real run.
+4. Nothing else to touch: every signal in `derive.py` iterates `funds` from `funds.json`, so consensus, similarity, sector rotation, etc. pick the new manager up automatically on the next ingest.
 
 ## Stop and ask the user when
 

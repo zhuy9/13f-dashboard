@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useMeta } from '@/context/MetaContext'
 import { getManager, getManagerQuarter } from '@/data'
-import { money, quarterLabel } from '@/format'
+import { filedDate, money, quarterLabel } from '@/format'
 import { useAsyncData } from '@/hooks/useAsyncData'
 
 export function ManagerPage() {
@@ -53,18 +53,21 @@ export function ManagerPage() {
           <h1 className="text-2xl font-semibold">{manager.name}</h1>
           <Badge variant="secondary">{manager.cluster}</Badge>
         </div>
-        <Select value={period ?? undefined} onValueChange={(value) => setSearchParams({ period: value })}>
-          <SelectTrigger>
-            <SelectValue placeholder="Period" />
-          </SelectTrigger>
-          <SelectContent>
-            {manager.periods.map((p) => (
-              <SelectItem key={p} value={p}>
-                {quarterLabel(p)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-col items-end gap-1">
+          <Select value={period ?? undefined} onValueChange={(value) => setSearchParams({ period: value })}>
+            <SelectTrigger>
+              <SelectValue placeholder="Period" />
+            </SelectTrigger>
+            <SelectContent>
+              {manager.periods.map((p) => (
+                <SelectItem key={p} value={p}>
+                  {quarterLabel(p)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {mqState.data && <span className="text-xs text-ink-muted">Filed {filedDate(mqState.data.filedAt)}</span>}
+        </div>
       </header>
 
       {mqState.loading && <LoadingState />}

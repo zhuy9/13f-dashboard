@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { money, pct, pp, quarterLabel, SECTOR_COLORS } from './format'
+import { filedDate, money, pct, pp, quarterLabel, SECTOR_COLORS } from './format'
 
 describe('money', () => {
   it('formats billions with one decimal', () => {
@@ -38,6 +38,12 @@ describe('quarterLabel', () => {
   it('maps a quarter-end date to a year/quarter label', () => {
     expect(quarterLabel('2026-06-30')).toBe('2026 Q2')
     expect(quarterLabel('2025-12-31')).toBe('2025 Q4')
+  })
+})
+
+describe('filedDate', () => {
+  it('formats an ISO date as a human-readable date, without a timezone off-by-one', () => {
+    expect(filedDate('2026-08-14')).toBe('Aug 14, 2026')
   })
 })
 

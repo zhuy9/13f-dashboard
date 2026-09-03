@@ -262,7 +262,7 @@ service cloud.firestore {
 Work in order. Do not start a milestone until the previous one's AC are all checked. Each milestone has a `Status:` line the dev agent updates in this file (`not started` → `in progress` → `done <short sha>`, the sha of the milestone's main commit, set in a small follow-up `docs:` commit). Commit directly to `main` at the end of each task group with a conventional message (`docs:`, `feat:`, `fix:`, `ci:`, `test:`).
 
 ### Milestone 0 — Documentation and repo skeleton  (planning model)
-Status: in progress
+Status: done 0d303cf
 
 Tasks
 1. `git init -b main`; `git config core.symlinks true`.
@@ -274,11 +274,11 @@ Tasks
 7. Commit `docs: project plan, README, agent instructions`.
 
 Acceptance criteria
-- [ ] `git ls-files` shows exactly `.gitignore LICENSE README.md CLAUDE.md AGENTS.md docs/PLAN.md`.
-- [ ] `git ls-files -s AGENTS.md` starts with `120000`, and `git cat-file -p <that blob>` prints `CLAUDE.md` (a real symlink on Linux/GitHub; a 1-line pointer file on a Windows checkout without the symlink privilege).
-- [ ] README: no sentence over ~20 words; a non-developer can follow "Set up your own copy".
-- [ ] CLAUDE.md has every section of its spec.
-- [ ] The secret scan (above) returns nothing.
+- [x] `git ls-files` shows exactly `.gitignore LICENSE README.md CLAUDE.md AGENTS.md docs/PLAN.md`.
+- [x] `git ls-files -s AGENTS.md` starts with `120000`, and `git cat-file -p <that blob>` prints `CLAUDE.md` (a real symlink on Linux/GitHub; a 1-line pointer file on a Windows checkout without the symlink privilege).
+- [x] README: no sentence over ~20 words; a non-developer can follow "Set up your own copy".
+- [x] CLAUDE.md has every section of its spec.
+- [x] The secret scan (above) returns nothing.
 
 ### Milestone 1 — Project config, managers, signal config
 Status: not started

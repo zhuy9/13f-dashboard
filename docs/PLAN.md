@@ -425,7 +425,7 @@ Python 3.10 (matches the local/CI compat requirement). Not part of the runtime p
 format` / `ruff check` are run manually before commits, not wired into CI in this MVP.
 
 ### Milestone 4 — Web app shell, manager page, stock page
-Status: done (pending commit sha)
+Status: done 09c2b68
 
 **Implementation notes (deviations from spec):**
 - shadcn's CLI has been redesigned since the plan was written: `init` now asks for a component

@@ -1,4 +1,4 @@
-# 13F Signals Dashboard — Implementation Plan (MVP)
+# Consensus Sheet — Implementation Plan (MVP)
 
 > Planning + documentation: the planning model. Development: a cheaper model, one milestone at a time.
 > This file is the single source of truth for the dev model.

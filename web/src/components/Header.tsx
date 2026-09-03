@@ -13,7 +13,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-4 border-b border-line bg-paper px-4 py-3">
       <div className="flex items-center gap-6">
-        <span className="text-lg font-semibold">13F Signals</span>
+        <span className="text-lg font-semibold">Consensus Sheet</span>
         <nav className="flex gap-4">
           {NAV_LINKS.map((link) => (
             <NavLink

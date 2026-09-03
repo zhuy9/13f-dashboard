@@ -463,6 +463,12 @@ Status: done 09c2b68
 - Chart entrance animations (Recharts `Line`/`Bar`) are disabled (`isAnimationActive={false}`)
   after a Playwright screenshot briefly looked like a broken line chart — it was mid-animation,
   not a data bug, but a dense ledger-style UI shouldn't animate on every load regardless.
+- `stocks/{symbol}` doc IDs and `/stock/:symbol` routes now percent-encode the symbol
+  (`urllib.parse.quote(symbol, safe="")` in `store.py`, `encodeURIComponent` in `data.ts` /
+  `StockLink.tsx` / `SymbolSearch.tsx`, `decodeURIComponent` in `StockPage.tsx`). A SPAC
+  unit/warrant ticker with a `/` (`ABC/U`, `ABC/WS`) would otherwise split into extra Firestore
+  path segments and extra route segments. Ordinary tickers are byte-for-byte unchanged, so no
+  re-ingest is required for existing data.
 
 Verified live (Playwright against the dev server, real Firestore data): treemap/sector
 bars/QoQ table/positions/four lists/similar-managers all render on `/manager/1067983`; period

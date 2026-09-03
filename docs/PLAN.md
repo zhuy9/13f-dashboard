@@ -320,7 +320,15 @@ Acceptance criteria
 - [x] `.env.example` files list every env var from the secrets table and nothing else. No `.env` committed.
 
 ### Milestone 2 — Fetch, normalize, enrich (base table)
-Status: not started
+Status: done b5e6d03
+
+**Implementation note (deviation from spec):** edgartools 5.56.0's `holdings` DataFrame already
+resolves a `Ticker` per row, and it covers foreign-domiciled-but-US-listed issuers (Chubb, ASML,
+Eaton, Linde, ...) that OpenFIGI's free CUSIP mapping cannot match — OpenFIGI-only enrichment left
+10.7% of rows unmapped, above the 5% AC. `fetch.edgar_ticker_hints(df)` extracts CUSIP→ticker from
+the raw holdings frame; `enrich.ensure_securities(..., ticker_hints=...)` prefers that hint and
+only calls OpenFIGI when a CUSIP has none. Result: 0.0% unmapped on a full 11-manager run.
+`enrich.py`'s URL constants moved to `ingest/api_constants.py`.
 
 Tasks
 1. `ingest/requirements.txt`: `edgartools pandas pyarrow requests firebase-admin google-cloud-storage python-dotenv pytest`. Pin exact versions after install. Must install on Python 3.10 and 3.12.
@@ -353,11 +361,11 @@ Tasks
 7. Commit `feat: 13F fetch, normalize, and enrichment`.
 
 Acceptance criteria
-- [ ] `cd ingest; python -m venv .venv; .\.venv\Scripts\Activate.ps1; pip install -r requirements.txt; pytest` → green.
-- [ ] `python ingest.py --fund 1067983 --dry-run` → Berkshire, 4 periods (latest 2026-06-30 as of Sept 2026), ~40 rows each, tickers like AAPL / BAC / AXP with non-Unknown sectors.
-- [ ] `python ingest.py --dry-run` → all 11 managers × 4 periods; unmapped CUSIPs < 5 % of rows.
-- [ ] Second `--dry-run` writes 0 new `securities` docs (cache works) and finishes in < 2 min.
-- [ ] No secret value appears in output.
+- [x] `cd ingest; python -m venv .venv; .\.venv\Scripts\Activate.ps1; pip install -r requirements.txt; pytest` → green.
+- [x] `python ingest.py --fund 1067983 --dry-run` → Berkshire, 4 periods (latest 2026-06-30 as of Sept 2026), ~40 rows each, tickers like AAPL / BAC / AXP with non-Unknown sectors.
+- [x] `python ingest.py --dry-run` → all 11 managers × 4 periods; unmapped CUSIPs < 5 % of rows. (0.0% with `--refresh-unknown` once, after the ticker-hints fix above.)
+- [x] Second `--dry-run` writes 0 new `securities` docs (cache works) and finishes in < 2 min. (3.9s.)
+- [x] No secret value appears in output.
 
 ### Milestone 3 — Derived tables and storage
 Status: not started

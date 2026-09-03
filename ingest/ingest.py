@@ -12,8 +12,10 @@ import pandas as pd
 from dotenv import load_dotenv
 from firebase_admin import firestore
 
+from derive import derive_all
 from enrich import attach, ensure_securities
 from fetch import BASE_COLUMNS, edgar_ticker_hints, fetch_filings, filing_rows, normalize
+from store import write_firestore, write_gcs
 
 HERE = Path(__file__).parent
 
@@ -26,16 +28,19 @@ def load_config() -> dict:
     return json.loads((HERE / "signals_config.json").read_text())
 
 
-def fetch_manager(fund: dict, quarters: int) -> tuple[pd.DataFrame, dict[str, str]]:
+def fetch_manager(fund: dict, quarters: int) -> tuple[pd.DataFrame, dict[str, str], dict[tuple, bytes]]:
     filings = fetch_filings(fund["cik"], quarters)
     frames = []
     ticker_hints: dict[str, str] = {}
+    raw_by_filing: dict[tuple, bytes] = {}
     for f in filings:
-        period, filed_at, _raw_xml, df = filing_rows(f)
+        period, filed_at, raw_xml, df = filing_rows(f)
         frames.append(normalize(df, fund["cik"], fund["short"], period, filed_at))
         ticker_hints.update(edgar_ticker_hints(df))
+        if raw_xml:
+            raw_by_filing[(fund["cik"], period)] = raw_xml
     base = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=BASE_COLUMNS)
-    return base, ticker_hints
+    return base, ticker_hints, raw_by_filing
 
 
 def print_dry_run_summary(short: str, enriched: pd.DataFrame) -> None:
@@ -49,6 +54,24 @@ def print_dry_run_summary(short: str, enriched: pd.DataFrame) -> None:
             ticker = row["ticker"] or "?"
             sector = row["sector"] or "?"
             print(f"  {row['name']:<30} {ticker:<6} {sector:<24} ${row['value']:,}")
+
+
+def print_dry_run_signals(tables: dict) -> None:
+    latest = tables["periods"][-1]
+    print(f"\n--- Signals for {latest} (top 5) ---")
+    for name in ["consensus_buys", "high_conviction", "top_signals"]:
+        df = tables[name]
+        print(f"\n{name}:")
+        print(df[df["period"] == latest].head(5).to_string(index=False))
+
+    rotation = tables["sector_rotation"]
+    print("\nsector_rotation:")
+    print(rotation[rotation["period"] == latest].head(5).to_string(index=False))
+
+    sim = tables["manager_similarity"].get(latest, {"ciks": [], "matrix": []})
+    print("\nmanager_similarity ciks:", sim["ciks"])
+    for row in sim["matrix"][:5]:
+        print(["%.2f" % v for v in row])
 
 
 def init_firestore():
@@ -93,16 +116,18 @@ def main() -> int:
 
     base_by_fund: list[tuple[dict, pd.DataFrame]] = []
     ticker_hints: dict[str, str] = {}
+    raw_by_filing: dict[tuple, bytes] = {}
     failed: list[str] = []
     for fund in funds:
         try:
-            base, fund_hints = fetch_manager(fund, args.quarters)
+            base, fund_hints, fund_raw = fetch_manager(fund, args.quarters)
         except Exception as e:
             print(f"ERROR: {fund['short']} ({fund['cik']}) failed: {e}", file=sys.stderr)
             failed.append(fund["short"])
             continue
         base_by_fund.append((fund, base))
         ticker_hints.update(fund_hints)
+        raw_by_filing.update(fund_raw)
 
     all_cusips = sorted({c for _, base in base_by_fund for c in base["cusip"]})
     securities = (
@@ -122,6 +147,21 @@ def main() -> int:
     if args.dry_run and len(holdings):
         unmapped = holdings["ticker"].isna().mean()
         print(f"\nTotal rows: {len(holdings)}, unmapped tickers: {unmapped:.1%}")
+
+    if len(holdings):
+        tables = derive_all(holdings, funds, config)
+
+        bucket_name = os.environ.get("GCS_BUCKET")
+        if bucket_name:
+            from google.cloud import storage
+
+            bucket = storage.Client().bucket(bucket_name)
+            write_gcs(bucket, raw_by_filing, tables)
+
+        if args.dry_run:
+            print_dry_run_signals(tables)
+        else:
+            write_firestore(db, tables, funds, tables["periods"])
 
     return 1 if failed else 0
 

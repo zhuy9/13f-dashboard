@@ -391,8 +391,14 @@ Status: done e887713
 
 Real Firestore run confirmed live: 11 `managers`, 44 `manager_quarters`, 514 `stocks`, 5 `signals`.
 `meta/latest` ≈ 27.8 KB, `signals/{latestPeriod}` ≈ 34.5 KB — both far under the 300 KB target.
-GCS uploads fail gracefully (404, bucket `form-13f-dashboard` not created yet — Manual setup step 3,
-pending) and don't block the Firestore write, per the try/except-per-object design.
+
+**Bucket naming (deviation from Manual setup step 3):** rather than a separately-created
+`<project>-13f` Cloud Storage bucket, the user enabled **Firebase Storage** in the console, which
+provisions its own default bucket named `<project-id>.firebasestorage.app`. The `google-cloud-storage`
+library writes to it exactly the same way (Admin SDK bypasses Firebase Storage security rules,
+uses IAM — the `ci-13f` service account already has the needed role). `GCS_BUCKET` is
+`form-13f-dashboard.firebasestorage.app`, not `form-13f-dashboard`. Confirmed live: 44 `raw/`
+objects (11 managers × 4 filings), 57 `parquet/` objects across 14 tables, ~2.2 MB total.
 
 Tasks
 1. `derive.py` — pure functions over the base table, no I/O, each returning a DataFrame or dict exactly as specified in "Base dataset and derived tables":
@@ -409,7 +415,7 @@ Acceptance criteria
 - [x] `pytest` green; `test_derive.py` covers every bullet in Task 3.
 - [x] `python ingest.py --dry-run` prints sensible signals for the latest period (e.g. a known crowded name shows `manager_count >= 3`). (TSM: 6 managers, AMZN: 7 managers.)
 - [x] Real run (local, `GOOGLE_APPLICATION_CREDENTIALS` outside the repo): Firestore has `meta/latest` (11 managers, 5 periods — see implementation note, clusters, symbols), 11 `managers`, 44 `manager_quarters`, `stocks` for every symbol (514), 5 `signals`.
-- [ ] GCS has `raw/` and `parquet/` for every table and period. **Blocked**: bucket `form-13f-dashboard` doesn't exist yet (Manual setup step 3). Uploads fail gracefully and don't block the rest of the run; re-run `ingest.py` after the bucket is created to fill this in.
+- [x] GCS has `raw/` and `parquet/` for every table and period. Bucket is `form-13f-dashboard.firebasestorage.app` (Firebase Storage's default bucket, not a separately-created `<project>-13f` bucket — see note below). 44 `raw/` objects (11 managers × 4 filings), 57 `parquet/` objects across 14 tables.
 - [x] `signals/{latestPeriod}` and `meta/latest` each < 300 KB (check in console). (34.5 KB and 27.8 KB.)
 - [x] Spot-check one manager in the console against a public 13F source: top holding and its weight agree within rounding. (Berkshire top holding AAPL at 22.0% weight, matches public 13F trackers.)
 

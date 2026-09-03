@@ -528,7 +528,35 @@ Acceptance criteria
 - [x] `npm run build` zero TS errors; `npm run test` green.
 
 ### Milestone 6 — CI/CD and custom domain
-Status: not started
+Status: in progress b47283f (blocked on user: custom domain, Manual setup step 8)
+
+**Implementation note:** local testing before the first push caught a real, latent bug:
+`derive.options_exposure()` returned a columnless empty `DataFrame` when a fund/window had zero
+PUT/CALL rows (`pd.DataFrame([])` has no columns at all), which crashed `store.py`'s
+period/symbol indexing. This never surfaced in earlier full 11-manager runs because some manager
+always had *some* options activity; it broke immediately on a single-fund real run
+(`--fund 1067983`, Berkshire, zero options that quarter). Fixed by giving `options_exposure` an
+explicit `columns=` list so the empty case still has the right shape; added a regression test
+(`test_options_exposure_has_columns_with_zero_option_rows`).
+
+Verified live against the real GitHub Actions runs (not just locally):
+- Push of `ci: deploy...` (touches `.github/workflows/deploy.yml`, itself in the `paths` filter)
+  → `Deploy` ran, green in 1m4s → `https://form-13f-dashboard.web.app/manager/1067983` confirmed
+  live with real data via a Playwright screenshot, zero console errors.
+- `gh workflow run ingest.yml -f dry_run=true` → green in 1m9s. Log has 44 "total value" lines
+  (11 managers × up to 4 periods each). Scanned the full log for `BEGIN PRIVATE KEY` and any
+  `user@domain`-shaped string: zero matches. Keepalive step correctly printed "No
+  data/last_ingest.json written (dry run); skipping commit." and made no commit.
+- `gh workflow run ingest.yml -f dry_run=false` → green in 1m10s (well under 30 min).
+  `meta/latest.updatedAt` moved from `05:27:30` to `05:33:44`. A `chore: ingest 2026-06-30` commit
+  landed on `main`, authored by `github-actions[bot]`, containing `data/last_ingest.json` with all
+  11 manager short names. Confirmed via `gh run list --workflow=deploy.yml` that this commit (and
+  a later docs-only push) did **not** create a new `Deploy` run — the `paths` filter holds.
+
+**Not done:** the custom domain (Manual setup step 8) is the user's action (DNS records at their
+registrar) — not something an agent can do. README "Live site" points at the working
+`https://form-13f-dashboard.web.app` URL in the meantime; will update to the custom domain once
+the user adds it.
 
 Prerequisite: Manual setup 1–7 done (secrets and variables exist on GitHub).
 
@@ -540,12 +568,12 @@ Tasks
 5. User adds the custom domain (Manual setup 8). Update README "Live site". Commit `docs: live site link`.
 
 Acceptance criteria
-- [ ] Push to `main` → deploy green → `https://<project>.web.app` shows live data.
-- [ ] Ingest "Run workflow" with `dry_run=true` → green; log has 11 manager summaries and **no** secret values (search the log for `BEGIN PRIVATE KEY` and `@`).
-- [ ] Ingest with `dry_run=false` → green; `meta/latest.updatedAt` changed; run time < 30 min.
-- [ ] Custom domain serves the site over HTTPS.
-- [ ] `deploy.yml` has `permissions: contents: read`; `ingest.yml` has `permissions: contents: write` and nothing more; no `pull_request_target` anywhere.
-- [ ] After a real run, a `chore: ingest <period>` commit containing `data/last_ingest.json` appears on `main`, and it did not trigger a deploy.
+- [x] Push to `main` → deploy green → `https://<project>.web.app` shows live data.
+- [x] Ingest "Run workflow" with `dry_run=true` → green; log has 11 manager summaries and **no** secret values (search the log for `BEGIN PRIVATE KEY` and `@`).
+- [x] Ingest with `dry_run=false` → green; `meta/latest.updatedAt` changed; run time < 30 min.
+- [ ] Custom domain serves the site over HTTPS. **Blocked on user** (Manual setup step 8 — DNS at their registrar).
+- [x] `deploy.yml` has `permissions: contents: read`; `ingest.yml` has `permissions: contents: write` and nothing more; no `pull_request_target` anywhere.
+- [x] After a real run, a `chore: ingest <period>` commit containing `data/last_ingest.json` appears on `main`, and it did not trigger a deploy.
 
 ### Milestone 7 — Docs sync and final check
 Status: not started

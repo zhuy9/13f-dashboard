@@ -282,7 +282,7 @@ Acceptance criteria
 - [x] The secret scan (above) returns nothing.
 
 ### Milestone 1 — Project config, managers, signal config
-Status: in progress 6b26006
+Status: done 6b26006
 
 Tasks
 1. `firebase.json`:
@@ -316,7 +316,7 @@ Tasks
 
 Acceptance criteria
 - [x] All 11 CIKs verified; names match EDGAR; each has ≥ 4 `13F-HR` filings.
-- [ ] `npx firebase-tools deploy --only firestore:rules` succeeds (user runs it).
+- [x] `npx firebase-tools deploy --only firestore:rules` succeeds (user runs it).
 - [x] `.env.example` files list every env var from the secrets table and nothing else. No `.env` committed.
 
 ### Milestone 2 — Fetch, normalize, enrich (base table)

@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
+import { SortableTableHead } from '@/components/SortableTableHead'
 
 export type SortDirection = 'asc' | 'desc'
 
@@ -26,5 +27,18 @@ export function useSortableRows<T>(rows: T[], defaultKey: keyof T, defaultDirect
     }
   }
 
-  return { sorted, sortKey, direction, toggleSort }
+  function SortHead(label: string, key: keyof T & string, align: 'left' | 'right' = 'left'): ReactNode {
+    return (
+      <SortableTableHead
+        label={label}
+        sortKey={key}
+        activeKey={sortKey as string}
+        direction={direction}
+        onSort={() => toggleSort(key)}
+        align={align}
+      />
+    )
+  }
+
+  return { sorted, sortKey, direction, toggleSort, SortHead }
 }

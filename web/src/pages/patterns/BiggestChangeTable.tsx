@@ -1,5 +1,4 @@
 import { ManagerLink } from '@/components/ManagerLink'
-import { SortableTableHead } from '@/components/SortableTableHead'
 import { StockLink } from '@/components/StockLink'
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table'
 import { money, pct, pp } from '@/format'
@@ -15,23 +14,19 @@ export function BiggestChangeTable({
   emptyMessage: string
   defaultDirection: SortDirection
 }) {
-  const { sorted, sortKey, direction, toggleSort } = useSortableRows(rows, 'change', defaultDirection)
+  const { sorted, SortHead } = useSortableRows(rows, 'change', defaultDirection)
   if (rows.length === 0) return <p className="text-sm text-ink-muted">{emptyMessage}</p>
-
-  const head = (label: string, key: keyof BiggestChangeRow, align: 'left' | 'right' = 'left') => (
-    <SortableTableHead label={label} sortKey={key} activeKey={sortKey} direction={direction} onSort={toggleSort} align={align} />
-  )
 
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          {head('Manager', 'short')}
-          {head('Symbol', 'symbol')}
-          {head('Name', 'name')}
-          {head('Weight', 'weight', 'right')}
-          {head('Change', 'change', 'right')}
-          {head('Value', 'value', 'right')}
+          {SortHead('Manager', 'short')}
+          {SortHead('Symbol', 'symbol')}
+          {SortHead('Name', 'name')}
+          {SortHead('Weight', 'weight', 'right')}
+          {SortHead('Change', 'change', 'right')}
+          {SortHead('Value', 'value', 'right')}
         </TableRow>
       </TableHeader>
       <TableBody>

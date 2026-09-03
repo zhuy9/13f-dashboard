@@ -1,28 +1,23 @@
-import { SortableTableHead } from '@/components/SortableTableHead'
 import { StockLink } from '@/components/StockLink'
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table'
 import { useSortableRows } from '@/hooks/useSortableRows'
 import type { FastestGrowingRow } from '@/types'
 
 export function FastestGrowing({ rows }: { rows: FastestGrowingRow[] }) {
-  const { sorted, sortKey, direction, toggleSort } = useSortableRows(rows, 'netChange')
+  const { sorted, SortHead } = useSortableRows(rows, 'netChange')
   if (rows.length === 0) return <p className="text-sm text-ink-muted">No fast-growing names this quarter.</p>
-
-  const head = (label: string, key: keyof FastestGrowingRow, align: 'left' | 'right' = 'left') => (
-    <SortableTableHead label={label} sortKey={key} activeKey={sortKey} direction={direction} onSort={toggleSort} align={align} />
-  )
 
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          {head('Symbol', 'symbol')}
-          {head('Name', 'name')}
-          {head('Prev Count', 'prevCount', 'right')}
-          {head('Count', 'count', 'right')}
-          {head('New Managers', 'newManagers', 'right')}
-          {head('Exited Managers', 'exitedManagers', 'right')}
-          {head('Net Change', 'netChange', 'right')}
+          {SortHead('Symbol', 'symbol')}
+          {SortHead('Name', 'name')}
+          {SortHead('Prev Count', 'prevCount', 'right')}
+          {SortHead('Count', 'count', 'right')}
+          {SortHead('New Managers', 'newManagers', 'right')}
+          {SortHead('Exited Managers', 'exitedManagers', 'right')}
+          {SortHead('Net Change', 'netChange', 'right')}
         </TableRow>
       </TableHeader>
       <TableBody>

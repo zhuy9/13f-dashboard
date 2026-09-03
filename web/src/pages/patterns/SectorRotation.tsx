@@ -1,5 +1,4 @@
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { SortableTableHead } from '@/components/SortableTableHead'
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table'
 import { pct, pp, STATUS_COLORS } from '@/format'
 import { useSortableRows } from '@/hooks/useSortableRows'
@@ -9,12 +8,8 @@ const RISING_COLOR = STATUS_COLORS.ADDED
 const FALLING_COLOR = STATUS_COLORS.SOLD_OUT
 
 export function SectorRotation({ rows }: { rows: SectorRotationRow[] }) {
-  const { sorted, sortKey, direction, toggleSort } = useSortableRows(rows, 'avgChange')
+  const { sorted, SortHead } = useSortableRows(rows, 'avgChange')
   if (rows.length === 0) return <p className="text-sm text-ink-muted">No sector data this quarter.</p>
-
-  const head = (label: string, key: keyof SectorRotationRow, align: 'left' | 'right' = 'left') => (
-    <SortableTableHead label={label} sortKey={key} activeKey={sortKey} direction={direction} onSort={toggleSort} align={align} />
-  )
 
   return (
     <div className="flex flex-col gap-4">
@@ -34,12 +29,12 @@ export function SectorRotation({ rows }: { rows: SectorRotationRow[] }) {
       <Table>
         <TableHeader>
           <TableRow>
-            {head('Sector', 'sector')}
-            {head('Avg Weight', 'avgWeight', 'right')}
-            {head('Avg Prev Weight', 'avgPrevWeight', 'right')}
-            {head('Avg Change', 'avgChange', 'right')}
-            {head('Increasing', 'increasing', 'right')}
-            {head('Decreasing', 'decreasing', 'right')}
+            {SortHead('Sector', 'sector')}
+            {SortHead('Avg Weight', 'avgWeight', 'right')}
+            {SortHead('Avg Prev Weight', 'avgPrevWeight', 'right')}
+            {SortHead('Avg Change', 'avgChange', 'right')}
+            {SortHead('Increasing', 'increasing', 'right')}
+            {SortHead('Decreasing', 'decreasing', 'right')}
           </TableRow>
         </TableHeader>
         <TableBody>

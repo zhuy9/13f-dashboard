@@ -7,21 +7,13 @@ import { PositionsTreemap } from '@/components/manager/PositionsTreemap'
 import { SectorQoQTable } from '@/components/manager/SectorQoQTable'
 import { SimilarManagers } from '@/components/manager/SimilarManagers'
 import { SectorBars } from '@/components/SectorBars'
+import { StatTile } from '@/components/StatTile'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useMeta } from '@/context/MetaContext'
 import { getManager, getManagerQuarter } from '@/data'
 import { money, quarterLabel } from '@/format'
 import { useAsyncData } from '@/hooks/useAsyncData'
-
-function StatTile({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded border border-line px-4 py-3">
-      <div className="text-xs text-ink-muted">{label}</div>
-      <div className="font-tabular text-xl font-semibold">{value}</div>
-    </div>
-  )
-}
 
 export function ManagerPage() {
   const { cik = '' } = useParams<{ cik: string }>()

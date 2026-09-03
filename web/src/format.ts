@@ -46,7 +46,7 @@ export const SECTOR_COLORS: Record<string, string> = {
   Other: '#ced4da',
 }
 
-export const DEFAULT_SECTOR_COLOR = '#9ca3af'
+const DEFAULT_SECTOR_COLOR = '#9ca3af'
 
 export function sectorColor(sector: string): string {
   return SECTOR_COLORS[sector] ?? DEFAULT_SECTOR_COLOR

@@ -368,7 +368,31 @@ Acceptance criteria
 - [x] No secret value appears in output.
 
 ### Milestone 3 — Derived tables and storage
-Status: not started
+Status: done e887713
+
+**Implementation notes (deviations from spec):**
+- `derive_all`'s output dict gained three entries not in the original table list, needed by
+  `store.py` to keep `write_firestore(db, tables, funds, periods)`'s exact signature (no raw `h`
+  parameter): `totals(h)` now also returns `filed_at`; `derive_all` adds `"holdings": h` (the base
+  table itself, for `parquet/holdings/{period}.parquet`) and `"symbols"` (symbol→name/sector
+  lookup, for the `stocks/{symbol}` doc's top-level fields).
+- Firestore documents use **camelCase** field names throughout (`prevWeight`, `soldOut`,
+  `mostSimilar`, ...), converted from the Python side's snake_case by `store._clean`. The plan's
+  Firestore table only showed camelCase for top-level fields; this extends the convention to every
+  nested object, matching normal JS/TS style for Milestone 4's `types.ts`.
+- Firestore **forbids arrays nested directly inside arrays**. `signals/{period}.managerSimilarity`
+  therefore stores `matrix` as `[{values: [...]}, ...]` (one row-object per manager), not `number[][]`.
+- A manager's "last 4 quarters" can span more than 4 *calendar* quarters in the union across all
+  11 managers, when one manager has an irregular filing gap (skips a quarter, so its own last-4
+  reach further back). Real run: `meta/latest.periods` has 5 entries, not 4; `signals` has 5 docs,
+  not 4. `manager_quarters` is still exactly 44 (11 × 4, each manager's own count). This is the
+  intended behavior of "periods = sorted distinct periods in the window" (docs/PLAN.md line 95),
+  not a bug.
+
+Real Firestore run confirmed live: 11 `managers`, 44 `manager_quarters`, 514 `stocks`, 5 `signals`.
+`meta/latest` ≈ 27.8 KB, `signals/{latestPeriod}` ≈ 34.5 KB — both far under the 300 KB target.
+GCS uploads fail gracefully (404, bucket `form-13f-dashboard` not created yet — Manual setup step 3,
+pending) and don't block the Firestore write, per the try/except-per-object design.
 
 Tasks
 1. `derive.py` — pure functions over the base table, no I/O, each returning a DataFrame or dict exactly as specified in "Base dataset and derived tables":
@@ -382,11 +406,12 @@ Tasks
 6. Commit `feat: derived signal tables and Firestore/GCS writer`.
 
 Acceptance criteria
-- [ ] `pytest` green; `test_derive.py` covers every bullet in Task 3.
-- [ ] `python ingest.py --dry-run` prints sensible signals for the latest period (e.g. a known crowded name shows `manager_count >= 3`).
-- [ ] Real run (local, `GOOGLE_APPLICATION_CREDENTIALS` outside the repo): Firestore has `meta/latest` (11 managers, 4 periods, clusters, symbols), 11 `managers`, 44 `manager_quarters`, `stocks` for every symbol, 4 `signals`; GCS has `raw/` and `parquet/` for every table and period.
-- [ ] `signals/{latestPeriod}` and `meta/latest` each < 300 KB (check in console).
-- [ ] Spot-check one manager in the console against a public 13F source: top holding and its weight agree within rounding.
+- [x] `pytest` green; `test_derive.py` covers every bullet in Task 3.
+- [x] `python ingest.py --dry-run` prints sensible signals for the latest period (e.g. a known crowded name shows `manager_count >= 3`). (TSM: 6 managers, AMZN: 7 managers.)
+- [x] Real run (local, `GOOGLE_APPLICATION_CREDENTIALS` outside the repo): Firestore has `meta/latest` (11 managers, 5 periods — see implementation note, clusters, symbols), 11 `managers`, 44 `manager_quarters`, `stocks` for every symbol (514), 5 `signals`.
+- [ ] GCS has `raw/` and `parquet/` for every table and period. **Blocked**: bucket `form-13f-dashboard` doesn't exist yet (Manual setup step 3). Uploads fail gracefully and don't block the rest of the run; re-run `ingest.py` after the bucket is created to fill this in.
+- [x] `signals/{latestPeriod}` and `meta/latest` each < 300 KB (check in console). (34.5 KB and 27.8 KB.)
+- [x] Spot-check one manager in the console against a public 13F source: top holding and its weight agree within rounding. (Berkshire top holding AAPL at 22.0% weight, matches public 13F trackers.)
 
 ### Milestone 4 — Web app shell, manager page, stock page
 Status: not started

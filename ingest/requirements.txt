@@ -1,0 +1,8 @@
+edgartools==5.56.0
+pandas==2.3.3
+pyarrow==25.0.1
+requests==2.34.2
+firebase-admin==7.5.0
+google-cloud-storage==3.13.1
+python-dotenv==1.2.3
+pytest==9.1.1

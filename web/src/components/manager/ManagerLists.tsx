@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { StockLink } from '@/components/StockLink'
 import { pct, pp } from '@/format'
 import type { Position } from '@/types'
 
@@ -12,9 +12,7 @@ function PositionList({ title, items }: { title: string; items: Position[] }) {
         <ul className="flex flex-col gap-1 text-sm">
           {items.map((p) => (
             <li key={p.symbol} className="flex items-center justify-between gap-2">
-              <Link to={`/stock/${p.symbol}`} className="font-tabular text-call hover:underline">
-                {p.symbol}
-              </Link>
+              <StockLink symbol={p.symbol} />
               <span className="font-tabular text-ink-muted">{p.change != null ? pp(p.change) : pct(p.weight)}</span>
             </li>
           ))}

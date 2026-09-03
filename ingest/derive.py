@@ -3,6 +3,7 @@
 import numpy as np
 import pandas as pd
 
+
 def totals(h: pd.DataFrame) -> pd.DataFrame:
     """(cik, period) -> total_value (equity + options) and filed_at."""
     return h.groupby(["cik", "period"], as_index=False).agg(total_value=("value", "sum"), filed_at=("filed_at", "first"))
@@ -10,6 +11,29 @@ def totals(h: pd.DataFrame) -> pd.DataFrame:
 
 def _filed_ciks(h: pd.DataFrame) -> dict:
     return h.groupby("period")["cik"].apply(set).to_dict()
+
+
+def _period_pairs(cur: pd.DataFrame, periods: list[str], filed: dict, key_col: str):
+    """Yield (period, cik, key, cur_row, prev_row, manager_filed_prev) for every (cik, key) in
+    `cur`'s current period, plus (when the manager also filed the prior period) the prior one.
+    `cur_row`/`prev_row` are None when that side of the pair has no row for `key`.
+    """
+    by_period = {p: cur[cur["period"] == p] for p in periods}
+    for i, period in enumerate(periods):
+        prev_period = periods[i - 1] if i > 0 else None
+        cur_p = by_period[period]
+        prev_p = by_period.get(prev_period) if prev_period else None
+
+        for cik in filed.get(period, set()):
+            manager_filed_prev = prev_period is not None and cik in filed.get(prev_period, set())
+            cur_pos = cur_p[cur_p["cik"] == cik].set_index(key_col)
+            prev_pos = prev_p[prev_p["cik"] == cik].set_index(key_col) if manager_filed_prev else None
+
+            keys = set(cur_pos.index) | (set(prev_pos.index) if manager_filed_prev else set())
+            for key in keys:
+                cur_row = cur_pos.loc[key] if key in cur_pos.index else None
+                prev_row = prev_pos.loc[key] if manager_filed_prev and key in prev_pos.index else None
+                yield period, cik, key, cur_row, prev_row, manager_filed_prev
 
 
 def manager_quarter_summary(h: pd.DataFrame, periods: list[str]) -> pd.DataFrame:
@@ -23,57 +47,42 @@ def manager_quarter_summary(h: pd.DataFrame, periods: list[str]) -> pd.DataFrame
     )
     cur["total_value"] = cur.apply(lambda r: tot[(r["cik"], r["period"])], axis=1)
     cur["weight"] = cur["value"] / cur["total_value"]
-    by_period = {p: cur[cur["period"] == p] for p in periods}
 
     rows = []
-    for i, period in enumerate(periods):
-        prev_period = periods[i - 1] if i > 0 else None
-        cur_p = by_period[period]
-        prev_p = by_period.get(prev_period) if prev_period else None
+    for period, cik, symbol, cur_row, prev_row, manager_filed_prev in _period_pairs(cur, periods, filed, "symbol"):
+        if cur_row is not None:
+            short, name = cur_row["short"], cur_row["name"]
+            value, shares, weight = cur_row["value"], cur_row["shares"], cur_row["weight"]
+        else:
+            short, name = prev_row["short"], prev_row["name"]
+            value, shares, weight = 0, 0, 0.0
 
-        for cik in filed.get(period, set()):
-            manager_filed_prev = prev_period is not None and cik in filed.get(prev_period, set())
-            cur_pos = cur_p[cur_p["cik"] == cik].set_index("symbol")
-            prev_pos = prev_p[prev_p["cik"] == cik].set_index("symbol") if manager_filed_prev else None
+        if not manager_filed_prev:
+            prev_value = prev_shares = prev_weight = None
+            status = None
+        elif prev_row is None:
+            prev_value = prev_shares = prev_weight = None
+            status = "NEW"
+        else:
+            prev_value, prev_shares, prev_weight = prev_row["value"], prev_row["shares"], prev_row["weight"]
+            if cur_row is None:
+                status = "SOLD_OUT"
+            elif shares > prev_shares:
+                status = "ADDED"
+            elif shares < prev_shares:
+                status = "TRIMMED"
+            else:
+                status = "UNCHANGED"
 
-            symbols = set(cur_pos.index) | (set(prev_pos.index) if manager_filed_prev else set())
-            for symbol in symbols:
-                cur_row = cur_pos.loc[symbol] if symbol in cur_pos.index else None
-                prev_row = prev_pos.loc[symbol] if manager_filed_prev and symbol in prev_pos.index else None
-
-                if cur_row is not None:
-                    short, name = cur_row["short"], cur_row["name"]
-                    value, shares, weight = cur_row["value"], cur_row["shares"], cur_row["weight"]
-                else:
-                    short, name = prev_row["short"], prev_row["name"]
-                    value, shares, weight = 0, 0, 0.0
-
-                if not manager_filed_prev:
-                    prev_value = prev_shares = prev_weight = None
-                    status = None
-                elif prev_row is None:
-                    prev_value = prev_shares = prev_weight = None
-                    status = "NEW"
-                else:
-                    prev_value, prev_shares, prev_weight = prev_row["value"], prev_row["shares"], prev_row["weight"]
-                    if cur_row is None:
-                        status = "SOLD_OUT"
-                    elif shares > prev_shares:
-                        status = "ADDED"
-                    elif shares < prev_shares:
-                        status = "TRIMMED"
-                    else:
-                        status = "UNCHANGED"
-
-                change = (weight - prev_weight) if prev_weight is not None else None
-                rows.append(
-                    {
-                        "cik": cik, "period": period, "symbol": symbol, "short": short, "name": name,
-                        "value": value, "shares": shares, "weight": weight,
-                        "prev_value": prev_value, "prev_shares": prev_shares, "prev_weight": prev_weight,
-                        "change": change, "status": status,
-                    }
-                )
+        change = (weight - prev_weight) if prev_weight is not None else None
+        rows.append(
+            {
+                "cik": cik, "period": period, "symbol": symbol, "short": short, "name": name,
+                "value": value, "shares": shares, "weight": weight,
+                "prev_value": prev_value, "prev_shares": prev_shares, "prev_weight": prev_weight,
+                "change": change, "status": status,
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -86,31 +95,17 @@ def manager_sector_exposure(h: pd.DataFrame, periods: list[str]) -> pd.DataFrame
     cur = equity.groupby(["cik", "period", "sector"], as_index=False).agg(value=("value", "sum"))
     cur["total_value"] = cur.apply(lambda r: tot[(r["cik"], r["period"])], axis=1)
     cur["weight"] = cur["value"] / cur["total_value"]
-    by_period = {p: cur[cur["period"] == p] for p in periods}
 
     rows = []
-    for i, period in enumerate(periods):
-        prev_period = periods[i - 1] if i > 0 else None
-        cur_p = by_period[period]
-        prev_p = by_period.get(prev_period) if prev_period else None
-
-        for cik in filed.get(period, set()):
-            manager_filed_prev = prev_period is not None and cik in filed.get(prev_period, set())
-            cur_pos = cur_p[cur_p["cik"] == cik].set_index("sector")
-            prev_pos = prev_p[prev_p["cik"] == cik].set_index("sector") if manager_filed_prev else None
-
-            sectors = set(cur_pos.index) | (set(prev_pos.index) if manager_filed_prev else set())
-            for sector in sectors:
-                weight = float(cur_pos.loc[sector, "weight"]) if sector in cur_pos.index else 0.0
-                if manager_filed_prev:
-                    prev_weight = float(prev_pos.loc[sector, "weight"]) if sector in prev_pos.index else 0.0
-                    change = weight - prev_weight
-                else:
-                    prev_weight = None
-                    change = None
-                rows.append(
-                    {"cik": cik, "period": period, "sector": sector, "weight": weight, "prev_weight": prev_weight, "change": change}
-                )
+    for period, cik, sector, cur_row, prev_row, manager_filed_prev in _period_pairs(cur, periods, filed, "sector"):
+        weight = float(cur_row["weight"]) if cur_row is not None else 0.0
+        if manager_filed_prev:
+            prev_weight = float(prev_row["weight"]) if prev_row is not None else 0.0
+            change = weight - prev_weight
+        else:
+            prev_weight = None
+            change = None
+        rows.append({"cik": cik, "period": period, "sector": sector, "weight": weight, "prev_weight": prev_weight, "change": change})
     return pd.DataFrame(rows)
 
 

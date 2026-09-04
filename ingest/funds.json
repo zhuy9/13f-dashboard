@@ -24,5 +24,8 @@
   { "cik": "1029160", "name": "SOROS FUND MANAGEMENT LLC", "short": "Soros", "cluster": "Macro" },
   { "cik": "1541617", "name": "Altimeter Capital Management, LP", "short": "Altimeter", "cluster": "Tech / Growth" },
   { "cik": "1387322", "name": "Whale Rock Capital Management LLC", "short": "Whale Rock", "cluster": "Tech / Growth" },
-  { "cik": "1747057", "name": "D1 Capital Partners L.P.", "short": "D1 Capital", "cluster": "Tech / Growth" }
+  { "cik": "1747057", "name": "D1 Capital Partners L.P.", "short": "D1 Capital", "cluster": "Tech / Growth" },
+  { "cik": "1035674", "name": "PAULSON & CO. INC.", "short": "Paulson", "cluster": "Event Driven" },
+  { "cik": "909661", "name": "FARALLON CAPITAL MANAGEMENT, L.L.C.", "short": "Farallon", "cluster": "Event Driven" },
+  { "cik": "1595082", "name": "DAVIDSON KEMPNER CAPITAL MANAGEMENT LP", "short": "Davidson Kempner", "cluster": "Event Driven" }
 ]

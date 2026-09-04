@@ -13,5 +13,11 @@
   { "cik": "1096343", "name": "MARKEL GROUP INC.", "short": "Markel", "cluster": "Value / Quality" },
   { "cik": "915191", "name": "FAIRFAX FINANCIAL HOLDINGS LTD/ CAN", "short": "Fairfax", "cluster": "Value / Quality" },
   { "cik": "1720792", "name": "Ruane, Cunniff & Goldfarb L.P.", "short": "Ruane Cunniff", "cluster": "Value / Quality" },
-  { "cik": "1036325", "name": "DAVIS SELECTED ADVISERS", "short": "Davis", "cluster": "Value / Quality" }
+  { "cik": "1036325", "name": "DAVIS SELECTED ADVISERS", "short": "Davis", "cluster": "Value / Quality" },
+  { "cik": "1791786", "name": "Elliott Investment Management L.P.", "short": "Elliott", "cluster": "Activist" },
+  { "cik": "921669", "name": "ICAHN CARL C", "short": "Icahn", "cluster": "Activist" },
+  { "cik": "1517137", "name": "Starboard Value LP", "short": "Starboard", "cluster": "Activist" },
+  { "cik": "1345471", "name": "TRIAN FUND MANAGEMENT, L.P.", "short": "Trian", "cluster": "Activist" },
+  { "cik": "1418814", "name": "ValueAct Holdings, L.P.", "short": "ValueAct", "cluster": "Activist" },
+  { "cik": "1998597", "name": "JANA Partners Management, LP", "short": "JANA", "cluster": "Activist" }
 ]

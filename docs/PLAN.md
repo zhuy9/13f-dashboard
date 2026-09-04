@@ -877,6 +877,22 @@ Status: done c78bdaa
   "1 ownership filing since the 2026 Q2 13F". Stock-page spot check confirmed exactly:
   `/stock/PINS` shows Elliott at 5.8%, 13G, under Major Shareholders.
 
+**Post-milestone fix (`041aef8`) — the stock page dead-ended for 13D/G-only issuers.** The
+spot checks above both used stocks a tracked manager also holds, which hid the problem:
+`/stock/:symbol` was gated entirely on the 13F doc, so the 2,177 of 2,802 ownership issuers
+(78%) that no tracked manager holds rendered "Stock not found" — `MajorShareholders` never got
+a chance to run, even with the issuer's name, sector, holders and events already in Firestore.
+`StockPage` now reads both docs and renders whichever exist; `MajorShareholders` takes the
+issuer as a prop so the page still does one read per doc. Of those issuers, 267 have no usable
+ticker: companies acquired or delisted during the backfill window (Endeavor Group, EnLink,
+BurgerFi, Kezar, Bridge Investment) are gone from SEC's `company_tickers.json`, so enrichment
+falls through to OpenFIGI, which answers with a London listing code (`0C3`, `0E41`, `2KZ0`).
+Those pages now lead with the issuer's real name from the filing plus a note that no ticker
+matched, rather than the bare code. New pure helper `isUnresolvedSymbol` in `web/src/ownership.ts`
+(letters-only = resolved; a digit or `_` prefix = not), safe because zero `stocks/` doc ids
+contain either. `# ponytail: a delisted-ticker source (or yfinance) could resolve these properly;
+the issuer name is the honest stopgap.`
+
 Tasks
 1. `web/src/ownershipTypes.ts` (new; `types.ts` stays untouched and under 300 lines): `OwnershipEventKind = 'NEW' | 'INCREASED' | 'DECREASED' | 'EXITED' | 'SWITCHED_TO_13D' | 'SWITCHED_TO_13G' | 'UPDATED' | null`, `OwnershipForm = '13D' | '13G'`, `OwnershipPriority = 'HIGH' | 'MEDIUM' | 'LOW'`, `OwnershipEvent`, `OwnershipStake`, `OwnershipFeed`, `OwnershipIssuer`, `OwnershipInvestor`, `OwnershipFilter = 'all' | '13d' | '13g' | 'new' | 'increased' | 'decreased' | 'activists'` — fields exactly as the Firestore table.
 2. `web/src/data.ts`: `getOwnershipFeed()`, `getOwnershipIssuer(symbol)` (`encodeURIComponent`), `getOwnershipInvestor(cik)`.

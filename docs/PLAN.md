@@ -899,7 +899,7 @@ Acceptance criteria
 - [x] Deploy green (`33840214083`); live site returns HTTP 200 on `/ownership` and `/investor/:cik`.
 
 #### Milestone 8.7 — Docs sync
-Status: done (pending commit)
+Status: done c0ed9d4
 
 Tasks
 1. `CLAUDE.md`: "Where logic lives" → 13F signal math in `ingest/derive.py`, 13D/13G event math in `ingest/ownership_derive.py`, thresholds for both in `signals_config.json`; Commands + `python ownership.py --dry-run`; the `print()` exception covers `ingest.py` and `ownership.py`; new "13D/13G gotchas": only `SCHEDULE 13D/G` (structured, from 2024-12-18), never `SC 13D/G`; the index lists a filing once per associated CIK — dedupe by accession and never treat the index CIK as the filer; filer CIK, amendment number and previous accession come from the XML `headerData`; `total_percent` is a max, not a sum; amendments **are** the data (the opposite of the 13F `13F-HR/A` rule); no prior filing in our log ⇒ event `null`, never `NEW`; a dry run must not write state; `GCS_BUCKET` is required; write only touched docs (20K writes/day).

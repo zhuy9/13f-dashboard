@@ -19,5 +19,7 @@
   { "cik": "1517137", "name": "Starboard Value LP", "short": "Starboard", "cluster": "Activist" },
   { "cik": "1345471", "name": "TRIAN FUND MANAGEMENT, L.P.", "short": "Trian", "cluster": "Activist" },
   { "cik": "1418814", "name": "ValueAct Holdings, L.P.", "short": "ValueAct", "cluster": "Activist" },
-  { "cik": "1998597", "name": "JANA Partners Management, LP", "short": "JANA", "cluster": "Activist" }
+  { "cik": "1998597", "name": "JANA Partners Management, LP", "short": "JANA", "cluster": "Activist" },
+  { "cik": "1350694", "name": "Bridgewater Associates, LP", "short": "Bridgewater", "cluster": "Macro" },
+  { "cik": "1029160", "name": "SOROS FUND MANAGEMENT LLC", "short": "Soros", "cluster": "Macro" }
 ]

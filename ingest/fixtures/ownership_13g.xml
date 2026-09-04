@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?><edgarSubmission xmlns="http://www.sec.gov/edgar/schedule13g" xmlns:com="http://www.sec.gov/edgar/common">
+  <schemaVersion>X0202</schemaVersion>
+<headerData>
+    <submissionType>SCHEDULE 13G</submissionType>
+    <filerInfo>
+      <filer>
+        <filerCredentials>
+          <cik>0001791786</cik>
+          <ccc>XXXXXXXX</ccc>
+        </filerCredentials>
+      </filer>
+      <liveTestFlag>LIVE</liveTestFlag>
+    </filerInfo>
+  </headerData>
+  <formData>
+    <coverPageHeader>
+      <securitiesClassTitle>Class A Common Stock, $0.00001 par value per share</securitiesClassTitle>
+      <eventDateRequiresFilingThisStatement>06/30/2026</eventDateRequiresFilingThisStatement>
+      <issuerInfo>
+        <issuerCik>0001506293</issuerCik>
+        <issuerName>Pinterest, Inc.</issuerName>
+        <issuerCusips>
+          <issuerCusipNumber>72352L106</issuerCusipNumber>
+        </issuerCusips>
+      </issuerInfo>
+    </coverPageHeader>
+    <coverPageHeaderReportingPersonDetails>
+      <reportingPersonName>Elliott Investment Management L.P.</reportingPersonName>
+      <citizenshipOrOrganization>DE</citizenshipOrOrganization>
+      <reportingPersonBeneficiallyOwnedNumberOfShares>
+        <soleVotingPower>28000000.00</soleVotingPower>
+        <sharedVotingPower>0.00</sharedVotingPower>
+        <soleDispositivePower>28000000.00</soleDispositivePower>
+        <sharedDispositivePower>0.00</sharedDispositivePower>
+      </reportingPersonBeneficiallyOwnedNumberOfShares>
+      <reportingPersonBeneficiallyOwnedAggregateNumberOfShares>28000000.00</reportingPersonBeneficiallyOwnedAggregateNumberOfShares>
+      <aggregateAmountExcludesCertainSharesFlag>N</aggregateAmountExcludesCertainSharesFlag>
+      <classPercent>5.8</classPercent>
+      <typeOfReportingPerson>IA</typeOfReportingPerson>
+    </coverPageHeaderReportingPersonDetails>
+    <items>
+      <item4>
+        <classPercent>5.8%</classPercent>
+      </item4>
+    </items>
+  </formData>
+</edgarSubmission>

@@ -29,5 +29,8 @@
   { "cik": "909661", "name": "FARALLON CAPITAL MANAGEMENT, L.L.C.", "short": "Farallon", "cluster": "Event Driven" },
   { "cik": "1595082", "name": "DAVIDSON KEMPNER CAPITAL MANAGEMENT LP", "short": "Davidson Kempner", "cluster": "Event Driven" },
   { "cik": "1112520", "name": "AKRE CAPITAL MANAGEMENT LLC", "short": "Akre", "cluster": "Quality / Compounders" },
-  { "cik": "1034524", "name": "POLEN CAPITAL MANAGEMENT LLC", "short": "Polen", "cluster": "Quality / Compounders" }
+  { "cik": "1034524", "name": "POLEN CAPITAL MANAGEMENT LLC", "short": "Polen", "cluster": "Quality / Compounders" },
+  { "cik": "1082621", "name": "HARVARD MANAGEMENT CO INC", "short": "Harvard", "cluster": "Endowment" },
+  { "cik": "938582", "name": "YALE UNIVERSITY", "short": "Yale", "cluster": "Endowment" },
+  { "cik": "351051", "name": "MASSACHUSETTS INSTITUTE OF TECHNOLOGY", "short": "MIT", "cluster": "Endowment" }
 ]

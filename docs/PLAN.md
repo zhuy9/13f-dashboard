@@ -692,7 +692,7 @@ Sub-milestones 8.1 → 8.7 are sequential. Contract: section J, the Firestore ta
 Refactors decided: (1) CLAUDE.md "Where logic lives" becomes two files (`derive.py` for 13F, `ownership_derive.py` for 13D/13G) — done in 8.7; (2) `funds.json` optional `aliases` — done in 8.1; (3) ownership TS types go in `web/src/ownershipTypes.ts` so `types.ts` stays under 300 lines. Rejected: extracting a `clients.py`; renaming `store.py` helpers; merging 13D/13G fields into `stocks/` docs (the monthly 13F `batch.set` would wipe them).
 
 #### Milestone 8.1 — Contract, config, aliases
-Status: in progress
+Status: done 7993e30
 
 Tasks
 1. This section, section J, the Firestore/GCS rows, the config block, the Reuse line, the Skipped lines, and the repo-layout tree in this file.
@@ -702,10 +702,10 @@ Tasks
 5. Commit `docs: plan milestone 8 — 13D/13G ownership monitor`.
 
 Acceptance criteria
-- [ ] This file contains "### J. Ownership (13D/13G)", three `ownership*` rows in the Firestore table, two `ownership` lines in the GCS layout, and Milestones 8.1–8.7.
-- [ ] `python -c "import json; print(sorted(json.load(open('ingest/signals_config.json'))['ownership']))"` prints the 7 keys.
-- [ ] `python -c "import json; print({f['short']: f['aliases'] for f in json.load(open('ingest/funds.json')) if f.get('aliases')})"` prints exactly Elliott and Icahn.
-- [ ] `pytest ingest` green (nothing else changed).
+- [x] This file contains "### J. Ownership (13D/13G)", three `ownership*` rows in the Firestore table, two `ownership` lines in the GCS layout, and Milestones 8.1–8.7.
+- [x] `python -c "import json; print(sorted(json.load(open('ingest/signals_config.json'))['ownership']))"` prints the 7 keys.
+- [x] `python -c "import json; print({f['short']: f['aliases'] for f in json.load(open('ingest/funds.json')) if f.get('aliases')})"` prints exactly Elliott and Icahn.
+- [x] `pytest ingest` green (27 passed; nothing else changed).
 
 #### Milestone 8.2 — Fetch and parse (`ownership_fetch.py`)
 Status: not started

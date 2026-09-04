@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStates'
 import { ManagerLists } from '@/components/manager/ManagerLists'
+import { OwnershipFilings } from '@/components/manager/OwnershipFilings'
 import { PositionsTable } from '@/components/manager/PositionsTable'
 import { PositionsTreemap } from '@/components/manager/PositionsTreemap'
 import { SectorQoQTable } from '@/components/manager/SectorQoQTable'
@@ -118,6 +119,8 @@ export function ManagerPage() {
           </section>
         </>
       )}
+
+      <OwnershipFilings cik={cik} latestPeriod={manager.periods.at(-1)} />
     </div>
   )
 }

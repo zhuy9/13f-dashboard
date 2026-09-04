@@ -1,4 +1,4 @@
-import { Badge } from '@/components/ui/badge'
+import { ColorBadge } from '@/components/ColorBadge'
 import { STATUS_COLORS } from '@/format'
 import type { PositionStatus } from '@/types'
 
@@ -12,13 +12,5 @@ const LABELS: Record<PositionStatus, string> = {
 
 export function StatusBadge({ status }: { status: PositionStatus | null }) {
   if (!status) return <span className="text-ink-muted">—</span>
-  const color = STATUS_COLORS[status]
-  return (
-    <Badge
-      variant="outline"
-      style={{ color, borderColor: color, backgroundColor: `${color}1a` }}
-    >
-      {LABELS[status]}
-    </Badge>
-  )
+  return <ColorBadge color={STATUS_COLORS[status]} label={LABELS[status]} />
 }

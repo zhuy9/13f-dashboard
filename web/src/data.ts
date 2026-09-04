@@ -1,6 +1,7 @@
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from './firebase'
 import type { Manager, ManagerQuarter, Meta, Signals, Stock } from './types'
+import type { OwnershipFeed, OwnershipInvestor, OwnershipIssuer } from './ownershipTypes'
 
 // The Firestore SDK retries a bad project/network config indefinitely and never rejects
 // getDoc() on its own, so a wrong VITE_FIREBASE_PROJECT_ID would otherwise hang forever
@@ -44,4 +45,16 @@ export function getStock(symbol: string): Promise<Stock | null> {
 
 export function getSignals(period: string): Promise<Signals | null> {
   return fetchDoc<Signals>(`signals/${period}`)
+}
+
+export function getOwnershipFeed(): Promise<OwnershipFeed | null> {
+  return fetchDoc<OwnershipFeed>('ownership/feed')
+}
+
+export function getOwnershipIssuer(symbol: string): Promise<OwnershipIssuer | null> {
+  return fetchDoc<OwnershipIssuer>(`ownership_issuers/${encodeURIComponent(symbol)}`)
+}
+
+export function getOwnershipInvestor(cik: string): Promise<OwnershipInvestor | null> {
+  return fetchDoc<OwnershipInvestor>(`ownership_investors/${cik}`)
 }

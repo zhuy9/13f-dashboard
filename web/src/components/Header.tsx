@@ -5,6 +5,7 @@ import { useMeta } from '@/context/MetaContext'
 const NAV_LINKS = [
   { to: '/patterns', label: 'Patterns' },
   { to: '/managers', label: 'Managers' },
+  { to: '/ownership', label: 'Ownership' },
 ]
 
 export function Header() {

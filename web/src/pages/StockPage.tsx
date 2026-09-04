@@ -1,6 +1,7 @@
 import { useParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStates'
 import { HoldersTable } from '@/components/stock/HoldersTable'
+import { MajorShareholders } from '@/components/stock/MajorShareholders'
 import { OptionsGroups } from '@/components/stock/OptionsGroups'
 import { TrendCharts } from '@/components/stock/TrendCharts'
 import { StatTile } from '@/components/StatTile'
@@ -58,6 +59,8 @@ export function StockPage() {
       ) : (
         <EmptyState message="No holders this quarter." />
       )}
+
+      <MajorShareholders symbol={stock.symbol} />
 
       <section>
         <h2 className="mb-2 text-lg font-medium">Trend</h2>

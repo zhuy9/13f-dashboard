@@ -6,7 +6,7 @@
 
 ## Context
 
-Build a public web dashboard of SEC Form 13F holdings for 11 well-known conviction managers.
+Build a public web dashboard of SEC Form 13F holdings for a tracked list of well-known conviction managers (see `ingest/funds.json`).
 Beyond raw holdings, derive **signals** by aggregating the base dataset `Manager × Security × Quarter` in every direction:
 manager → stocks, stock → managers, manager → sectors, quarter → quarter, manager → manager.
 
@@ -30,7 +30,7 @@ Data changes 4×/year. So: **all derived tables are computed once at ingest in P
 | SQL | **No Cloud SQL.** BigQuery external tables over the Parquet later, if wanted. |
 | Ingest | Python (3.12 in CI, 3.10 locally — no 3.11+-only syntax), `edgartools` + `pandas`, run by **GitHub Actions** (cron + manual). |
 | Signals | All 13 signals computed in `ingest/derive.py`. Formulas and thresholds live in `ingest/signals_config.json`. The browser never computes a signal. |
-| Managers | 11, all in the signal set: Berkshire, Pershing Square, TCI, Baupost, Appaloosa, Duquesne, Coatue, Tiger Global, Viking, Lone Pine, Third Point. Cluster labels are manual (in `funds.json`). |
+| Managers | Tracked list lives in `ingest/funds.json`, all in the signal set. Cluster labels are manual. See "Adding a manager" in `CLAUDE.md` for the (code-free) process. |
 | History | Last **4 quarters** per manager. QoQ status on quarters that have a prior quarter in the window. |
 | Frontend | Vite + React + TS + **react-router-dom** + **Tailwind v4 + shadcn/ui** (5 components) + Recharts + Firebase JS. Pages: `/patterns`, `/managers`, `/manager/:cik`, `/stock/:symbol`. No auth. No per-user manager selection in MVP. |
 | Agent docs | `CLAUDE.md` = agent instructions. `AGENTS.md` = symlink to it, recorded in git (real on Linux/GitHub; pointer file on Windows without the symlink privilege). `docs/PLAN.md` = this plan. |

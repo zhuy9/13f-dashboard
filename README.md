@@ -31,6 +31,31 @@ A 13F is a report. Large US investment managers must file it with the SEC every 
 | Viking Global | Andreas Halvorsen | Tech / Growth |
 | Lone Pine Capital | Steve Mandel | Tech / Growth |
 | Third Point | Dan Loeb | Event Driven / Activist |
+| Markel | Tom Gayner | Value / Quality |
+| Fairfax Financial | Prem Watsa | Value / Quality |
+| Ruane, Cunniff & Goldfarb (Sequoia Fund) | — | Value / Quality |
+| Davis Selected Advisers | Christopher Davis | Value / Quality |
+| Elliott Investment Management | Paul Singer | Activist |
+| Carl Icahn | Carl Icahn | Activist |
+| Starboard Value | Jeffrey Smith | Activist |
+| Trian Fund Management | Nelson Peltz | Activist |
+| ValueAct | Mason Morfit | Activist |
+| JANA Partners | Barry Rosenstein | Activist |
+| Bridgewater Associates | Ray Dalio | Macro |
+| Soros Fund Management | George Soros | Macro |
+| Altimeter Capital | Brad Gerstner | Tech / Growth |
+| Whale Rock Capital | Alex Sacerdote | Tech / Growth |
+| D1 Capital Partners | Dan Sundheim | Tech / Growth |
+| Paulson & Co | John Paulson | Event Driven |
+| Farallon Capital | — | Event Driven |
+| Davidson Kempner | — | Event Driven |
+| Akre Capital Management | Chuck Akre | Quality / Compounders |
+| Polen Capital | Dan Davidowitz | Quality / Compounders |
+| Harvard Management Co | — | Endowment |
+| Yale University | — | Endowment |
+| MIT | — | Endowment |
+
+13F filings from endowments only cover their sliver of US public equities. Most of an endowment's assets sit in private equity, hedge funds, and other holdings a 13F never reports, so these rows are a much smaller slice of the real portfolio than a fund like Berkshire's.
 
 The style labels are set by hand. You can change them in `ingest/funds.json`.
 

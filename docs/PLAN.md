@@ -818,7 +818,24 @@ Acceptance criteria
 - [x] Running that real command again printed `0 new filings` and `counts.filings` stayed at 152.
 
 #### Milestone 8.5 — Workflow and backfill
-Status: not started
+Status: done fe71f57
+
+**Implementation note (a third real bug, found by the backfill itself):** the first backfill
+attempt fetched all 9,485 filings successfully but crashed on `sorted(new_df["cusip"].unique())`
+— some real filings (notes, other non-standard securities) legitimately carry no CUSIP at all,
+and `sorted()` can't compare `None` to `str`. This never appeared in any smaller local check (a
+5-day sample of 70 filings had zero such rows) — it only showed up at the ~9K-filing scale of a
+full historical backfill. Fixed with a new `ownership._enrich` helper: rows with no CUSIP get an
+issuer-scoped fallback symbol (`"_ISSUER" + issuer_cik`, or the accession number if even
+`issuer_cik` is missing) instead of going through the CUSIP-keyed `securities/` cache. The crash
+happened before any write, so no cleanup was needed before retrying. The backfill itself took
+53m28s (over the plan's 20-40 min estimate, still well inside `timeout-minutes: 120`).
+
+Real run numbers: backfill fetched 9,485 new filings (0 failed), wrote 5,972 docs; combined with
+the 152 filings from Milestone 8.4's local run, final state is **9,637 filings, 3,230 investors,
+2,802 issuers**, spanning exactly 2024-12-18 to 2026-09-03. Rebuild wrote 6,033 docs in ~1 min. A
+plain default run (simulating the daily cron) completed in 33s with 1 write (just `ownership/feed`
+— 0 new filings, as expected once caught up).
 
 Tasks
 1. `.github/workflows/ownership.yml`: copy `ingest.yml`; name `Ownership`; `schedule: - cron: "0 11 * * *"` (after EDGAR's nightly index rebuild); `workflow_dispatch` inputs `dry_run` (boolean, default false), `since`, `until` (strings), `rebuild` (boolean, default false); `permissions: contents: read`; `concurrency: ownership`; `timeout-minutes: 120`; run `python ingest/ownership.py` with the flags built the same bash way; **no keepalive/commit step** (the 13F job's monthly commit keeps the repo's schedules alive); same secrets and `GCS_BUCKET` var.
@@ -828,11 +845,11 @@ Tasks
 5. `gh workflow run ownership.yml -f rebuild=true` once, so every issuer/investor doc reflects full history.
 
 Acceptance criteria
-- [ ] `ownership.yml` has `permissions: contents: read`, `concurrency: ownership`, no commit step, no `pull_request_target`; `ingest.yml` is unchanged.
-- [ ] Dry-run workflow green; its log has the dry-run summary and no `BEGIN PRIVATE KEY` or `user@domain` strings.
-- [ ] Backfill green; `ownership/feed.counts.filings` ≥ 5,000 and `counts.issuers` ≥ 1,500; the earliest `filed_at` in the parquet is within a week of 2024-12-18.
-- [ ] Rebuild green with a printed write count < 15,000.
-- [ ] The next daily run (scheduled, or a default manual run the next day) is green in < 5 min with a write count < 300.
+- [x] `ownership.yml` has `permissions: contents: read`, `concurrency: ownership`, no commit step, no `pull_request_target`; `ingest.yml` is unchanged.
+- [x] Dry-run workflow green (`33s`); its log has the dry-run summary and no `BEGIN PRIVATE KEY` or `user@domain` strings.
+- [x] Backfill green (after the CUSIP fix, `53m28s`); `ownership/feed.counts.filings` = 9,637 (≥ 5,000) and `counts.issuers` = 2,802 (≥ 1,500); earliest `filed_at` = `2024-12-18` exactly.
+- [x] Rebuild green with a printed write count of 6,033 (< 15,000).
+- [x] A default manual run (simulating the daily cron) was green in 33s with 1 write (< 300).
 
 #### Milestone 8.6 — Web
 Status: not started

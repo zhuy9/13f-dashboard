@@ -31,8 +31,9 @@ Data changes 4×/year. So: **all derived tables are computed once at ingest in P
 | Ingest | Python (3.12 in CI, 3.10 locally — no 3.11+-only syntax), `edgartools` + `pandas`, run by **GitHub Actions** (cron + manual). |
 | Signals | All 13 signals computed in `ingest/derive.py`. Formulas and thresholds live in `ingest/signals_config.json`. The browser never computes a signal. |
 | Managers | Tracked list lives in `ingest/funds.json`, all in the signal set. Cluster labels are manual. See "Adding a manager" in `CLAUDE.md` for the (code-free) process. |
+| 13D/13G | Milestone 8: a sibling event pipeline (`ingest/ownership*.py`, daily cron). All `SCHEDULE 13D`/`13D/A` on EDGAR; `SCHEDULE 13G`/`13G/A` only from roster managers (CIK or `aliases`). Structured-XML filings only (from 2024-12-18). Contract in section J. |
 | History | Last **4 quarters** per manager. QoQ status on quarters that have a prior quarter in the window. |
-| Frontend | Vite + React + TS + **react-router-dom** + **Tailwind v4 + shadcn/ui** (5 components) + Recharts + Firebase JS. Pages: `/patterns`, `/managers`, `/manager/:cik`, `/stock/:symbol`. No auth. No per-user manager selection in MVP. |
+| Frontend | Vite + React + TS + **react-router-dom** + **Tailwind v4 + shadcn/ui** (5 components) + Recharts + Firebase JS. Pages: `/patterns`, `/managers`, `/manager/:cik`, `/stock/:symbol`; Milestone 8 adds `/ownership`, `/investor/:cik`. No auth. No per-user manager selection in MVP. |
 | Agent docs | `CLAUDE.md` = agent instructions. `AGENTS.md` = symlink to it, recorded in git (real on Linux/GitHub; pointer file on Windows without the symlink privilege). `docs/PLAN.md` = this plan. |
 
 ## Architecture
@@ -45,6 +46,13 @@ GitHub Actions (monthly cron + manual; commits data/last_ingest.json so GitHub k
        ├─ derive.py  : base table ──► manager_quarter_summary, manager_sector_exposure, stock_quarter_summary,
        │                            stock_trend, consensus tables, sector_rotation, similarity, options_exposure
        └─ store.py   : GCS (raw XML + Parquet) and Firestore (meta/, managers/, manager_quarters/, stocks/, signals/)
+
+GitHub Actions (daily cron; Milestone 8)
+  └─ ingest/ownership.py
+       ├─ ownership_fetch.py  : EDGAR full-index ──► SCHEDULE 13D/13G (structured XML) ──► one row per filing
+       ├─ enrich.py           : same securities/ cache (issuer CIK ──► ticker hint, OpenFIGI fallback)
+       ├─ ownership_derive.py : filings ──► events (NEW / INCREASED / … per investor × issuer) ──► stakes
+       └─ ownership_store.py  : GCS state (parquet/ownership_filings.parquet) + Firestore (ownership/, ownership_issuers/, ownership_investors/)
 
 GitHub Actions (on push to main, paths web/**) ──► npm run build ──► Firebase Hosting ──► custom domain
 
@@ -59,22 +67,28 @@ Browser: one Firestore read per page (signals/{period}, manager_quarters/{cik}_{
   docs/PLAN.md  docs/ARCHITECTURE.md
   data/last_ingest.json          # written and committed by the ingest workflow
   firebase.json  .firebaserc  firestore.rules
-  .github/workflows/ingest.yml  .github/workflows/deploy.yml
+  .github/workflows/ingest.yml  .github/workflows/deploy.yml  .github/workflows/ownership.yml
   ingest/
     requirements.txt  pyproject.toml  funds.json  signals_config.json  .env.example
-    ingest.py         # CLI + orchestration only
+    ingest.py         # CLI + orchestration only (13F)
     fetch.py          # edgartools fetch + normalize + edgar_ticker_hints
     enrich.py         # OpenFIGI + SEC lookups + securities cache
     api_constants.py  # external API URLs
     sectors.py        # SIC → sector
-    derive.py         # all derived tables (pure pandas, no I/O)
-    store.py          # GCS + Firestore writes
+    derive.py         # all 13F derived tables (pure pandas, no I/O)
+    store.py          # GCS + Firestore writes (13F)
+    ownership.py           # CLI + orchestration (13D/13G, Milestone 8)
+    ownership_fetch.py     # EDGAR index listing + structured 13D/13G parsing → one row per filing
+    ownership_derive.py    # 13D/13G events, stakes, recent (pure pandas, no I/O)
+    ownership_store.py     # GCS state parquet + Firestore ownership docs
     test_fetch.py  test_derive.py  test_sectors.py  test_store.py
-    fixtures/holdings_small.csv
+    test_ownership_fetch.py  test_ownership_derive.py  test_ownership_store.py
+    fixtures/holdings_small.csv  fixtures/ownership_small.csv  fixtures/ownership_13d.xml  fixtures/ownership_13g.xml
   web/
     package.json  vite.config.ts  tsconfig.json  tsconfig.app.json  index.html  components.json  .env.example
     src/
       main.tsx  App.tsx  index.css  firebase.ts  types.ts  format.ts  format.test.ts
+      ownershipTypes.ts  ownership.ts  ownership.test.ts   # 13D/13G doc types + pure filter/label helpers
       data.ts                       # Firestore reads (one function per doc type)
       lib/utils.ts                  # shadcn cn()
       hooks/                        # useAsyncData, useSortableRows, useActiveSection
@@ -82,8 +96,8 @@ Browser: one Firestore read per page (signals/{period}, manager_quarters/{cik}_{
       components/ui/*               # shadcn-generated only: table, tabs, badge, input, select
       components/*                  # Header, Footer, SymbolSearch, StatusBadge, SideBadge, SectorBars,
                                      # Heatmap, StatTile, StockLink, ManagerLink, SortableTableHead, ...
-      components/manager/*  components/stock/*   # page-specific sub-components
-      pages/PatternsPage.tsx  ManagersPage.tsx  ManagerPage.tsx  StockPage.tsx
+      components/manager/*  components/stock/*  components/ownership/*   # page-specific sub-components
+      pages/PatternsPage.tsx  ManagersPage.tsx  ManagerPage.tsx  StockPage.tsx  OwnershipPage.tsx  InvestorPage.tsx
       pages/patterns/*.tsx          # one small component per signal table
     public/                         # favicon.svg, icons.svg (sprite; only github-icon is used)
 ```
@@ -174,8 +188,50 @@ Per cluster: members, `common_holdings` (symbols held by ≥ half the members, t
   "sector_move_threshold": 0.005,
   "top_n": 25,
   "score": { "weight_scale": 0.05, "new_bonus": 0.5, "added_bonus": 0.25,
-             "accumulation_scale": 0.02, "accumulation_cap": 3 } }
+             "accumulation_scale": 0.02, "accumulation_cap": 3 },
+  "ownership": { "start_date": "2024-12-18", "exit_below_pct": 5.0, "min_change_pp": 0.1,
+                 "recent_events": 300, "purpose_max_chars": 400, "max_events_per_doc": 500,
+                 "refetch_overlap_days": 3 } }
 ```
+
+### J. Ownership (13D/13G) — the contract for `ownership_derive.py` (Milestone 8)
+
+Schedule 13D/13G filings are event-driven, not quarterly: anyone crossing 5% of a company files within 5 business days (13D = intends to influence; 13G = passive) and amends on every material change. They are a second base table beside `holdings`, keyed by filing, not by quarter.
+
+**Base table `ownership_filings`** — one row per accession; persisted as GCS `parquet/ownership_filings.parquet` (the pipeline state and the source of truth for every recompute).
+```
+accession (str "0001234567-26-001234"), form ("13D"|"13G"), is_amendment (bool), amendment_no (int|null),
+filed_at (YYYY-MM-DD), event_date (YYYY-MM-DD|null),
+filer_cik (10-digit str, from the XML header), reporting_ciks (list[str]; reporting persons that have a CIK),
+investor_name (str), issuer_cik (10-digit str), issuer_name (str), cusip (str), ticker (str|null), symbol (str), sector (str),
+shares (int|null), pct (float|null; percent of class, e.g. 7.4), purpose (str|null; 13D Item 4, truncated to purpose_max_chars),
+prev_accession (str|null; from the XML header, display only), url (str)
+```
+- `symbol` = `ticker` when known, else `"_" + cusip` (same rule as `holdings`).
+- `pct` / `shares` = edgartools `total_percent` / `total_shares` (max over reporting persons — nested entities each report the same aggregate, so a sum would double-count). `0.0` with zero reporting persons → `null`.
+- A filing whose XML is not structured (`has_structured_data == False`, i.e. `xml()` returned nothing) is **not persisted**; it is retried while inside the `refetch_overlap_days` window. `# ponytail: after that it is lost; a --since rerun recovers it.`
+
+**Derived `ownership_events`** — one row per filing row; pure function. Timeline key `(investor_cik, cusip)`, ordered by `(filed_at, amendment_no or 0, accession)`.
+- `investor_cik` = the roster CIK when `filer_cik` or any of `reporting_ciks` is a roster CIK or alias (`funds.json` `aliases`), else `filer_cik`. For roster rows `investor_name`/`short`/`cluster` come from `funds.json`.
+- Added columns: `event, prev_pct, change_pp, prev_accession_in_log, is_roster, is_activist, priority, short, cluster`.
+- **Event rules, first match wins** (`prev` = the previous row on the same timeline, if any):
+  1. no prev and not an amendment → `NEW`
+  2. no prev and an amendment → `null` (the prior filing predates our log — unknown; same idea as `status = null` in A)
+  3. `prev.pct` is null or `pct` is null → `null` (never infer an exit from missing data)
+  4. `prev.pct < exit_below_pct` → `NEW` (re-entry after an exit)
+  5. `pct < exit_below_pct` → `EXITED`
+  6. `prev.form != form` → `SWITCHED_TO_13D` / `SWITCHED_TO_13G`
+  7. `abs(pct − prev.pct) >= min_change_pp` → `INCREASED` / `DECREASED`
+  8. otherwise → `UPDATED` (stake unchanged; the amendment changed Item 4 or an agreement — still shown)
+- `change_pp = pct − prev.pct` (null if either is null). `is_activist = is_roster and "Activist" in cluster`.
+- **Priority** (exactly this table): `HIGH` if (`form == "13D"` and event in {`NEW`, `SWITCHED_TO_13D`}) or (`is_activist` and event in {`NEW`, `INCREASED`, `SWITCHED_TO_13D`}); else `MEDIUM` if (`form == "13D"` and event in {`INCREASED`, `DECREASED`, `EXITED`}) or (`form == "13G"` and event == `NEW`) or (`form == "13D"` and event == `UPDATED` and `is_roster`); else `LOW`.
+- Product signal names map onto these (the browser composes labels, Python stores the parts): NEW_MAJOR_HOLDER = `NEW`; NEW_13D = `NEW` and 13D; OWNERSHIP_INCREASE / DECREASE = `INCREASED` / `DECREASED`; MAJOR_HOLDER_EXIT = `EXITED`; KNOWN_ACTIVIST_ENTRY = `is_activist` and (`NEW` or `SWITCHED_TO_13D`).
+
+**Derived `ownership_stakes`** — the latest event row per `(investor_cik, cusip)`; `is_current = pct is not null and pct >= exit_below_pct`.
+
+**Derived `recent`** — the newest `recent_events` event rows by `(filed_at desc, accession desc)`.
+
+Config keys (`signals_config.json` → `ownership`): `start_date` (first filing date ingested), `exit_below_pct`, `min_change_pp`, `recent_events`, `purpose_max_chars`, `max_events_per_doc`, `refetch_overlap_days`.
 
 ## Firestore documents (what the browser reads)
 
@@ -187,14 +243,21 @@ Per cluster: members, `common_holdings` (symbols held by ≥ half the members, t
 | `stocks/{symbol}` | `symbol, name, sector, trend[D rows], latest{C summary + holders + soldOut + options{calls[], puts[]}}` | stock page |
 | `signals/{period}` | all E tables, F, G (`ciks[]`, `matrix[][]`), H (symbols with options only) | patterns page |
 | `securities/{cusip}` | enrichment cache (ingest only) | — |
+| `ownership/feed` | `updatedAt, startDate, lastFiledAt, counts{filings, investors, issuers}, events[J event rows, newest first, ≤ recent_events]` | ownership page |
+| `ownership_issuers/{symbol}` | `symbol, issuerCik, issuerName, sector, holders[J stake rows with is_current], events[newest first, ≤ max_events_per_doc]` | stock page (second read; absent ⇒ section hidden) |
+| `ownership_investors/{cik}` | `cik, name, short\|null, cluster\|null, isRoster, isActivist, stakes[current], events[newest first, ≤ max_events_per_doc]` | investor page; manager page (second read) |
 
-Every doc stays far under 1 MB (largest: `signals` ≈ 100 KB, `meta` ≈ 100 KB). Rules: public read, no client write.
+J event row (camelCase): `accession, form, isAmendment, amendmentNo, filedAt, eventDate, investorCik, investorName, short, isRoster, isActivist, issuerCik, issuerName, symbol, sector, shares, pct, prevPct, changePp, event, priority, purpose, url`. J stake row: `investorCik, investorName, short, isRoster, isActivist, issuerCik, issuerName, symbol, sector, form, pct, shares, changePp, event, filedAt, accession, url`. `ownership_issuers` ids use `quote(symbol, safe='')` / `encodeURIComponent`, like `stocks/`. Each run rewrites `ownership/feed` and **only** the issuer/investor docs touched by that run's new filings (Firestore free tier: 20K writes/day); `--rebuild` rewrites all.
 
-### GCS layout (when `GCS_BUCKET` is set)
+Every doc stays far under 1 MB (largest: `ownership/feed` ≈ 200 KB, `signals` ≈ 100 KB, `meta` ≈ 100 KB). Rules: public read, no client write.
+
+### GCS layout (when `GCS_BUCKET` is set; required for the ownership pipeline)
 ```
 raw/<cik>/<period>/infotable.xml
 parquet/holdings/<period>.parquet
 parquet/<table>/<period>.parquet        # one per derived table A–H
+raw_ownership/<accession>.xml           # Milestone 8
+parquet/ownership_filings.parquet       # Milestone 8: single all-time file = the ownership pipeline's state
 ```
 
 ## Secrets and public-repo safety
@@ -611,6 +674,166 @@ Acceptance criteria
 - [x] All milestone AC boxes in `docs/PLAN.md` are checked. Milestone 6's custom-domain AC was the
   user's action (DNS at their registrar); done, checked in this follow-up commit.
 
+### Milestone 8 — 13D/13G Ownership Monitor  (planned by the planning model; built by the dev model)
+
+Sub-milestones 8.1 → 8.7 are sequential. Contract: section J, the Firestore table, and the GCS layout above. Decisions (locked by the user): all `SCHEDULE 13D`/`13D/A` universe-wide + `SCHEDULE 13G`/`13G/A` from roster managers only; structured-XML filings only (from `start_date` 2024-12-18); daily cron in a separate `ownership.yml`; known activist = roster `cluster` contains "Activist"; `funds.json` `aliases` for firms filing under several CIKs; GCS parquet is the state; priority kept (minimal, not configurable); no new dependency.
+
+**Verified facts — do not re-derive, do not deviate without asking** (checked live against EDGAR and the installed edgartools source):
+- `edgartools==5.56.0` parses these forms: `edgar/beneficial_ownership/schedule13.py` → `Schedule13D`, `Schedule13G` with `.issuer_info{cik, name, cusip}`, `.reporting_persons[]{cik, name, aggregate_amount, percent_of_class, type_of_reporting_person}`, `.items.item4_purpose_of_transaction` (13D only), `.event_date` (a `MM/DD/YYYY` string — normalise to ISO), `.is_amendment`, `.has_structured_data`, `.total_shares`, `.total_percent` (already max over persons, excluding "aggregate excludes certain shares" rows; `0.0` when no persons → `null`). It has a classmethod that builds the object from an XML string (`parse_xml`); if that name differs, use whichever exists — stop and ask if none does.
+- `edgar.get_filings(form=[the four form names], filing_date="YYYY-MM-DD:YYYY-MM-DD", amendments=True)` → `Filings`; `.to_pandas()` has `form, company, cik (int), filing_date, accession_number`. The index lists each filing **once per associated CIK** (subject company + every filer): 54 rows ↔ 27 unique accessions in a live check. **Dedupe on accession.** The surviving row's `cik` may be the subject company, so **never use the index row / `filing.cik` as the filer.**
+- `Schedule13D.parse_xml` does not read `headerData`. Parse `headerData/filerInfo/filer/filerCredentials/cik` (the filer), `headerData/previousAccessionNumber`, and `formData/coverPageHeader/amendmentNo` yourself from `filing.xml()` with `xml.etree.ElementTree` and the `{*}` namespace wildcard.
+- `filing.xml()` is one HTTP request (the submission `.txt`); `filing.obj()` calls it internally. **Never call `filing.homepage_url` / `filing.homepage`** (extra request). URL = `https://www.sec.gov/Archives/edgar/data/{int(filer_cik)}/{accession without dashes}/{accession}-index.html`.
+- `Filing(cik=int, company=str, form=str, filing_date=str, accession_no=str)` is a public constructor — rebuild filings from the deduped rows.
+- Only the lead reporting person reliably has a CIK; the 13G cover has none — 13G filer identity is the header filer CIK.
+- Volumes: ~2,600 13D-family index rows per quarter incl. duplicates → roughly 7-10K unique filings since 2024-12-18 → backfill 20-40 min at SEC's 10 req/s; daily ≈ 30-50 filings. Firestore free tier = 20K writes/day → write only touched docs.
+- Reuse: `enrich.ensure_securities(db, cusips, identity, api_key, refresh_unknown, ticker_hints)` + `enrich.attach`; invert `enrich.sec_ticker_to_cik(identity)` (`{cik10: ticker}`, first ticker wins) to build `ticker_hints = {cusip: ticker}` from `issuer_cik` so the backfill barely touches OpenFIGI. `store._clean`, `store._records`, `store._commit_in_batches` are imported as-is (`test_store.py` already does). `ingest.py` exposes `load_funds`, `load_config`, `init_firestore` — import them; **no** `clients.py`. Web patterns: `useAsyncData`, `useSortableRows`, `SideBadge`/`StatusBadge`, `AsyncStates`, `format.ts`; `firestore.rules` needs no change (blanket public read).
+- Mirror `derive.py`: no prior data ⇒ `null`, never `NEW`.
+
+Refactors decided: (1) CLAUDE.md "Where logic lives" becomes two files (`derive.py` for 13F, `ownership_derive.py` for 13D/13G) — done in 8.7; (2) `funds.json` optional `aliases` — done in 8.1; (3) ownership TS types go in `web/src/ownershipTypes.ts` so `types.ts` stays under 300 lines. Rejected: extracting a `clients.py`; renaming `store.py` helpers; merging 13D/13G fields into `stocks/` docs (the monthly 13F `batch.set` would wipe them).
+
+#### Milestone 8.1 — Contract, config, aliases
+Status: in progress
+
+Tasks
+1. This section, section J, the Firestore/GCS rows, the config block, the Reuse line, the Skipped lines, and the repo-layout tree in this file.
+2. `ingest/signals_config.json`: the `"ownership"` block shown under J.
+3. `ingest/funds.json`: `"aliases"` on Elliott (`1791786`; aliases `1048445` Elliott Management Corp, `904495` Elliott Associates L.P., `937611` Elliott International L.P.) and Icahn (`921669`; aliases `1412093` Icahn Capital LP, `1413902` Icahn Capital Management LP, `1164756` Icahn Institutional Services LLC, `1317365` Icahn Management LP). The field is optional everywhere else.
+4. `CLAUDE.md` "Adding a manager": one sentence on `aliases` and how the dry run finds them.
+5. Commit `docs: plan milestone 8 — 13D/13G ownership monitor`.
+
+Acceptance criteria
+- [ ] This file contains "### J. Ownership (13D/13G)", three `ownership*` rows in the Firestore table, two `ownership` lines in the GCS layout, and Milestones 8.1–8.7.
+- [ ] `python -c "import json; print(sorted(json.load(open('ingest/signals_config.json'))['ownership']))"` prints the 7 keys.
+- [ ] `python -c "import json; print({f['short']: f['aliases'] for f in json.load(open('ingest/funds.json')) if f.get('aliases')})"` prints exactly Elliott and Icahn.
+- [ ] `pytest ingest` green (nothing else changed).
+
+#### Milestone 8.2 — Fetch and parse (`ownership_fetch.py`)
+Status: not started
+
+Tasks
+1. `ingest/ownership_fetch.py` (≤ 160 lines):
+   - `FORMS = ["SCHEDULE 13D", "SCHEDULE 13D/A", "SCHEDULE 13G", "SCHEDULE 13G/A"]`; `FILING_COLUMNS` = the J base-table columns, in order.
+   - `roster_ciks(funds) -> dict[str, str]`: every roster CIK and alias (unpadded string, e.g. `"921669"`) → roster CIK.
+   - `list_filings(funds, since: str, until: str) -> pd.DataFrame`: one `get_filings(form=FORMS, filing_date=f"{since}:{until}", amendments=True)`; `.to_pandas()`; `drop_duplicates("accession_number")`; keep rows whose form starts with `SCHEDULE 13D`, or starts with `SCHEDULE 13G` and `str(cik)` is in `roster_ciks`. Output columns `accession, form_raw, filing_date, cik, company`.
+   - `to_filing(row) -> edgar.Filing` via the public constructor.
+   - `header_fields(xml: str) -> tuple[str | None, int | None, str | None]` = `(filer_cik 10-digit, amendment_no, previous_accession)`; missing → `None`.
+   - `parse_filing(xml: str, form_raw: str, accession: str, filed_at: str, company: str, cfg: dict) -> dict | None`: choose `Schedule13D`/`Schedule13G` by `form_raw`; `None` when `not obj.has_structured_data`; map to `FILING_COLUMNS`: `form` = `"13D"`/`"13G"`, `is_amendment = form_raw.endswith("/A")`, ISO `event_date`, `filer_cik` from `header_fields` (fallback: first reporting person with a CIK; else `None` → the caller skips the row with a warning), `reporting_ciks` zero-padded to 10, `investor_name` = the reporting person whose CIK equals `filer_cik`, else the first person, else `company`; `pct`/`shares` from `total_percent`/`total_shares` with the `0.0`-and-no-persons → `None` rule; `purpose` = `items.item4_purpose_of_transaction[:purpose_max_chars]` for 13D else `None`; `url` from `filing_url`. `ticker`/`sector`/`symbol` are attached later by `enrich.attach`, not here.
+   - `filing_url(filer_cik: str, accession: str) -> str`.
+   - `fetch_rows(listed: pd.DataFrame, cfg) -> tuple[list[dict], dict[str, str], int]` = `(rows, raw_xml_by_accession, failed_count)`; per-filing `try/except` → print a warning and continue; `xml() is None` counts as failed.
+2. Fixtures `ingest/fixtures/ownership_13d.xml` and `ownership_13g.xml`: real structured filings trimmed to essentials (keep `headerData`, `coverPageHeader`, all `reportingPersons`, `item4`; drop addresses/signatures; ≤ ~80 lines each). Source: EDGAR `primary_doc.xml` of Elliott's Triple Flag `SCHEDULE 13D/A` accession `0000919574-26-004169` (filer `0001791786`, `amendmentNo` 3, previous `0000902664-23-002314`, `percentOfClass` 64.7, `aggregateAmountOwned` 133241535, issuer `0001829726`, CUSIP `89679M104`, event 06/30/2026) and Elliott's Pinterest `SCHEDULE 13G` accession `0000919574-26-005513` (`classPercent` 5.8, 28,000,000 shares, issuer `0001506293`, CUSIP `72352L106`).
+3. `ingest/test_ownership_fetch.py` (no network): `header_fields` on the 13D/A → `("0001791786", 3, "0000902664-23-002314")`; on the 13G → `("0001791786", None, None)`; `parse_filing` on the 13D/A → `form == "13D"`, `is_amendment`, `pct == 64.7`, `shares == 133241535`, `issuer_cik == "0001829726"`, `cusip == "89679M104"`, `event_date == "2026-06-30"`, `url.endswith("0000919574-26-004169-index.html")`; on the 13G → `form == "13G"`, `pct == 5.8`, `purpose is None`; the 13D fixture with its `reportingPersons` block removed → `pct is None`; `roster_ciks` maps an alias to its roster CIK. `list_filings` is untested (network) — say so in a one-line comment.
+4. `ruff format .`, `ruff check .`, `pytest`.
+
+Acceptance criteria
+- [ ] `pytest ingest/test_ownership_fetch.py` green; the test file contains none of `get_filings`, `requests`, `http`.
+- [ ] In `ingest/`: `python -c "from ownership_fetch import header_fields; print(header_fields(open('fixtures/ownership_13d.xml').read()))"` prints `('0001791786', 3, '0000902664-23-002314')`.
+- [ ] `ownership_fetch.py` ≤ 160 lines; `ruff check` clean.
+- [ ] Manual, network, once (`.env` present): `python -c "import json; from ownership_fetch import list_filings; df=list_filings(json.load(open('funds.json')),'2026-09-01','2026-09-02'); print(len(df), df.accession.is_unique, df.form_raw.value_counts().to_dict())"` prints ~25-30 rows and `True`.
+
+#### Milestone 8.3 — Derive (`ownership_derive.py`)
+Status: not started
+
+Tasks
+1. `ingest/ownership_derive.py` (≤ 170 lines; pure — DataFrame in, DataFrame out; imports only pandas/numpy/stdlib):
+   - `investor_map(funds) -> dict[str, dict]`: roster CIK and alias → `{cik, name, short, cluster}`.
+   - `events(filings, funds, cfg) -> pd.DataFrame`: canonicalise the investor (header filer CIK first, then any reporting CIK), sort by `(investor_cik, cusip, filed_at, amendment_no.fillna(0), accession)`, per-timeline `shift` for `prev_pct`, `prev_form`, `prev_accession_in_log`, apply the J rules 1-8 in order, then `change_pp`, `is_roster`, `is_activist`, `priority`. Output columns = `FILING_COLUMNS` + `event, prev_pct, change_pp, prev_accession_in_log, is_roster, is_activist, priority, short, cluster`.
+   - `stakes(events, cfg) -> pd.DataFrame`: last row per timeline; `is_current`.
+   - `recent(events, n) -> pd.DataFrame`.
+   - `derive_all(filings, funds, cfg) -> dict` with keys `filings, events, stakes, recent`.
+2. `ingest/fixtures/ownership_small.csv` (~16 rows, columns = `FILING_COLUMNS`; `reporting_ciks` as a `|`-joined string, split in `events`) covering: initial 13D → `NEW`; amendment with no prior → `null`; null `pct` → `null`; 13G then 13D on one issuer → `SWITCHED_TO_13D`; drop below 5 → `EXITED`; re-entry after an exit → `NEW`; +2.9 → `INCREASED`; −0.8 → `DECREASED`; Δ 0.05 → `UPDATED`; a row whose `reporting_ciks` contains `0001048445` (Elliott alias) → `is_roster`, `is_activist`, `investor_cik == "1791786"`, `short == "Elliott"`; a 13G `NEW` → `MEDIUM`; a 13D `NEW` → `HIGH`; a same-day initial + `/A` pair ordered by `amendment_no`.
+3. `ingest/test_ownership_derive.py`: `test_every_event_occurs` (all six named events present and ≥ 2 nulls), one test per rule-order pair (2 vs 4, 4 vs 5, 6 vs 7), `test_alias_canonicalises_to_roster_cik`, `test_priority_table`, `test_stakes_is_current`, `test_recent_orders_newest_first`, `test_events_does_not_mutate_input`.
+4. `ruff format .`, `ruff check .`, `pytest`.
+
+Acceptance criteria
+- [ ] `pytest ingest` green; `test_ownership_derive.py` has ≥ 8 tests.
+- [ ] `ownership_derive.py` ≤ 170 lines; every function typed; no `print`; no `firebase`, `edgar`, or `google` imports.
+- [ ] In `ingest/`: `python -c "import json, pandas as pd; from ownership_derive import derive_all; t=derive_all(pd.read_csv('fixtures/ownership_small.csv'), json.load(open('funds.json')), json.load(open('signals_config.json'))['ownership']); print(t['events']['event'].value_counts(dropna=False).to_dict())"` shows `NEW, INCREASED, DECREASED, EXITED, SWITCHED_TO_13D, UPDATED` and a null count ≥ 2.
+
+#### Milestone 8.4 — Store, CLI, dry run (`ownership_store.py`, `ownership.py`)
+Status: not started
+
+Tasks
+1. `ingest/ownership_store.py` (≤ 170 lines): `STATE_BLOB = "parquet/ownership_filings.parquet"`, `RAW_PREFIX = "raw_ownership/"`; `read_state(bucket) -> pd.DataFrame | None`; `write_state(bucket, filings, raw_by_accession)` (raw XML per new accession, then the whole parquet; per-object `try/except` + `logger.exception` like `store.write_gcs`); `build_feed(tables, cfg) -> dict`; `build_issuer_docs(tables, cfg, only_symbols: set | None) -> dict[str, dict]`; `build_investor_docs(tables, funds, cfg, only_ciks: set | None) -> dict[str, dict]` (shapes exactly as the Firestore table; `events` = newest `max_events_per_doc`; `None` filter = all); `write_firestore(db, feed, issuer_docs, investor_docs) -> int` (write count; paths `ownership/feed`, `ownership_issuers/{quote(symbol, safe='')}`, `ownership_investors/{cik}`; `store._commit_in_batches`).
+2. `ingest/ownership.py` (≤ 170 lines), CLI `--dry-run`, `--since`, `--until`, `--rebuild`:
+   1. `load_dotenv`; `cfg = load_config()["ownership"]`; `EDGAR_IDENTITY` guard in `ingest.py`'s style; `edgar.set_identity`; `funds = load_funds()`; `db = init_firestore()`; `GCS_BUCKET` **required** — `ERROR: GCS_BUCKET is required for the ownership pipeline`, return 1.
+   2. `state = read_state(bucket)`; `since = args.since or (max(state.filed_at) − refetch_overlap_days days) or cfg["start_date"]`; `until = args.until or today (UTC)`.
+   3. `listed = list_filings(funds, since, until)` minus accessions already in `state`.
+   4. `rows, raw, failed = fetch_rows(listed, cfg)`; print `fetched N new filings (M failed)`.
+   5. `ticker_hints` from the inverted `sec_ticker_to_cik`; `securities = ensure_securities(db, new cusips, identity, api_key, False, ticker_hints)`; `attach` (runs in dry-run too — it is a cache, as in `ingest.py`).
+   6. `filings = concat(state, new)`; `tables = derive_all(filings, funds, cfg)`.
+   7. Dry run prints: the window; new-row counts by `event` and by `priority`; top-15 filers by filing count; **unmatched filers whose `investor_name` contains a roster `short` (case-insensitive)** with their `filer_cik`; the 20 newest events as a table. **Writes nothing** — no GCS, no Firestore (unlike `ingest.py`; the parquet is state and must not advance on a dry run).
+   8. Real run: `write_state`, then `write_firestore(feed, issuer docs for touched symbols, investor docs for touched CIKs)`; `--rebuild` passes `None` filters. Print the write count. Exit 1 if `failed > 0`, else 0.
+3. `ingest/test_ownership_store.py`: builders on `derive_all` of the CSV fixture — feed events newest first and ≤ `recent_events`; issuer doc keyed `quote("_" + cusip, safe="")` for an unresolved symbol; `only_symbols` filters; the Elliott-alias investor doc has `isRoster`, `isActivist`, `short == "Elliott"`; every doc survives `json.dumps` after `_clean` (no NaN).
+4. `ruff format .`, `ruff check .`, `pytest`; then `python ownership.py --dry-run --since 2026-08-25` (network, no writes).
+5. Commit 8.2-8.4 together: `feat: 13D/13G ownership pipeline`.
+
+Acceptance criteria
+- [ ] `pytest ingest` green; the 13F tests are untouched.
+- [ ] The four new Python files are each ≤ 170 lines; `ruff format --check .` and `ruff check .` clean; `print` only in `ownership.py`.
+- [ ] `python ownership.py --dry-run --since 2026-08-25` prints ≥ 100 new filings, an event table with at least `NEW` and `UPDATED`, the unmatched-filer list, and writes nothing (`parquet/ownership_filings.parquet` absent or its `updated` time unchanged; no `ownership/feed` in Firestore).
+- [ ] `python ownership.py --since 2026-08-25 --until 2026-09-03` (real) creates `ownership/feed`; one `HIGH` event's `pct`, `shares`, `eventDate`, `issuerName` match its `url` on sec.gov; its `ownership_issuers/{symbol}` and `ownership_investors/{cik}` docs exist.
+- [ ] Running that real command again prints `0 new filings` and `counts.filings` is unchanged.
+
+#### Milestone 8.5 — Workflow and backfill
+Status: not started
+
+Tasks
+1. `.github/workflows/ownership.yml`: copy `ingest.yml`; name `Ownership`; `schedule: - cron: "0 11 * * *"` (after EDGAR's nightly index rebuild); `workflow_dispatch` inputs `dry_run` (boolean, default false), `since`, `until` (strings), `rebuild` (boolean, default false); `permissions: contents: read`; `concurrency: ownership`; `timeout-minutes: 120`; run `python ingest/ownership.py` with the flags built the same bash way; **no keepalive/commit step** (the 13F job's monthly commit keeps the repo's schedules alive); same secrets and `GCS_BUCKET` var.
+2. Commit `ci: daily 13D/13G ownership ingest`; push.
+3. `gh workflow run ownership.yml -f dry_run=true -f since=2026-08-25` → green; read the log.
+4. Backfill explicitly (8.4's local real run already wrote state from 2026-08-25): `gh workflow run ownership.yml -f since=2024-12-18 -f until=2026-08-24`; expect 20-40 min. If it times out, split by quarter with `since`/`until` — merges are idempotent.
+5. `gh workflow run ownership.yml -f rebuild=true` once, so every issuer/investor doc reflects full history.
+
+Acceptance criteria
+- [ ] `ownership.yml` has `permissions: contents: read`, `concurrency: ownership`, no commit step, no `pull_request_target`; `ingest.yml` is unchanged.
+- [ ] Dry-run workflow green; its log has the dry-run summary and no `BEGIN PRIVATE KEY` or `user@domain` strings.
+- [ ] Backfill green; `ownership/feed.counts.filings` ≥ 5,000 and `counts.issuers` ≥ 1,500; the earliest `filed_at` in the parquet is within a week of 2024-12-18.
+- [ ] Rebuild green with a printed write count < 15,000.
+- [ ] The next daily run (scheduled, or a default manual run the next day) is green in < 5 min with a write count < 300.
+
+#### Milestone 8.6 — Web
+Status: not started
+
+Tasks
+1. `web/src/ownershipTypes.ts` (new; `types.ts` stays untouched and under 300 lines): `OwnershipEventKind = 'NEW' | 'INCREASED' | 'DECREASED' | 'EXITED' | 'SWITCHED_TO_13D' | 'SWITCHED_TO_13G' | 'UPDATED' | null`, `OwnershipForm = '13D' | '13G'`, `OwnershipPriority = 'HIGH' | 'MEDIUM' | 'LOW'`, `OwnershipEvent`, `OwnershipStake`, `OwnershipFeed`, `OwnershipIssuer`, `OwnershipInvestor`, `OwnershipFilter = 'all' | '13d' | '13g' | 'new' | 'increased' | 'decreased' | 'activists'` — fields exactly as the Firestore table.
+2. `web/src/data.ts`: `getOwnershipFeed()`, `getOwnershipIssuer(symbol)` (`encodeURIComponent`), `getOwnershipInvestor(cik)`.
+3. `web/src/ownership.ts` (pure): `filterEvents(events, filter, query)` (query matches `symbol`, `issuerName`, `investorName`, case-insensitive), `eventLabel(e)` (`"NEW 13D"`, `"INCREASED"`, `"SWITCHED TO 13D"`, `"—"` for null), `EVENT_COLORS`, `FORM_COLORS`, `investorHref(e)` (`/manager/{cik}` when `isRoster`, else `/investor/{cik}`). `web/src/ownership.test.ts` in the `format.test.ts` style: every tab, a query match, a label per kind, both hrefs.
+4. `web/src/components/ownership/`: `FormBadge.tsx`, `EventBadge.tsx` (the `SideBadge` pattern), `EventsTable.tsx` (props `events`, `hideInvestor?`, `hideIssuer?`; `useSortableRows` keyed on `filedAt`; columns Filed · Investor (link) · Ticker (link to `/stock/:symbol`) · Form · Event · Own % · Change (pp) · SEC (external, `rel="noopener noreferrer"`); `HIGH` rows get a left accent border; `purpose` in a native `<details>` like `OptionsGroups`), `StakesTable.tsx`.
+5. `web/src/pages/OwnershipPage.tsx`: `useAsyncData(getOwnershipFeed)`; three `StatTile`s from the rows (filings in the 7 days up to `lastFiledAt`, `NEW` 13Ds, activist entries); `Tabs` with the seven filters; `Input` search; `EventsTable`; `?filter=` and `?q=` in the URL via `useSearchParams` (the `?period=` pattern).
+6. `web/src/pages/InvestorPage.tsx`: `useAsyncData(getOwnershipInvestor(cik))`; header (name, cluster `Badge`, "13F profile" link to `/manager/:cik` when `isRoster`); "Current stakes" (`StakesTable`); "Filings" (`EventsTable hideInvestor`).
+7. `web/src/components/stock/MajorShareholders.tsx`: `StockPage` adds a second `useAsyncData(getOwnershipIssuer(symbol))` and renders a "Major Shareholders (13D/G)" `<section>` after "Holders" (`StakesTable` + `EventsTable hideIssuer`); nothing when the doc is null.
+8. `web/src/components/manager/OwnershipFilings.tsx`: `ManagerPage` adds a second `useAsyncData(getOwnershipInvestor(cik))` **outside** the `mqState.data` block; a callout "{n} ownership filings since the {quarterLabel(latest)} 13F" (`n` = events with `filedAt > manager.periods.at(-1)`), then `StakesTable` + `EventsTable hideInvestor`; nothing when null.
+9. `App.tsx`: routes `/ownership`, `/investor/:cik`; `Header.tsx` `NAV_LINKS` + `{ to: '/ownership', label: 'Ownership' }`.
+10. `npm run lint`, `npm run test`, `npm run build`, `npm run dev` click-through. Commit `feat: ownership feed, investor page, 13D/G sections`; push (deploy runs).
+
+Acceptance criteria
+- [ ] `npm run test` green incl. `ownership.test.ts` (≥ 6 tests); `npm run build` and `npm run lint` clean; no `any`, no `console.log`; every new file ≤ 300 lines; `types.ts` unchanged.
+- [ ] `/ownership` renders from one Firestore read beyond `meta/latest`; tabs and search filter without re-fetching; `?filter=13d&q=elliott` restores the state on load.
+- [ ] From a `HIGH` row: the ticker link opens `/stock/:symbol` with "Major Shareholders (13D/G)" showing the same investor and %; a roster investor link opens `/manager/:cik` with "Ownership Filings" and the "since the … 13F" callout; a non-roster investor link opens `/investor/:cik`.
+- [ ] `/manager/1791786` lists Elliott's Triple Flag stake (64.7 % at planning time); `/stock/PINS` lists Elliott at 5.8 % under Major Shareholders (re-verify against the SEC link on the row if the numbers moved).
+- [ ] A 13F-only stock with no ownership doc shows no Major Shareholders section and no error.
+- [ ] At 375 px, `/ownership` and `/investor/:cik` have no page-level horizontal scroll.
+- [ ] Deploy green; the live site shows the "Ownership" nav entry.
+
+#### Milestone 8.7 — Docs sync
+Status: not started
+
+Tasks
+1. `CLAUDE.md`: "Where logic lives" → 13F signal math in `ingest/derive.py`, 13D/13G event math in `ingest/ownership_derive.py`, thresholds for both in `signals_config.json`; Commands + `python ownership.py --dry-run`; the `print()` exception covers `ingest.py` and `ownership.py`; new "13D/13G gotchas": only `SCHEDULE 13D/G` (structured, from 2024-12-18), never `SC 13D/G`; the index lists a filing once per associated CIK — dedupe by accession and never treat the index CIK as the filer; filer CIK, amendment number and previous accession come from the XML `headerData`; `total_percent` is a max, not a sum; amendments **are** the data (the opposite of the 13F `13F-HR/A` rule); no prior filing in our log ⇒ event `null`, never `NEW`; a dry run must not write state; `GCS_BUCKET` is required; write only touched docs (20K writes/day).
+2. `README.md`: new section after "Managers tracked" — **Ownership filings (13D and 13G)** in the house style: what a 13D is, what a 13G is, the 5% rule, why a 13D matters more, events start on 2024-12-18, only tracked managers' 13G are shown, one line per event kind. Add `/ownership` and `/investor/:cik` to "How it works".
+3. `docs/ARCHITECTURE.md`: add the ownership chain to both diagrams.
+4. This file: set 8.1-8.7 `Status: done <sha>`, check every box, extend "Verification (end to end)" with the ownership dry run, the feed page, and the daily workflow.
+5. Commit `docs: milestone 8 — 13D/13G ownership monitor`.
+
+Acceptance criteria
+- [ ] Every sentence in the new README section is ≤ ~20 words and a non-developer can tell 13D from 13G after reading it.
+- [ ] `CLAUDE.md` no longer says all signal math lives in `derive.py`.
+- [ ] Fresh clone: `pytest ingest` and `npm run test` green with no `.env`.
+- [ ] `git log -p | Select-String -Pattern "@gma[i]l|AIza[0-9A-Za-z_-]{20}|-----BEG[I]N|private[_]key"` returns nothing.
+- [ ] All 8.x boxes in this file are checked.
+
+**Stop and ask the user when (Milestone 8):** the installed edgartools cannot build `Schedule13D`/`Schedule13G` from an XML string; `get_filings` returns zero rows for a window that should have filings, or the form names differ from `FORMS`; the dry run's unmatched-filer print shows a roster manager under a CIK not in `aliases` (report, do not guess); any Firestore/GCS permission error, or a run's write count above 15,000; the backfill exceeds 120 minutes even split by quarter; a parsed value contradicts the SEC page during a spot-check (ask before "fixing"); anything seems to need a new dependency.
+
 ---
 
 ## Doc specs
@@ -647,6 +870,7 @@ The live site URL lives in the GitHub repo's own "website" field (repo Settings 
 
 ## Reuse (do not re-implement)
 - 13F fetching/parsing: `edgartools`. Aggregation: `pandas`. Cosine: `numpy` (comes with pandas).
+- 13D/13G listing and parsing: `edgartools` (`get_filings`, `edgar.beneficial_ownership.Schedule13D` / `Schedule13G`). XML header fields: stdlib `xml.etree`. No new dependency.
 - Firestore + GCS: `firebase-admin` (Python), `firebase` (JS). Hosting deploy: `FirebaseExtended/action-hosting-deploy`.
 - UI: shadcn/ui (table, tabs, badge, input, select). Charts: `recharts`. Heatmap: CSS grid, no library.
 
@@ -667,3 +891,6 @@ The live site URL lives in the GitHub repo's own "website" field (repo Settings 
 - **More than 4 quarters** — `--quarters 8` already works; UI trend charts just get more points.
 - **13F-HR/A amendments, split adjustment, GICS sectors** — when the inaccuracy actually bites.
 - **More shadcn components** — only when a listed view cannot be built with the 5.
+- **Legacy `SC 13D` / `SC 13G` text filings (pre 2024-12-18)** — need an HTML/text parser; structured XML only for now.
+- **Universe-wide 13G** — drop the roster filter in `ownership_fetch.list_filings` and add a passive-giant exclusion list (Vanguard, BlackRock, State Street, …) when wanted.
+- **Item 4 purpose classification, feed pagination** — the purpose text is shown verbatim (truncated); the feed is one doc of `recent_events` rows.

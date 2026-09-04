@@ -99,6 +99,7 @@ No code changes — it's data-driven end to end.
 1. Find their 10-digit CIK on [EDGAR full-text search](https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany).
 2. Add one entry to `ingest/funds.json`: `{ "cik": "...", "name": "Exact EDGAR filer name", "short": "ShortName", "cluster": "Some Label" }`.
    `cluster` is freeform — reuse an existing label or start a new one; `clusters()` in `derive.py` just groups by whatever's there.
+   Optional `"aliases": ["cik", ...]` lists other CIKs the same firm files 13D/13G under (Elliott and Icahn each use several). To find them, run `python ownership.py --dry-run` and read its "unmatched filers that look like roster names" print.
 3. `python ingest.py --dry-run` first — check the new manager's top-10 holdings and PUT/CALL counts print sanely — then a real run.
 4. Nothing else to touch: every signal in `derive.py` iterates `funds` from `funds.json`, so consensus, similarity, sector rotation, etc. pick the new manager up automatically on the next ingest.
 

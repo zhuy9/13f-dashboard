@@ -11,5 +11,14 @@
     "added_bonus": 0.25,
     "accumulation_scale": 0.02,
     "accumulation_cap": 3
+  },
+  "ownership": {
+    "start_date": "2024-12-18",
+    "exit_below_pct": 5.0,
+    "min_change_pp": 0.1,
+    "recent_events": 300,
+    "purpose_max_chars": 400,
+    "max_events_per_doc": 500,
+    "refetch_overlap_days": 3
   }
 }

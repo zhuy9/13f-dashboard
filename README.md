@@ -59,6 +59,35 @@ A 13F is a report. Large US investment managers must file it with the SEC every 
 
 The style labels are set by hand. You can change them in `ingest/funds.json`.
 
+## Ownership filings (13D and 13G)
+
+The site also tracks two other SEC filings: Schedule 13D and Schedule 13G.
+
+Both are filed by anyone who owns 5% or more of a company's stock.
+
+A 13D means the investor may try to influence the company. Think activist investors.
+
+A 13G means the investor is passive. They just hold the stock and stay quiet.
+
+A 13D matters more. It often signals an activist campaign is starting.
+
+These filings must be reported within 5 business days. A 13F can take up to 45 days.
+
+This site tracks 13D filings from every investor on EDGAR, not just the managers above.
+
+It only tracks 13G filings from the managers in the table above.
+
+Ownership events start on December 18, 2024. Older filings are not structured data, so we skip them.
+
+Each new filing becomes one of these events:
+
+- **New.** A new 5%+ stake.
+- **Increased.** The stake grew by a meaningful amount.
+- **Decreased.** The stake shrank by a meaningful amount.
+- **Exited.** The stake dropped below 5%.
+- **Switched.** The investor moved from a 13G to a 13D, or the other way.
+- **Updated.** Something else changed, like the filing's stated purpose.
+
 ## The signals
 
 The site computes these signals once per quarter.
@@ -87,13 +116,21 @@ GitHub Actions (once a month, or by hand)
        ├─ derive  : all 13 signals
        └─ store   : Google Cloud Storage (files) + Firestore (documents the site reads)
 
+GitHub Actions (once a day, or by hand)
+  └─ ingest/ownership.py (Python)
+       ├─ fetch   : SEC EDGAR → new Schedule 13D/13G filings
+       ├─ derive  : new / increased / decreased / exited / switched / updated events
+       └─ store   : Google Cloud Storage (archive) + Firestore (documents the site reads)
+
 GitHub Actions (on every push to main)
   └─ build the site → Firebase Hosting → your domain
 ```
 
 A script runs once a month. It downloads the latest filings and computes every signal. It writes the results to Firestore. The website only reads and displays them. Nothing is computed live.
 
-Each run also saves a small file, `data/last_ingest.json`, into the repo. It shows when the data was last updated. It also keeps the schedule alive. GitHub turns off schedules in repos with no activity for 60 days.
+A second script runs once a day. It checks for new 13D and 13G filings and turns each one into an event. You can see them on the Ownership page. They also show up on a stock's own page. Every investor gets their own page too — a tracked manager's page, or `/investor/:cik` for everyone else.
+
+Each ingest run also saves a small file, `data/last_ingest.json`, into the repo. It shows when the data was last updated. It also keeps the schedule alive. GitHub turns off schedules in repos with no activity for 60 days.
 
 For diagrams of the full system and the data pipeline, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 

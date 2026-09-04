@@ -14,11 +14,12 @@ flowchart TB
 
     subgraph GHA["GitHub Actions (free compute, runs the code)"]
         ING["Ingest workflow\nruns monthly, or by hand"]
+        OWN["Ownership workflow\nruns daily, or by hand"]
         DEP["Deploy workflow\nruns on every push to main"]
     end
 
     subgraph EXT["Outside data sources"]
-        EDGAR["SEC EDGAR\n13F filings"]
+        EDGAR["SEC EDGAR\n13F + 13D/13G filings"]
         FIGI["OpenFIGI\nCUSIP to ticker"]
     end
 
@@ -37,6 +38,10 @@ flowchart TB
     ING -->|writes archive| GCS
     ING -->|"commits data/last_ingest.json\n(keeps the schedule alive)"| REPO
 
+    OWN -->|downloads new 13D/13G filings| EDGAR
+    OWN -->|writes events| FS
+    OWN -->|writes archive| GCS
+
     DEP -->|builds web/ and publishes it| HOST
 
     VISITOR -->|opens the site| HOST
@@ -46,11 +51,14 @@ flowchart TB
 **In plain words:**
 
 - **GitHub Actions** is the only compute. Nothing runs on a server around the
-  clock. Two jobs live there: one fetches and processes data, the other
+  clock. Three jobs live there: two fetch and process data, the third
   builds and publishes the website.
 - The **ingest job** runs once a month (or whenever someone triggers it by
   hand). It talks to SEC EDGAR and OpenFIGI, then writes its results to
   Firestore and Cloud Storage.
+- The **ownership job** runs once a day. It checks SEC EDGAR for new
+  Schedule 13D/13G filings and writes the events it finds to Firestore and
+  Cloud Storage, the same way the ingest job does.
 - The **deploy job** runs every time code is pushed to `main`. It builds the
   website and publishes it to Firebase Hosting.
 - **Firestore** holds small, pre-computed documents — one per page, roughly.
@@ -86,12 +94,12 @@ flowchart LR
 
 **In plain words, stage by stage:**
 
-1. **Fetch** (`ingest/fetch.py`) — Every quarter, each of the 11 tracked
-   managers files a 13F with the SEC. It lists every stock and option they
-   hold, identified by a CUSIP code (not a ticker). `fetch.py` downloads the
-   last 4 filings per manager and turns each one into plain rows: manager,
-   quarter, CUSIP, dollar value, share count, and whether it's a put, a
-   call, or a normal holding.
+1. **Fetch** (`ingest/fetch.py`) — Every quarter, each tracked manager (see
+   `ingest/funds.json`) files a 13F with the SEC. It lists every stock and
+   option they hold, identified by a CUSIP code (not a ticker). `fetch.py`
+   downloads the last 4 filings per manager and turns each one into plain
+   rows: manager, quarter, CUSIP, dollar value, share count, and whether
+   it's a put, a call, or a normal holding.
 2. **Enrich** (`ingest/enrich.py`) — A CUSIP alone isn't useful to a reader.
    This step looks up the ticker symbol (via OpenFIGI, with a fallback
    already built into the SEC data) and the industry sector (via the SEC's
@@ -111,6 +119,29 @@ flowchart LR
    on screen — it never asks Firestore for new numbers, and it never
    calculates a signal itself. If a number looks wrong, the fix is always in
    `derive.py`, never in the browser code.
+
+The 13D/13G pipeline (`ingest/ownership*.py`) runs the same way, on its own
+daily schedule, keyed by filing instead of by quarter:
+
+```mermaid
+flowchart LR
+    A["SEC EDGAR\n13D/13G filing (structured XML)\none per crossing of 5% ownership"]
+
+    A -->|"ownership_fetch.py\ndownload + parse"| B["New filing rows\none per accession"]
+
+    B -->|"merge with GCS state\n(every filing ever seen)"| C["Full filing history"]
+
+    C -->|"ownership_derive.py\npure math, no network calls"| D["Events: new, increased,\ndecreased, exited, switched, updated"]
+
+    D -->|"ownership_store.py"| E[("Firestore\nfeed, per-stock, per-investor docs")]
+    D -->|"ownership_store.py"| F[("Cloud Storage\narchive")]
+
+    E -->|"1 read per page"| G["Website\nOwnership page, stock page,\nmanager/investor page"]
+```
+
+The website never mixes the two pipelines' data at read time — a stock page
+does two separate one-document reads, one for its 13F holders and one for
+its 13D/13G shareholders, and renders whichever ones exist.
 
 ## Why it's built this way
 

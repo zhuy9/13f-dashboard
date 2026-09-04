@@ -899,7 +899,7 @@ Acceptance criteria
 - [x] Deploy green (`33840214083`); live site returns HTTP 200 on `/ownership` and `/investor/:cik`.
 
 #### Milestone 8.7 — Docs sync
-Status: not started
+Status: done (pending commit)
 
 Tasks
 1. `CLAUDE.md`: "Where logic lives" → 13F signal math in `ingest/derive.py`, 13D/13G event math in `ingest/ownership_derive.py`, thresholds for both in `signals_config.json`; Commands + `python ownership.py --dry-run`; the `print()` exception covers `ingest.py` and `ownership.py`; new "13D/13G gotchas": only `SCHEDULE 13D/G` (structured, from 2024-12-18), never `SC 13D/G`; the index lists a filing once per associated CIK — dedupe by accession and never treat the index CIK as the filer; filer CIK, amendment number and previous accession come from the XML `headerData`; `total_percent` is a max, not a sum; amendments **are** the data (the opposite of the 13F `13F-HR/A` rule); no prior filing in our log ⇒ event `null`, never `NEW`; a dry run must not write state; `GCS_BUCKET` is required; write only touched docs (20K writes/day).
@@ -909,11 +909,11 @@ Tasks
 5. Commit `docs: milestone 8 — 13D/13G ownership monitor`.
 
 Acceptance criteria
-- [ ] Every sentence in the new README section is ≤ ~20 words and a non-developer can tell 13D from 13G after reading it.
-- [ ] `CLAUDE.md` no longer says all signal math lives in `derive.py`.
-- [ ] Fresh clone: `pytest ingest` and `npm run test` green with no `.env`.
-- [ ] `git log -p | Select-String -Pattern "@gma[i]l|AIza[0-9A-Za-z_-]{20}|-----BEG[I]N|private[_]key"` returns nothing.
-- [ ] All 8.x boxes in this file are checked.
+- [x] Every sentence in the new README section is ≤ ~20 words (checked by hand, longest is 15 words); a non-developer can tell 13D (activist) from 13G (passive) after reading it.
+- [x] `CLAUDE.md` no longer says all signal math lives in `derive.py` — "Where logic lives" now splits 13F (`derive.py`) from 13D/13G (`ownership_derive.py`).
+- [x] Fresh clone (scratch dir): `pytest ingest` → 50 passed; `npm run test` → 30 passed; both with no `.env` present.
+- [x] `git log -p` piped through the secret-scan pattern → 0 matches.
+- [x] All 8.x boxes in this file are checked.
 
 **Stop and ask the user when (Milestone 8):** the installed edgartools cannot build `Schedule13D`/`Schedule13G` from an XML string; `get_filings` returns zero rows for a window that should have filings, or the form names differ from `FORMS`; the dry run's unmatched-filer print shows a roster manager under a CIK not in `aliases` (report, do not guess); any Firestore/GCS permission error, or a run's write count above 15,000; the backfill exceeds 120 minutes even split by quarter; a parsed value contradicts the SEC page during a spot-check (ask before "fixing"); anything seems to need a new dependency.
 
@@ -959,15 +959,18 @@ The live site URL lives in the GitHub repo's own "website" field (repo Settings 
 
 ## Verification (end to end)
 1. `pytest ingest` and `npm run test` green.
-2. `python ingest/ingest.py --dry-run` → 11 managers × 4 quarters with tickers, sectors, and printed signal previews.
+2. `python ingest/ingest.py --dry-run` → every tracked manager (`ingest/funds.json`) × 4 quarters with tickers, sectors, and printed signal previews.
 3. Full local run → Firestore docs and GCS objects as listed in Milestone 3 AC.
 4. `npm run dev` → `/patterns`, `/managers`, `/manager/:cik`, `/stock/:symbol` all render from one read each; links cross-navigate; search works; 375 px has no page-level horizontal scroll.
 5. Push to `main` → deploy green → site live → custom domain over HTTPS.
 6. Manual ingest run → green; logs contain no secret values.
 7. `git log -p` passes the secret scan.
+8. `python ingest/ownership.py --dry-run` → prints the fetch window, new-filing counts, event/priority breakdown, unmatched-filer hints, and the 20 most recent events; writes nothing (Milestone 8.4/8.5).
+9. `npm run dev` → `/ownership` renders the feed from one read, with working tab filters, search, and deep links; `/investor/:cik` and the new "Major Shareholders"/"Ownership Filings" sections all render; 375 px has no page-level horizontal scroll (Milestone 8.6).
+10. Daily ownership workflow → green; write count stays small (< 300) once caught up; a `--rebuild` run stays under 15,000 writes (Milestone 8.5).
 
 ## Skipped on purpose (add when…)
-- **Per-user manager selection / re-filtering** — signals are precomputed over all 11 managers; add a client-side re-aggregation when someone actually asks to exclude a manager.
+- **Per-user manager selection / re-filtering** — signals are precomputed over every tracked manager; add a client-side re-aggregation when someone actually asks to exclude a manager.
 - **Citadel / Millennium** — removed by the user; re-add only as manager pages with an `excludeFromSignals` flag.
 - **Auto-clustering, Jaccard / sector similarity** — cosine + manual labels first.
 - **Auth, Cloud SQL, BigQuery** — public data; BigQuery is one command over the Parquet when SQL is wanted.

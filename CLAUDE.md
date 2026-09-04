@@ -27,6 +27,7 @@ pytest
 ruff format .
 ruff check .
 python ingest.py --dry-run
+python ownership.py --dry-run
 
 # web
 cd web
@@ -59,7 +60,7 @@ This repository is PUBLIC.
 
 ## Where logic lives
 
-- All signal math: `ingest/derive.py`. Thresholds and score constants: `ingest/signals_config.json`.
+- 13F signal math: `ingest/derive.py`. 13D/13G event math: `ingest/ownership_derive.py`. Thresholds and score constants for both: `ingest/signals_config.json`.
 - The browser only formats and renders. It never computes a signal.
 - The Firestore document shapes in `docs/PLAN.md` are the contract between Python and TypeScript. If a shape must change, change the plan first, then both sides.
 
@@ -70,7 +71,7 @@ This repository is PUBLIC.
 - TypeScript: strict mode. No `any`.
 - shadcn components are added only with `npx shadcn@latest add <name>`, and only the 5 listed. Never hand-copy component code.
 - No new dependency without adding it to `docs/PLAN.md` first.
-- No `console.log`, `print()` debugging, or commented-out code in commits. (`ingest.py` prints its dry-run summary on purpose; that is output, not debugging.)
+- No `console.log`, `print()` debugging, or commented-out code in commits. (`ingest.py` and `ownership.py` print their dry-run summaries on purpose; that is output, not debugging.)
 - Match the naming in `docs/PLAN.md` exactly: function names, document ids, field names.
 - Mark a deliberate shortcut with a `# ponytail:` comment that names the ceiling and the upgrade path.
 
@@ -91,6 +92,18 @@ This repository is PUBLIC.
 - Position status (NEW / ADDED / TRIMMED / UNCHANGED / SOLD_OUT) uses **shares**. Weight change uses **portfolio weight**.
 - A manager with no filing in the previous quarter gets `status = null`, not `NEW`.
 - edgartools column names vary between versions. Print `df.columns` once and map them explicitly.
+
+## 13D/13G gotchas
+
+- Only `SCHEDULE 13D` / `SCHEDULE 13D/A` / `SCHEDULE 13G` / `SCHEDULE 13G/A` — the structured-XML forms, mandatory since 2024-12-18. Never the legacy `SC 13D` / `SC 13G` text filings.
+- EDGAR's index lists a filing once per associated CIK (subject company + every filer). Dedupe by accession, and never treat the index row's CIK as the filer.
+- The filer CIK, amendment number, and previous accession come from the filing's XML `headerData`, not from anything `edgartools`' `Schedule13D`/`Schedule13G` objects expose.
+- `total_percent` / `total_shares` are the **max** across reporting persons, never a sum — nested entities in one filing report the same aggregate.
+- Amendments **are** the data here — the opposite of the 13F `13F-HR/A` rule. Every amendment changes the position.
+- No prior filing in our log for that `(investor, cusip)` pair ⇒ event `null`, never `NEW` — same idea as `status = null` in the 13F table.
+- `ownership.py --dry-run` must not advance state (no GCS or Firestore writes at all) — unlike `ingest.py`, which still archives to GCS on a dry run.
+- `GCS_BUCKET` is required for the ownership pipeline; it has no "skip archive" fallback.
+- Each run rewrites `ownership/feed` and only the issuer/investor docs touched by that run's new filings (Firestore's free tier is 20K writes/day) — use `--rebuild` to force every doc.
 
 ## Adding a manager
 

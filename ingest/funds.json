@@ -27,5 +27,7 @@
   { "cik": "1747057", "name": "D1 Capital Partners L.P.", "short": "D1 Capital", "cluster": "Tech / Growth" },
   { "cik": "1035674", "name": "PAULSON & CO. INC.", "short": "Paulson", "cluster": "Event Driven" },
   { "cik": "909661", "name": "FARALLON CAPITAL MANAGEMENT, L.L.C.", "short": "Farallon", "cluster": "Event Driven" },
-  { "cik": "1595082", "name": "DAVIDSON KEMPNER CAPITAL MANAGEMENT LP", "short": "Davidson Kempner", "cluster": "Event Driven" }
+  { "cik": "1595082", "name": "DAVIDSON KEMPNER CAPITAL MANAGEMENT LP", "short": "Davidson Kempner", "cluster": "Event Driven" },
+  { "cik": "1112520", "name": "AKRE CAPITAL MANAGEMENT LLC", "short": "Akre", "cluster": "Quality / Compounders" },
+  { "cik": "1034524", "name": "POLEN CAPITAL MANAGEMENT LLC", "short": "Polen", "cluster": "Quality / Compounders" }
 ]

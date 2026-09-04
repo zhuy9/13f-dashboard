@@ -9,5 +9,9 @@
   { "cik": "1167483", "name": "Tiger Global Management LLC", "short": "Tiger Global", "cluster": "Tech / Growth" },
   { "cik": "1103804", "name": "Viking Global Investors LP", "short": "Viking", "cluster": "Tech / Growth" },
   { "cik": "1061165", "name": "Lone Pine Capital LLC", "short": "Lone Pine", "cluster": "Tech / Growth" },
-  { "cik": "1040273", "name": "Third Point LLC", "short": "Third Point", "cluster": "Event Driven / Activist" }
+  { "cik": "1040273", "name": "Third Point LLC", "short": "Third Point", "cluster": "Event Driven / Activist" },
+  { "cik": "1096343", "name": "MARKEL GROUP INC.", "short": "Markel", "cluster": "Value / Quality" },
+  { "cik": "915191", "name": "FAIRFAX FINANCIAL HOLDINGS LTD/ CAN", "short": "Fairfax", "cluster": "Value / Quality" },
+  { "cik": "1720792", "name": "Ruane, Cunniff & Goldfarb L.P.", "short": "Ruane Cunniff", "cluster": "Value / Quality" },
+  { "cik": "1036325", "name": "DAVIS SELECTED ADVISERS", "short": "Davis", "cluster": "Value / Quality" }
 ]

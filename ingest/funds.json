@@ -21,5 +21,8 @@
   { "cik": "1418814", "name": "ValueAct Holdings, L.P.", "short": "ValueAct", "cluster": "Activist" },
   { "cik": "1998597", "name": "JANA Partners Management, LP", "short": "JANA", "cluster": "Activist" },
   { "cik": "1350694", "name": "Bridgewater Associates, LP", "short": "Bridgewater", "cluster": "Macro" },
-  { "cik": "1029160", "name": "SOROS FUND MANAGEMENT LLC", "short": "Soros", "cluster": "Macro" }
+  { "cik": "1029160", "name": "SOROS FUND MANAGEMENT LLC", "short": "Soros", "cluster": "Macro" },
+  { "cik": "1541617", "name": "Altimeter Capital Management, LP", "short": "Altimeter", "cluster": "Tech / Growth" },
+  { "cik": "1387322", "name": "Whale Rock Capital Management LLC", "short": "Whale Rock", "cluster": "Tech / Growth" },
+  { "cik": "1747057", "name": "D1 Capital Partners L.P.", "short": "D1 Capital", "cluster": "Tech / Growth" }
 ]

@@ -12,8 +12,8 @@ export function Footer() {
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-8 text-sm text-ink-muted">
         <div className="flex flex-col gap-1">
           <span className="font-medium text-ink">Consensus Sheet</span>
-          <span>Signals derived from public SEC 13F filings.</span>
-          <span>Not investment advice. Positions are reported up to 45 days after quarter-end.</span>
+          <span>Signals derived from public SEC 13F and Schedule 13D/13G filings.</span>
+          <span>Not investment advice. 13F positions are reported up to 45 days after quarter-end.</span>
         </div>
         <a
           href="https://github.com/zhuy9/13f-dashboard"

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { changePpLabel, eventLabel, filterEvents, investorHref, pctLabel } from './ownership'
+import { changePpLabel, eventLabel, filterEvents, investorHref, isUnresolvedSymbol, pctLabel } from './ownership'
 import type { OwnershipEvent } from './ownershipTypes'
 
 function event(overrides: Partial<OwnershipEvent>): OwnershipEvent {
@@ -116,5 +116,24 @@ describe('investorHref', () => {
   })
   it('links a non-roster investor to the investor page', () => {
     expect(investorHref({ investorCik: '9999999999', isRoster: false })).toBe('/investor/9999999999')
+  })
+})
+
+describe('isUnresolvedSymbol', () => {
+  it('treats a plain letters-only ticker as resolved', () => {
+    expect(isUnresolvedSymbol('AAPL')).toBe(false)
+    expect(isUnresolvedSymbol('TFPM')).toBe(false)
+    expect(isUnresolvedSymbol('AB')).toBe(false)
+  })
+  it('treats our own no-ticker fallback as unresolved', () => {
+    expect(isUnresolvedSymbol('_037833100')).toBe(true)
+    expect(isUnresolvedSymbol('_ISSUER0001234567')).toBe(true)
+  })
+  it('treats a foreign/secondary listing code as unresolved', () => {
+    // Real examples from the backfill: Endeavor Group, EnLink, Kezar, a CUSIP-shaped code.
+    expect(isUnresolvedSymbol('0C3')).toBe(true)
+    expect(isUnresolvedSymbol('0E41')).toBe(true)
+    expect(isUnresolvedSymbol('2KZ0')).toBe(true)
+    expect(isUnresolvedSymbol('2662247D')).toBe(true)
   })
 })

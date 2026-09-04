@@ -5,67 +5,93 @@ import { MajorShareholders } from '@/components/stock/MajorShareholders'
 import { OptionsGroups } from '@/components/stock/OptionsGroups'
 import { TrendCharts } from '@/components/stock/TrendCharts'
 import { StatTile } from '@/components/StatTile'
-import { getStock } from '@/data'
+import { getOwnershipIssuer, getStock } from '@/data'
 import { useAsyncData } from '@/hooks/useAsyncData'
+import { isUnresolvedSymbol } from '@/ownership'
 
 export function StockPage() {
   const { symbol: rawSymbol = '' } = useParams<{ symbol: string }>()
   const symbol = decodeURIComponent(rawSymbol)
   const stockState = useAsyncData(() => getStock(symbol), [symbol])
+  const issuerState = useAsyncData(() => getOwnershipIssuer(symbol), [symbol])
 
-  if (stockState.loading) return <LoadingState />
-  if (stockState.error) return <ErrorState message={stockState.error} />
-  if (!stockState.data) return <EmptyState message="Stock not found." />
+  if (stockState.loading || issuerState.loading) return <LoadingState />
 
   const stock = stockState.data
-  const { latest } = stock
+  const issuer = issuerState.data
+
+  // Most 13D/13G issuers are not held by any tracked 13F manager, so the 13F doc is often
+  // absent while the ownership doc is there. Only give up when neither exists.
+  if (!stock && !issuer) {
+    const message = stockState.error ?? issuerState.error
+    return message ? <ErrorState message={message} /> : <EmptyState message="Stock not found." />
+  }
+
+  const latest = stock?.latest ?? null
+  const name = stock?.name ?? issuer?.issuerName ?? symbol
+  const sector = stock?.sector ?? issuer?.sector ?? 'Unknown'
+  const unresolved = !stock && isUnresolvedSymbol(symbol)
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 p-4">
       <header>
         <h1 className="text-2xl font-semibold">
-          {stock.symbol} <span className="font-normal text-ink-muted">{stock.name}</span>
+          {unresolved ? (
+            name
+          ) : (
+            <>
+              {symbol} <span className="font-normal text-ink-muted">{name}</span>
+            </>
+          )}
         </h1>
-        <p className="text-sm text-ink-muted">{stock.sector}</p>
+        {sector !== 'Unknown' && <p className="text-sm text-ink-muted">{sector}</p>}
+        {unresolved && (
+          <p className="mt-1 text-sm text-ink-muted">
+            No ticker matched this filing ({symbol}). The company is usually delisted or acquired.
+          </p>
+        )}
       </header>
 
-      {latest ? (
-        <>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-            <StatTile
-              label="Managers Own"
-              value={`${latest.managerCount} / ${latest.managersTotal}`}
-            />
-            <StatTile label="New" value={latest.newCount} />
-            <StatTile label="Added" value={latest.addedCount} />
-            <StatTile label="Trimmed" value={latest.trimmedCount} />
-            <StatTile label="Sold Out" value={latest.soldOutCount} />
-          </div>
+      {stock ? (
+        latest ? (
+          <>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+              <StatTile label="Managers Own" value={`${latest.managerCount} / ${latest.managersTotal}`} />
+              <StatTile label="New" value={latest.newCount} />
+              <StatTile label="Added" value={latest.addedCount} />
+              <StatTile label="Trimmed" value={latest.trimmedCount} />
+              <StatTile label="Sold Out" value={latest.soldOutCount} />
+            </div>
 
-          <section>
-            <h2 className="mb-2 text-lg font-medium">Holders</h2>
-            <HoldersTable holders={latest.holders} />
-          </section>
+            <section>
+              <h2 className="mb-2 text-lg font-medium">Holders</h2>
+              <HoldersTable holders={latest.holders} />
+            </section>
 
-          <section>
-            <h2 className="mb-2 text-lg font-medium">Positions by Type</h2>
-            <OptionsGroups
-              equityHolders={latest.holders}
-              calls={latest.options.calls}
-              puts={latest.options.puts}
-            />
-          </section>
-        </>
+            <section>
+              <h2 className="mb-2 text-lg font-medium">Positions by Type</h2>
+              <OptionsGroups
+                equityHolders={latest.holders}
+                calls={latest.options.calls}
+                puts={latest.options.puts}
+              />
+            </section>
+          </>
+        ) : (
+          <EmptyState message="No holders this quarter." />
+        )
       ) : (
-        <EmptyState message="No holders this quarter." />
+        <p className="text-sm text-ink-muted">No tracked manager reported this stock in a 13F filing.</p>
       )}
 
-      <MajorShareholders symbol={stock.symbol} />
+      {issuer && <MajorShareholders issuer={issuer} />}
 
-      <section>
-        <h2 className="mb-2 text-lg font-medium">Trend</h2>
-        <TrendCharts trend={stock.trend} />
-      </section>
+      {stock && (
+        <section>
+          <h2 className="mb-2 text-lg font-medium">Trend</h2>
+          <TrendCharts trend={stock.trend} />
+        </section>
+      )}
     </div>
   )
 }

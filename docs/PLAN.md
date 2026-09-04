@@ -708,7 +708,17 @@ Acceptance criteria
 - [x] `pytest ingest` green (27 passed; nothing else changed).
 
 #### Milestone 8.2 — Fetch and parse (`ownership_fetch.py`)
-Status: not started
+Status: done a86a51d
+
+**Implementation note:** `Schedule13D.parse_xml`/`Schedule13G.parse_xml` return a plain `dict`
+"ready for the constructor," not an instance — `parse_filing` builds the real object
+(`schedule_cls(filing=dummy_filing, amendment_number=None, **parsed)`) to reuse edgartools' own
+`total_percent`/`total_shares` (verified: max over non-excluded reporting persons, `0.0`/`0` when
+none — mapped to `None` here). The constructor requires a `filing` object but nothing read
+afterward depends on its fields, so a placeholder `edgar.Filing(0, ...)` is used. edgartools' own
+`amendment_number` comes from regex on the form *name* ("Amendment No. 9" text), which the bare
+EDGAR form string never carries — confirms `header_fields`'s own XML-header parsing is required,
+not redundant. `event_date` returns raw `MM/DD/YYYY`; normalized to ISO in `_iso_date`.
 
 Tasks
 1. `ingest/ownership_fetch.py` (≤ 160 lines):
@@ -725,13 +735,23 @@ Tasks
 4. `ruff format .`, `ruff check .`, `pytest`.
 
 Acceptance criteria
-- [ ] `pytest ingest/test_ownership_fetch.py` green; the test file contains none of `get_filings`, `requests`, `http`.
-- [ ] In `ingest/`: `python -c "from ownership_fetch import header_fields; print(header_fields(open('fixtures/ownership_13d.xml').read()))"` prints `('0001791786', 3, '0000902664-23-002314')`.
-- [ ] `ownership_fetch.py` ≤ 160 lines; `ruff check` clean.
-- [ ] Manual, network, once (`.env` present): `python -c "import json; from ownership_fetch import list_filings; df=list_filings(json.load(open('funds.json')),'2026-09-01','2026-09-02'); print(len(df), df.accession.is_unique, df.form_raw.value_counts().to_dict())"` prints ~25-30 rows and `True`.
+- [x] `pytest ingest/test_ownership_fetch.py` green (6 tests); the test file contains none of `get_filings`, `requests`, `http`.
+- [x] In `ingest/`: `python -c "from ownership_fetch import header_fields; print(header_fields(open('fixtures/ownership_13d.xml').read()))"` prints `('0001791786', 3, '0000902664-23-002314')`.
+- [x] `ownership_fetch.py` was 160 lines here; 159 after Milestone 8.4's `filing_date` type fix (see that milestone's implementation note). `ruff check` clean.
+- [x] Manual, network: `list_filings(funds, '2026-09-01', '2026-09-02')` returned 28 rows, all accessions unique, forms `{'SCHEDULE 13D/A': 21, 'SCHEDULE 13D': 6, 'SCHEDULE 13G': 1}`.
 
 #### Milestone 8.3 — Derive (`ownership_derive.py`)
-Status: not started
+Status: done a86a51d
+
+**Implementation notes:**
+- `funds.json` CIKs/aliases are unpadded ("1791786"), but real `filer_cik`/`reporting_ciks`
+  are zero-padded 10-digit strings ("0001791786") straight from the XML header — a naive
+  dict lookup would never match. `_unpad()` normalizes both sides before comparing;
+  `investor_cik` output stays in the unpadded form throughout (roster and non-roster alike),
+  matching the existing `/manager/:cik` convention.
+- `reporting_ciks` arrives as a real Python list from the live pipeline but as a
+  `|`-joined string when round-tripped through a CSV fixture; `_as_list()` accepts either,
+  as specified.
 
 Tasks
 1. `ingest/ownership_derive.py` (≤ 170 lines; pure — DataFrame in, DataFrame out; imports only pandas/numpy/stdlib):
@@ -745,12 +765,35 @@ Tasks
 4. `ruff format .`, `ruff check .`, `pytest`.
 
 Acceptance criteria
-- [ ] `pytest ingest` green; `test_ownership_derive.py` has ≥ 8 tests.
-- [ ] `ownership_derive.py` ≤ 170 lines; every function typed; no `print`; no `firebase`, `edgar`, or `google` imports.
-- [ ] In `ingest/`: `python -c "import json, pandas as pd; from ownership_derive import derive_all; t=derive_all(pd.read_csv('fixtures/ownership_small.csv'), json.load(open('funds.json')), json.load(open('signals_config.json'))['ownership']); print(t['events']['event'].value_counts(dropna=False).to_dict())"` shows `NEW, INCREASED, DECREASED, EXITED, SWITCHED_TO_13D, UPDATED` and a null count ≥ 2.
+- [x] `pytest ingest` green (43 passed); `test_ownership_derive.py` has 10 tests.
+- [x] `ownership_derive.py` is 133 lines; every function typed; no `print`; no `firebase`, `edgar`, or `google` imports.
+- [x] `derive_all` on the fixture shows event counts `{'NEW': 5, 'INCREASED': 2, None: 2, 'SWITCHED_TO_13D': 1, 'DECREASED': 1, 'UPDATED': 1, 'EXITED': 1}` — all 6 named kinds plus null ≥ 2.
 
 #### Milestone 8.4 — Store, CLI, dry run (`ownership_store.py`, `ownership.py`)
-Status: not started
+Status: done a86a51d
+
+**Implementation notes (real bugs found by the live AC checks, not by unit tests):**
+- `edgartools`' `to_pandas()` returns `filing_date` as a `datetime.date` object, not a string.
+  It flowed unconverted into every `filed_at` value and crashed Firestore's encoder on the
+  first real write (`TypeError: Cannot convert to a Firestore Value ... datetime.date`).
+  Fixed at the source in `ownership_fetch.list_filings`: `.astype(str)` right after
+  `to_pandas()`, so every downstream consumer can assume `filed_at` is always a plain string.
+  This is exactly the gap the plan flagged: `list_filings` has no unit test (network-only),
+  so this surfaced only on the real run, as intended.
+- `reporting_ciks` is a real Python `list` on a fresh fetch, but comes back as a
+  `numpy.ndarray` after a GCS parquet round-trip — `_as_list`'s original `isinstance(value,
+  list)` check missed it, silently stringifying the array (`"['0002106951']"`) and then
+  crashing `_unpad`'s `int()` call on the second real run (which reads state back from GCS).
+  Fixed by checking `hasattr(value, "__iter__")` instead of the narrower `list` check, which
+  handles list, ndarray, and any other array-like uniformly. A regression test
+  (`test_reporting_ciks_survives_a_parquet_round_trip`) round-trips a real DataFrame through
+  `to_parquet`/`read_parquet` and asserts the pre-fix type failure would have fired.
+- The stale GCS state written by the failed first real-write attempt (before either fix) was
+  deleted before retrying — it was never served (`ownership/feed` was confirmed absent both
+  before and after), so this was pre-launch cleanup, not a data-loss risk.
+- `pd.concat([state, new_df])` on an empty `new_df` (the common case once caught up — a daily
+  run with 0 new filings) raised a `FutureWarning` about all-NA column dtypes. `ownership.py`
+  now skips the concat entirely when there's nothing new to merge.
 
 Tasks
 1. `ingest/ownership_store.py` (≤ 170 lines): `STATE_BLOB = "parquet/ownership_filings.parquet"`, `RAW_PREFIX = "raw_ownership/"`; `read_state(bucket) -> pd.DataFrame | None`; `write_state(bucket, filings, raw_by_accession)` (raw XML per new accession, then the whole parquet; per-object `try/except` + `logger.exception` like `store.write_gcs`); `build_feed(tables, cfg) -> dict`; `build_issuer_docs(tables, cfg, only_symbols: set | None) -> dict[str, dict]`; `build_investor_docs(tables, funds, cfg, only_ciks: set | None) -> dict[str, dict]` (shapes exactly as the Firestore table; `events` = newest `max_events_per_doc`; `None` filter = all); `write_firestore(db, feed, issuer_docs, investor_docs) -> int` (write count; paths `ownership/feed`, `ownership_issuers/{quote(symbol, safe='')}`, `ownership_investors/{cik}`; `store._commit_in_batches`).
@@ -768,11 +811,11 @@ Tasks
 5. Commit 8.2-8.4 together: `feat: 13D/13G ownership pipeline`.
 
 Acceptance criteria
-- [ ] `pytest ingest` green; the 13F tests are untouched.
-- [ ] The four new Python files are each ≤ 170 lines; `ruff format --check .` and `ruff check .` clean; `print` only in `ownership.py`.
-- [ ] `python ownership.py --dry-run --since 2026-08-25` prints ≥ 100 new filings, an event table with at least `NEW` and `UPDATED`, the unmatched-filer list, and writes nothing (`parquet/ownership_filings.parquet` absent or its `updated` time unchanged; no `ownership/feed` in Firestore).
-- [ ] `python ownership.py --since 2026-08-25 --until 2026-09-03` (real) creates `ownership/feed`; one `HIGH` event's `pct`, `shares`, `eventDate`, `issuerName` match its `url` on sec.gov; its `ownership_issuers/{symbol}` and `ownership_investors/{cik}` docs exist.
-- [ ] Running that real command again prints `0 new filings` and `counts.filings` is unchanged.
+- [x] `pytest ingest` green (50 passed); the 13F tests are untouched.
+- [x] `ownership_store.py` (121), `ownership.py` (140) each ≤ 170 lines (`ownership_fetch.py` 159, `ownership_derive.py` 133 after this milestone's fixes); `ruff format --check .` and `ruff check .` clean; `print` only in `ownership.py`.
+- [x] `python ownership.py --dry-run --since 2026-08-25` printed 152 new filings, event counts incl. `NEW` and `UPDATED`, the unmatched-filer list, and wrote nothing (confirmed via direct Firestore/GCS checks: `ownership/feed` absent, state blob absent).
+- [x] `python ownership.py --since 2026-08-25 --until 2026-09-03` (real) created `ownership/feed` (152 filings, 269 docs written); the HIGH event for Greenlight Ventures / NXL (pct 5.6, shares 1,385,246, eventDate 2026-08-18, issuer Nexalin Technology Inc.) verified byte-for-byte against the filing's own `primary_doc.xml` on sec.gov.
+- [x] Running that real command again printed `0 new filings` and `counts.filings` stayed at 152.
 
 #### Milestone 8.5 — Workflow and backfill
 Status: not started

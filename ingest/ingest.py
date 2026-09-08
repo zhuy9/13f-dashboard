@@ -29,6 +29,12 @@ def load_config() -> dict:
     return json.loads((HERE / "signals_config.json").read_text())
 
 
+def load_corporate_actions() -> list[dict]:
+    """Stock splits, from data, never inferred. A large share change is not evidence of a split,
+    so nothing is adjusted without an entry here carrying a source."""
+    return json.loads((HERE / "corporate_actions.json").read_text())
+
+
 def fetch_manager(fund: dict, quarters: int) -> tuple[pd.DataFrame, dict[str, str], dict[tuple, bytes]]:
     """One manager's last `quarters` 13F-HR filings, across every CIK the firm files them under.
 
@@ -212,7 +218,7 @@ def main() -> int:
         print(f"\nTotal rows: {len(holdings)}, unmapped tickers: {unmapped:.1%}")
 
     if len(holdings):
-        tables = derive_all(holdings, funds, config)
+        tables = derive_all(holdings, funds, config, load_corporate_actions())
 
         # A dry run must not touch remote state, and the GCS archive is remote state.
         bucket_name = None if args.dry_run else os.environ.get("GCS_BUCKET")

@@ -95,7 +95,11 @@ def test_dry_run_mutates_no_remote_state_and_writes_no_keepalive_marker(monkeypa
     monkeypatch.setattr(
         m,
         "derive_all",
-        lambda h, funds, cfg: {"periods": ["2026-06-30"], "manager_quarter_summary": pd.DataFrame({"period": [], "status": []})},
+        lambda h, funds, cfg, actions: {
+            "periods": ["2026-06-30"],
+            "methodology_version": 2,
+            "manager_quarter_summary": pd.DataFrame({"period": [], "status": []}),
+        },
     )
     monkeypatch.setattr(m, "print_dry_run_summary", lambda short, enriched: None)
     monkeypatch.setattr(m, "print_dry_run_signals", lambda tables: None)

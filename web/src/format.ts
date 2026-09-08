@@ -13,6 +13,14 @@ export function pct(value: number): string {
   return `${(value * 100).toFixed(1)}%`
 }
 
+// A share-count change is a ratio, not a weight: +100% means the position doubled. Distinct
+// from pp(), which reports a move in percentage points of the portfolio.
+export function signedPct(value: number): string {
+  const points = value * 100
+  const sign = points < 0 ? '\u2212' : '+'
+  return `${sign}${Math.abs(points).toFixed(1)}%`
+}
+
 export function pp(value: number): string {
   const points = value * 100
   const sign = points < 0 ? '−' : '+'

@@ -1,6 +1,8 @@
 from types import SimpleNamespace
 
-from enrich import ensure_securities
+import pandas as pd
+
+from enrich import attach, ensure_securities
 
 
 class _FakeDb:
@@ -64,3 +66,27 @@ def test_persist_false_enriches_in_memory_and_writes_no_cache_entry(monkeypatch)
 
     assert out["037833100"]["ticker"] == "AAPL"
     assert db.written == {}
+
+
+def test_a_ticker_rename_keeps_one_continuous_position_and_share_classes_stay_apart():
+    """Identifier continuity comes from the cache being keyed by CUSIP, not by ticker: one
+    cached entry per security supplies the symbol for every quarter, so a company that renamed
+    its ticker does not split into two symbols mid-history and read as a sell plus a buy.
+
+    Two share classes carry two CUSIPs, so they stay two positions -- which is right. They are
+    separately reported securities, not one holding to be merged."""
+    securities = {
+        "38259P508": {"ticker": "GOOGL", "sector": "Tech"},  # renamed from GOOG in 2014
+        "02079K107": {"ticker": "GOOG", "sector": "Tech"},  # the other class, its own CUSIP
+    }
+    filed_over_two_quarters = pd.DataFrame(
+        {
+            "cusip": ["38259P508", "38259P508", "02079K107"],
+            "period": ["2026-03-31", "2026-06-30", "2026-06-30"],
+        }
+    )
+
+    out = attach(filed_over_two_quarters, securities)
+
+    assert list(out["symbol"]) == ["GOOGL", "GOOGL", "GOOG"]
+    assert out[out["period"] == "2026-06-30"]["symbol"].nunique() == 2

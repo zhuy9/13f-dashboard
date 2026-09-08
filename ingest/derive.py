@@ -81,6 +81,56 @@ def _equity_weight(cur: pd.DataFrame, equity_value: pd.Series) -> pd.Series:
     return (cur["value"] / denom.where(denom > 0)).astype(float)
 
 
+def split_factor(symbol: str, prev_period: str, period: str, actions: list[dict]) -> float:
+    """How many current shares one share of `symbol` at `prev_period` turned into.
+
+    `ratio` is new shares per old share, so a 2-for-1 forward split is 2 and a 1-for-10 reverse
+    split is 0.1. One signed field, not a ratio plus a direction: the direction is which side of
+    1 the ratio sits on, and a second field could only ever contradict the first.
+
+    An action counts when it took effect after the prior report date and no later than the
+    current one, which is exactly the interval the two share counts straddle. Actions compound,
+    so the factors multiply.
+    """
+    factor = 1.0
+    for action in actions:
+        if action["symbol"] != symbol:
+            continue
+        if prev_period < action["effective_date"] <= period:
+            factor *= float(action["ratio"])
+    return factor
+
+
+# Ratios a split is actually announced at. A 1-for-7 exists; a 1-for-83 does not.
+_PLAUSIBLE_SPLIT_RATIOS = [float(n) for n in range(2, 51)] + [1 / n for n in range(2, 51)]
+
+
+def suspected_split(shares, prev_shares, value, prev_value) -> bool:
+    """True when a share count moved like a split but no corporate action explains it.
+
+    A split multiplies the share count and leaves the position's value alone, because the price
+    divides by the same number. A purchase moves both together. So a clean multiple in the
+    shares with a roughly unchanged value is the signature worth flagging -- checking shares
+    alone would flag every manager who happened to double a round-numbered position.
+
+    This only ever sets a flag. Nothing is adjusted without an entry in
+    `corporate_actions.json`, because a share count that looks like a split is not evidence
+    that one happened.
+
+    `# ponytail:` a heuristic with a deliberate ceiling -- it cannot see a split that coincided
+    with real trading, and a 50% value band is wide enough that a violent quarter could hide
+    one. It exists to say "check this", not to be complete. The fix for a specific miss is an
+    entry in corporate_actions.json, not a cleverer threshold.
+    """
+    if not (prev_shares and shares and prev_value and prev_value > 0 and value):
+        return False
+    share_ratio = shares / prev_shares
+    if not any(abs(share_ratio - r) <= 0.01 * r for r in _PLAUSIBLE_SPLIT_RATIOS):
+        return False
+    # bool(), not the numpy bool the comparison yields: this lands in a Firestore field.
+    return bool(abs(value / prev_value - 1) < 0.5)
+
+
 def _filed_ciks(h: pd.DataFrame) -> dict:
     return h.groupby("period")["cik"].apply(set).to_dict()
 
@@ -108,7 +158,7 @@ def _period_pairs(cur: pd.DataFrame, periods: list[str], filed: dict, key_col: s
                 yield period, cik, key, cur_row, prev_row, manager_filed_prev
 
 
-def manager_quarter_summary(h: pd.DataFrame, periods: list[str]) -> pd.DataFrame:
+def manager_quarter_summary(h: pd.DataFrame, periods: list[str], actions: list[dict] = ()) -> pd.DataFrame:
     """Table A: per (cik, period, symbol), non-option rows only.
 
     Notes and warrants stay here so they remain inspectable (the `kind` column marks them and
@@ -118,6 +168,7 @@ def manager_quarter_summary(h: pd.DataFrame, periods: list[str]) -> pd.DataFrame
     equity = h[h["put_call"].isna()]
     tot = totals(h).set_index(["cik", "period"])["equity_value"]
     filed = _filed_ciks(h)
+    prev_of = {period: periods[i - 1] if i else None for i, period in enumerate(periods)}
 
     cur = equity.groupby(["cik", "period", "symbol"], as_index=False).agg(
         short=("short", "first"),
@@ -136,6 +187,7 @@ def manager_quarter_summary(h: pd.DataFrame, periods: list[str]) -> pd.DataFrame
         # A SOLD_OUT row has no current side: it is emitted at zero off the prior quarter's row.
         value, shares, weight = (cur_row["value"], cur_row["shares"], cur_row["weight"]) if cur_row is not None else (0, 0, 0.0)
 
+        adj_prev_shares = split_unverified = share_change = None
         if not manager_filed_prev:
             prev_value = prev_shares = prev_weight = None
             status = None
@@ -144,14 +196,22 @@ def manager_quarter_summary(h: pd.DataFrame, periods: list[str]) -> pd.DataFrame
             status = "NEW"
         else:
             prev_value, prev_shares, prev_weight = prev_row["value"], prev_row["shares"], prev_row["weight"]
+            # Compare like with like: a 2-for-1 split doubles the share count with no trade
+            # behind it, and comparing the raw counts reads that as buying.
+            factor = split_factor(symbol, prev_of[period], period, actions)
+            adj_prev_shares = round(prev_shares * factor)
+            if factor == 1.0:
+                split_unverified = suspected_split(shares, prev_shares, value, prev_value)
             if cur_row is None:
                 status = "SOLD_OUT"
-            elif shares > prev_shares:
+            elif shares > adj_prev_shares:
                 status = "ADDED"
-            elif shares < prev_shares:
+            elif shares < adj_prev_shares:
                 status = "TRIMMED"
             else:
                 status = "UNCHANGED"
+            if adj_prev_shares:
+                share_change = shares / adj_prev_shares - 1
 
         if prev_weight is not None:
             change = weight - prev_weight
@@ -173,6 +233,11 @@ def manager_quarter_summary(h: pd.DataFrame, periods: list[str]) -> pd.DataFrame
                 "weight": weight,
                 "prev_value": prev_value,
                 "prev_shares": prev_shares,
+                # prev_shares as filed, adj_prev_shares on the current share basis. They differ
+                # only across a corporate action, and both are kept so the adjustment is auditable.
+                "adj_prev_shares": adj_prev_shares,
+                "share_change": share_change,
+                "split_unverified": split_unverified,
                 "prev_weight": prev_weight,
                 "change": change,
                 "status": status,
@@ -498,14 +563,14 @@ def clusters(mqs: pd.DataFrame, mse: pd.DataFrame, funds: list[dict]) -> dict:
     return result
 
 
-def derive_all(h: pd.DataFrame, funds: list[dict], cfg: dict) -> dict:
+def derive_all(h: pd.DataFrame, funds: list[dict], cfg: dict, actions: list[dict] = ()) -> dict:
     # The newest `quarters` periods -- a manager who stopped filing drags older ones into the
     # union, where they render as near-empty quarters holding that one stale filer.
     periods = sorted(h["period"].unique())[-cfg["quarters"] :]
     h = h[h["period"].isin(periods)].assign(kind=lambda d: d["cls"].map(security_kind))
     managers_per_period = {p: len(ciks) for p, ciks in _filed_ciks(h).items()}
 
-    mqs = manager_quarter_summary(h, periods)
+    mqs = manager_quarter_summary(h, periods, actions)
     mse = manager_sector_exposure(h, periods)
     # Every conviction signal is about common equity, so notes and warrants are dropped here
     # rather than in each consumer. They stay in the stored `mqs` table, where they are

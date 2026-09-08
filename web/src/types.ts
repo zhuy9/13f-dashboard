@@ -56,6 +56,10 @@ export interface Position {
   weight: number
   prevValue: number | null
   prevShares: number | null
+  // prevShares as filed; adjPrevShares restated onto the current share basis across a split.
+  adjPrevShares: number | null
+  shareChange: number | null
+  splitUnverified: boolean | null
   prevWeight: number | null
   change: number | null
   status: PositionStatus | null

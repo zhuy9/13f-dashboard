@@ -1,8 +1,9 @@
+import { ColorBadge } from '@/components/ColorBadge'
 import { KindBadge } from '@/components/KindBadge'
 import { StatusBadge } from '@/components/StatusBadge'
 import { StockLink } from '@/components/StockLink'
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table'
-import { pct, pp } from '@/format'
+import { pct, pp, signedPct } from '@/format'
 import { useSortableRows } from '@/hooks/useSortableRows'
 import type { Position } from '@/types'
 
@@ -31,8 +32,14 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
             <TableCell className="font-tabular text-right">{pct(p.weight)}</TableCell>
             <TableCell className="font-tabular text-right">{p.prevWeight != null ? pct(p.prevWeight) : '—'}</TableCell>
             <TableCell className="font-tabular text-right">{p.change != null ? pp(p.change) : '—'}</TableCell>
-            <TableCell>
-              <StatusBadge status={p.status} />
+            <TableCell className="whitespace-nowrap">
+              <StatusBadge status={p.status} />{' '}
+              {p.shareChange != null && <span className="font-tabular text-ink-muted">{signedPct(p.shareChange)}</span>}{' '}
+              {p.splitUnverified === true && (
+                <span title="Share count moved like a stock split, but no corporate action on file confirms one. The comparison to last quarter may not be like-for-like.">
+                  <ColorBadge color="#9a6700" label="UNADJUSTED?" />
+                </span>
+              )}
             </TableCell>
           </TableRow>
         ))}

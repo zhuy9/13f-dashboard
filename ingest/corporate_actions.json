@@ -1,0 +1,37 @@
+[
+  {
+    "symbol": "NVDA",
+    "effective_date": "2024-06-10",
+    "ratio": 10,
+    "source": "https://nvidianews.nvidia.com/news/nvidia-announces-financial-results-for-first-quarter-fiscal-2025",
+    "note": "10-for-1 forward split"
+  },
+  {
+    "symbol": "CMG",
+    "effective_date": "2024-06-26",
+    "ratio": 50,
+    "source": "https://ir.chipotle.com/2024-03-19-Chipotle-Announces-50-for-1-Stock-Split",
+    "note": "50-for-1 forward split"
+  },
+  {
+    "symbol": "AVGO",
+    "effective_date": "2024-07-15",
+    "ratio": 10,
+    "source": "https://investors.broadcom.com/news-releases/news-release-details/broadcom-announces-10-1-forward-stock-split",
+    "note": "10-for-1 forward split"
+  },
+  {
+    "symbol": "SMCI",
+    "effective_date": "2024-10-01",
+    "ratio": 10,
+    "source": "https://ir.supermicro.com/news/news-details/2024/Supermicro-Announces-10-for-1-Forward-Stock-Split/default.aspx",
+    "note": "10-for-1 forward split"
+  },
+  {
+    "symbol": "SHOP",
+    "effective_date": "2022-06-29",
+    "ratio": 10,
+    "source": "https://news.shopify.com/shopify-announces-ten-for-one-stock-split",
+    "note": "10-for-1 forward split; before the current 12-quarter window, kept as a worked example"
+  }
+]

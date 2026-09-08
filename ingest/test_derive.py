@@ -10,6 +10,7 @@ from derive import (
     manager_quarter_summary,
     options_exposure,
     security_kind,
+    split_factor,
 )
 
 FIXTURE = Path(__file__).parent / "fixtures" / "holdings_small.csv"
@@ -424,3 +425,85 @@ def test_conviction_score_components_are_reproducible_by_hand():
     assert scored.loc["HOT", "avg_change"] == pytest.approx(0.09)
     assert scored.loc["HOT", "score"] == 100
     assert scored.loc["WIDE", "score"] == round(100 * 18 / 84) == 21
+
+
+SPLIT_2FOR1 = [{"symbol": "AAA", "effective_date": "2026-05-01", "ratio": 2, "source": "test"}]
+REVERSE_1FOR10 = [{"symbol": "AAA", "effective_date": "2026-05-01", "ratio": 0.1, "source": "test"}]
+
+
+def _two_quarters(p1_shares: int, p1_value: int, p2_shares: int, p2_value: int, actions=()) -> pd.Series:
+    """One symbol held across both periods; returns its P2 mqs row."""
+    h = pd.concat(
+        [
+            _rows(P1, ("AAA", "COM", p1_value, p1_shares, None)),
+            _rows(P2, ("AAA", "COM", p2_value, p2_shares, None)),
+        ],
+        ignore_index=True,
+    )
+    h = h.assign(kind=h["cls"].map(security_kind))
+    mqs = manager_quarter_summary(h, [P1, P2], actions)
+    return _mqs_row(mqs, "9999999999", P2, "AAA")
+
+
+def test_a_forward_split_is_not_buying():
+    """F2: 100 shares becoming 200 across a 2-for-1 split is the same position. The value stays
+    put because the price halved, and the old code called this ADDED."""
+    row = _two_quarters(100, 10_000, 200, 10_000, SPLIT_2FOR1)
+
+    assert row["status"] == "UNCHANGED"
+    assert row["prev_shares"] == 100  # as filed
+    assert row["adj_prev_shares"] == 200  # on the current share basis
+    assert row["share_change"] == pytest.approx(0.0)
+
+
+def test_a_reverse_split_is_not_selling():
+    row = _two_quarters(1000, 10_000, 100, 10_000, REVERSE_1FOR10)
+
+    assert row["status"] == "UNCHANGED"
+    assert row["adj_prev_shares"] == 100
+
+
+def test_a_split_plus_a_real_increase_keeps_the_increase():
+    """2-for-1 on 100 shares is 200; holding 220 means they really bought 10% more."""
+    row = _two_quarters(100, 10_000, 220, 11_000, SPLIT_2FOR1)
+
+    assert row["status"] == "ADDED"
+    assert row["share_change"] == pytest.approx(0.10)
+
+
+def test_an_action_outside_the_two_report_dates_does_not_adjust():
+    """Only an action effective inside the interval the two share counts straddle applies."""
+    before = [{"symbol": "AAA", "effective_date": "2026-01-01", "ratio": 2, "source": "test"}]
+
+    assert _two_quarters(100, 10_000, 200, 10_000, before)["adj_prev_shares"] == 100
+
+
+def test_an_unexplained_clean_doubling_is_flagged_not_adjusted():
+    """No entry in corporate_actions.json means no adjustment -- a share count that looks like
+    a split is not evidence that one happened. It is surfaced as unverified instead."""
+    row = _two_quarters(100, 10_000, 200, 10_000)
+
+    assert row["adj_prev_shares"] == 100  # untouched
+    assert row["status"] == "ADDED"  # still reads as buying, because we cannot prove otherwise
+    assert row["split_unverified"] is True
+
+
+def test_doubling_a_position_by_buying_is_not_flagged_as_a_suspected_split():
+    """The discriminator is value: a real purchase doubles the value along with the shares, a
+    split leaves it alone. Without this, every manager who doubled a round position would flag."""
+    row = _two_quarters(100, 10_000, 200, 20_000)
+
+    assert row["status"] == "ADDED"
+    assert row["split_unverified"] is False
+
+
+def test_split_factors_compound_and_ignore_other_symbols():
+    actions = [
+        {"symbol": "AAA", "effective_date": "2026-05-01", "ratio": 2, "source": "test"},
+        {"symbol": "AAA", "effective_date": "2026-06-01", "ratio": 3, "source": "test"},
+        {"symbol": "BBB", "effective_date": "2026-05-01", "ratio": 5, "source": "test"},
+    ]
+
+    assert split_factor("AAA", P1, P2, actions) == 6.0
+    assert split_factor("BBB", P1, P2, actions) == 5.0
+    assert split_factor("CCC", P1, P2, actions) == 1.0

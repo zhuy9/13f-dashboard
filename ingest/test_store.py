@@ -50,21 +50,18 @@ def test_build_meta_shape(tables):
     assert meta["clusters"][0]["commonHoldings"]  # camelCase, non-empty at latest period
 
 
-def test_symbols_doc_is_written_and_positions_carry_their_own_sector(tables):
-    """The treemap used to look sectors up in meta/latest's symbol list. Now each position row
-    has one, so nothing but the search box needs that list."""
+def test_symbols_get_their_own_doc(tables):
     db = _FakeDb({})
 
     write_firestore(db, tables, FUNDS, tables["periods"])
 
     assert {"symbol", "name", "sector"} <= db.written["meta/symbols"]["symbols"][0].keys()
-    position = db.written["manager_quarters/1111111111_2026-06-30"]["positions"][0]
-    assert position["sector"]
 
 
 def test_manager_quarter_doc_has_camelcase_and_sold_out_position(tables):
     docs = _build_manager_quarter_docs(tables, FUNDS)
     doc = docs["1111111111_2026-06-30"]
+    assert doc["positions"][0]["sector"]  # the treemap reads it here, not from meta/latest
     assert doc["totalValue"] == 35000
     assert doc["counts"]["soldOut"] == 1
     sold_out_positions = [p for p in doc["positions"] if p["status"] == "SOLD_OUT"]

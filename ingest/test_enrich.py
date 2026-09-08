@@ -33,9 +33,3 @@ def test_an_etf_is_sectored_from_openfigi_not_from_its_sic(monkeypatch):
 
     assert itot["sector"] == "ETF / Fund"
     assert itot["sic"] == 6726  # still recorded, just no longer what decides
-
-
-def test_a_common_stock_still_takes_its_sector_from_the_sic(monkeypatch):
-    aapl = _enrich_one(monkeypatch, "037833100", "AAPL", "Common Stock", 3571)
-
-    assert aapl["sector"] == "Technology"

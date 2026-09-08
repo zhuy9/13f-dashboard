@@ -99,7 +99,6 @@ def ensure_securities(
                 "cik": issuer_cik,
                 "sic": sic,
                 "sicDescription": sic_description,
-                "securityType": security_type,
                 "sector": sic_to_sector(sic, security_type),
             }
 

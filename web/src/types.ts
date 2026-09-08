@@ -17,12 +17,6 @@ export interface ClusterSummary {
   topSector: string | null
 }
 
-export interface SymbolRef {
-  symbol: string
-  name: string
-  sector: string
-}
-
 export interface Meta {
   latestPeriod: string
   periods: string[]
@@ -33,7 +27,7 @@ export interface Meta {
 
 // meta/symbols -- its own doc so meta/latest stays small; only the search box reads it.
 export interface SymbolIndex {
-  symbols: SymbolRef[]
+  symbols: { symbol: string; name: string; sector: string }[]
 }
 
 // managers/{cik}

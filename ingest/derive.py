@@ -56,10 +56,8 @@ def manager_quarter_summary(h: pd.DataFrame, periods: list[str]) -> pd.DataFrame
     for period, cik, symbol, cur_row, prev_row, manager_filed_prev in _period_pairs(cur, periods, filed, "symbol"):
         row = cur_row if cur_row is not None else prev_row
         short, name, sector = row["short"], row["name"], row["sector"]
-        if cur_row is not None:
-            value, shares, weight = cur_row["value"], cur_row["shares"], cur_row["weight"]
-        else:
-            value, shares, weight = 0, 0, 0.0
+        # A SOLD_OUT row has no current side: it is emitted at zero off the prior quarter's row.
+        value, shares, weight = (cur_row["value"], cur_row["shares"], cur_row["weight"]) if cur_row is not None else (0, 0, 0.0)
 
         if not manager_filed_prev:
             prev_value = prev_shares = prev_weight = None

@@ -958,7 +958,7 @@ Source: a product/documentation review of commit `4851a08` (`_darren/13f-dashboa
 | F9 | README has no demo/screenshots; methodology is buried in this plan. | `README.md` | confirmed |
 
 ### Milestone 9 — Baseline verification and honest claims  (M0)
-Status: in progress
+Status: done 2f16eed
 
 Tasks
 1. Record the reviewed commit and the F1-F9 verdicts in the table above (done as part of this milestone's planning commit).

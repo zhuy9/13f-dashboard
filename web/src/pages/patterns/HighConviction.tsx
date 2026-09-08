@@ -30,7 +30,11 @@ export function HighConviction({ rows }: { rows: HighConvictionRow[] }) {
             </TableCell>
             <TableCell className="max-w-xs truncate">{r.name}</TableCell>
             <TableCell className="font-tabular text-right">
-              <ManagerList names={r.managerNames} label={String(r.managers)} />
+              <ManagerList
+                names={r.managerNames}
+                label={String(r.managers)}
+                heading={`${r.symbol} — holding 3% or more`}
+              />
             </TableCell>
             <TableCell className="font-tabular text-right">{pct(r.avgWeight)}</TableCell>
             <TableCell className="font-tabular text-right">{pct(r.maxWeight)}</TableCell>

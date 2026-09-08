@@ -1,4 +1,4 @@
-import { ManagerList } from '@/components/Explain'
+import { InfoPopover, ManagerList } from '@/components/Explain'
 import { StockLink } from '@/components/StockLink'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { pct, pp } from '@/format'
@@ -36,18 +36,22 @@ export function ConsensusBuys({ rows }: { rows: ConsensusBuyRow[] }) {
             <TableCell className="font-tabular text-right">{pp(r.avgWeightIncrease)}</TableCell>
             <TableCell className="font-tabular text-right">
               {r.raw != null && r.scorePeak ? (
-                <details className="inline-block">
-                  <summary className="cursor-pointer underline decoration-dotted">{r.score}</summary>
-                  <div className="mt-1 w-48 text-right text-xs font-normal text-ink-muted">
-                    raw {r.raw.toFixed(1)} ÷ quarter peak {r.scorePeak.toFixed(1)} × 100
-                  </div>
-                </details>
+                <InfoPopover label={r.score} heading={`${r.symbol} conviction score`}>
+                  <p>
+                    {r.raw.toFixed(1)} raw ÷ {r.scorePeak.toFixed(1)} highest raw score this quarter × 100 ={' '}
+                    {r.score}.
+                  </p>
+                  <p className="mt-1">
+                    The scale is relative to this quarter only, so 100 means top of the quarter rather than a rating,
+                    and scores are not comparable between quarters.
+                  </p>
+                </InfoPopover>
               ) : (
                 r.score
               )}
             </TableCell>
             <TableCell>
-              <ManagerList names={r.managers} />
+              <ManagerList names={r.managers} heading={`${r.symbol} — opened or added`} />
             </TableCell>
           </TableRow>
         ))}

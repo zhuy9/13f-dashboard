@@ -32,7 +32,7 @@ export function ConsensusExits({ rows }: { rows: ConsensusExitRow[] }) {
             <TableCell className="font-tabular text-right">{r.trimmed}</TableCell>
             <TableCell className="font-tabular text-right">{pp(r.avgReduction)}</TableCell>
             <TableCell>
-              <ManagerList names={r.managers} />
+              <ManagerList names={r.managers} heading={`${r.symbol} — trimmed or sold out`} />
             </TableCell>
           </TableRow>
         ))}

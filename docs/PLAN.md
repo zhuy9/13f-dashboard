@@ -1005,7 +1005,7 @@ Acceptance criteria
 **Migration (methodology v1 → v2).** Every published weight changes, so this is a full rewrite, not a patch. Affected docs: `manager_quarters/{cik}_{period}` (`positions[].weight/prevWeight/change`, `sectors[].weight/prevWeight/change`, new `equityValue`), `stocks/{symbol}` (`latest.avgWeight/medianWeight/maxWeight/holders[]`, `trend[]`, `score`), `signals/{period}` (every E/F/G table), `meta/latest` (new `methodologyVersion`). GCS Parquet under `parquet/**` is rewritten the same way. Procedure: one `python ingest.py` over the full `quarters` window — `derive_all` recomputes every period from the fetched filings, and `write_firestore(prune=True)` replaces the docs, so no separate backfill and no mixed-version window. `securities/` and `raw/**` are untouched. Run `--dry-run` first and compare a known manager's top weights against the same manager's filing: an option-heavy book should move the most.
 
 ### Milestone 11 — Splits, identifier changes, 13F-HR/A  (M2)
-Status: in progress
+Status: done 17b1ec3 + 01d0e85
 
 Tasks
 1. `ingest/corporate_actions.json`: `{cusip, symbol, effective_date, ratio, direction, source}`. Data, not inference — a big share delta alone never creates an entry.

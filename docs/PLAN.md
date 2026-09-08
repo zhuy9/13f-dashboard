@@ -940,6 +940,167 @@ Acceptance criteria
 
 **Stop and ask the user when (Milestone 8):** the installed edgartools cannot build `Schedule13D`/`Schedule13G` from an XML string; `get_filings` returns zero rows for a window that should have filings, or the form names differ from `FORMS`; the dry run's unmatched-filer print shows a roster manager under a CIK not in `aliases` (report, do not guess); any Firestore/GCS permission error, or a run's write count above 15,000; the backfill exceeds 120 minutes even split by quarter; a parsed value contradicts the SEC page during a spot-check (ask before "fixing"); anything seems to need a new dependency.
 
+## Milestones 9-16 — accuracy, explainability, usability (external review, 2026-09-08)
+
+Source: a product/documentation review of commit `4851a08` (`_darren/13f-dashboard/13f-dashboard-improvement-milestones.md`). Findings F1-F9 below; 9-13 are the core release, 14-16 are follow-on features. Same rules as above: one milestone at a time, every box checked before the next, `Status:` updated in a follow-up `docs:` commit.
+
+| ID | Finding | Entry point | Verified status |
+|---|---|---|---|
+| F1 | Equity weights divide by a total that includes option rows, distorting equity conviction. | `derive.py`: `totals`, `manager_quarter_summary`, `manager_sector_exposure` | confirmed |
+| F2 | 13F amendments and split adjustment are deferred; a split reads as buying. | `fetch.py`, `derive.py`, this file | confirmed (deliberate; see "Skipped on purpose") |
+| F3 | Conviction Score is per-quarter relative to the max raw score; the UI does not explain the scale. | `derive.py`: `conviction_score`; Patterns | confirmed |
+| F4 | README overgeneralizes 13D/13G deadlines and 13G eligibility. | `README.md` | confirmed |
+| F5 | README says a 13F dry run writes nothing, but it writes the securities cache and GCS archives. | `ingest.py`, `enrich.py`, `ingest.yml` | confirmed |
+| F6 | Ownership feed is capped at 300 events; the 7-day count is anchored to the newest filing, not now. | `signals_config.json`, `OwnershipPage.tsx` | confirmed |
+| F7 | `EXITED` means "fell below 5%", not "sold everything". | `ownership_derive.py`, `ownership.ts`, `README.md` | confirmed |
+| F8 | Share-change status sits beside weight change with no explanation of why they can disagree. | `PositionsTable`, `HoldersTable` | confirmed |
+| F9 | README has no demo/screenshots; methodology is buried in this plan. | `README.md` | confirmed |
+
+### Milestone 9 — Baseline verification and honest claims  (M0)
+Status: not started
+
+Tasks
+1. Record the reviewed commit and the F1-F9 verdicts in the table above (done as part of this milestone's planning commit).
+2. `README.md` ownership section: initial 13D within 5 business days, 13D amendments within 2 business days, 13G deadlines depend on filer category (QII / passive / exempt) and trigger. Link the SEC fact sheet. Stop implying every 13D is an activist campaign and every 13G filer is a quiet retail-style holder.
+3. Threshold wording: "more than 5% of a covered class" where the initial reporting requirement is described.
+4. Rename the user-facing `EXITED` label to `Below 5%`. Keep the internal `EXITED` identifier (a rename would rewrite every stored event doc for no gain).
+5. Make both dry runs read-only against remote state: `ingest.py --dry-run` skips the `securities/` cache write-back and `write_gcs`. `ownership.py --dry-run` already does. Update CLI help, `ingest.yml`'s `dry_run` description, README, and tests.
+6. New `docs/METHODOLOGY.md`: definitions, denominators, score scale, event labels, and the standing limitations (no split adjustment, no 13F-HR/A, relative score). Link it from README and from this plan.
+
+Acceptance criteria
+- [ ] F1-F9 verdict table above is filled in against the current commit with file evidence.
+- [ ] README states the 5-business-day initial 13D deadline, the 2-business-day amendment deadline, and that 13G deadlines depend on filer category, with a current SEC link.
+- [ ] A 6%-to-4% event renders `Below 5%` and nowhere claims zero shares.
+- [ ] `test_ingest.py` proves `--dry-run` calls neither `ensure_securities`' batch commit nor `write_gcs`, with a cache miss and `GCS_BUCKET` set.
+- [ ] A non-dry run still writes the cache, GCS, and Firestore (existing tests stay green).
+- [ ] `docs/METHODOLOGY.md` exists, is linked from README, and lists the open limitations as open.
+
+### Milestone 10 — Equity-only weights and a documented score  (M1)
+Status: not started
+
+Tasks
+1. `totals()` returns `total_value` (the filing total, all rows, kept for reconciliation) **and** `equity_value` (sum of `put_call.isna()` and `kind == "EQUITY"` rows).
+2. `manager_quarter_summary` and `manager_sector_exposure` divide by `equity_value`. Notes and warrants stay in the table (`kind` already marks them) but leave the denominator and the conviction math. ETFs/funds read `EQUITY` and stay in — documented, not silently.
+3. Option-underlying value is never called premium, invested capital, or delta-adjusted exposure. `options_exposure` keeps its own numbers.
+4. Add `methodologyVersion` to `meta/latest`; the web app shows it and refuses to mix versions.
+5. UI copy: weights are a share of the *reported equity portfolio*, not AUM.
+6. Score formula unchanged. `docs/METHODOLOGY.md` documents its inputs, the per-quarter normalization, and that 100 is "highest raw score this quarter", not a probability.
+
+Acceptance criteria
+- [ ] Fixture: equities at 60 and 40 plus a CALL row of 900 → weights 0.60 and 0.40.
+- [ ] Eligible equity weights sum to 1.0 within tolerance; a zero-equity manager yields no division by zero.
+- [ ] A NOTE and a WARRANT row appear in `manager_quarter_summary` but do not change any weight.
+- [ ] Both `total_value` and `equity_value` are stored and distinguishable in the UI.
+- [ ] `stock_quarter_summary`, `high_conviction`, `sector_rotation`, and `conviction_score` all consume the equity denominator.
+- [ ] Score docs state the per-quarter relative scale; one hand-checked score fixture reproduces its components.
+- [ ] Migration note in this file names the affected Firestore docs and says a full re-ingest is required.
+
+### Milestone 11 — Splits, identifier changes, 13F-HR/A  (M2)
+Status: not started
+
+Tasks
+1. `ingest/corporate_actions.json`: `{cusip, symbol, effective_date, ratio, direction, source}`. Data, not inference — a big share delta alone never creates an entry.
+2. `derive.py` adjusts prior-quarter shares by any action effective between the two report dates. Both reported and adjusted share counts stay on the row.
+3. Ticker renames map through CUSIP, which is already the join key. Distinct share classes keep distinct CUSIPs and stay separate.
+4. `fetch.py` accepts `13F-HR/A`: a restatement replaces that (cik, period) snapshot; an additive amendment unions its rows. Keep every accession; ingesting the same accession twice changes nothing.
+5. A holding first disclosed by an amendment is labeled as newly *disclosed*, not newly *acquired*.
+
+Acceptance criteria
+- [ ] 2-for-1 split with unchanged economics → `UNCHANGED`, not `ADDED`; reverse split → not `TRIMMED`.
+- [ ] Split plus a real 10% increase → `ADDED` with the 10% intact after adjustment.
+- [ ] A ticker rename keeps one continuous position; two share classes stay two rows.
+- [ ] A share jump with no corporate-action entry is flagged unverified, not silently adjusted.
+- [ ] Fixtures cover: original, restatement, additive amendment, duplicate ingest.
+- [ ] Re-running the same accessions is idempotent.
+- [ ] Amendment-disclosed holdings carry a disclosure label and no invented trade date.
+
+### Milestone 12 — Explanations, provenance, freshness  (M3)
+Status: not started
+
+Tasks
+1. Help text next to every signal heading and ambiguous column. Explain shares-vs-weight explicitly (a position can be `ADDED` while its weight falls, because the rest of the book grew more).
+2. Expandable detail on ranked signal rows: qualifying managers, the threshold, the score components.
+3. 13F drill-downs link the source filing (accession → EDGAR), the report period, and amendment status.
+4. Three separate timestamps: report period, filing date, last successful pipeline run — per pipeline, 13F and ownership independent.
+5. Per-quarter manager coverage, naming missing or stale filers. Missing is never rendered as zero.
+6. Ownership headline counts computed over the full event population with an explicit UTC clock and date window, not over the truncated feed.
+
+Acceptance criteria
+- [ ] An `ADDED` row with a negative weight change is explainable from adjacent help text, and the numeric share change is shown.
+- [ ] `Avg Weight` and every other average names its population.
+- [ ] Every consensus row reveals its qualifying managers and rule; a score traces to its inputs.
+- [ ] A holding links to its source filing(s), aliases and amendments included.
+- [ ] Report period, filing date, and refresh time are visibly distinct.
+- [ ] Coverage distinguishes "no filing" from "zero holdings".
+- [ ] Frozen clock 8 days after the newest filing → "last 7 days" reads 0.
+- [ ] Counts stay right when the matching population exceeds the feed limit, and each states its range.
+- [ ] A load failure shows an error, never "no holdings".
+
+### Milestone 13 — README, user guide, first-run experience  (M4)
+Status: not started
+
+Tasks
+1. Top of README: live demo link, two screenshots, purpose in one sentence, three concrete questions the site answers.
+2. Split the docs: `README.md` (users + self-hosting), `docs/METHODOLOGY.md` (definitions and limits), `docs/PLAN.md` (implementation history only).
+3. Document coverage, manager selection, cadence, and limits. "Consensus" means consensus among the tracked roster.
+4. Walk the four flows: find a consensus stock, inspect holders, compare changes, verify a filing.
+5. Patterns page gets a compact intro and a short notable-changes strip above the full tables. Existing restrained design stays.
+6. Self-hosting: runtime versions, env var names, first ingest, ownership backfill, validation commands, each with an unambiguous working directory.
+
+Acceptance criteria
+- [ ] README opens with demo link, real screenshots, purpose, three questions.
+- [ ] Coverage/limits/methodology are findable without reading milestone history.
+- [ ] Self-hosting separates web preview, ingest, ownership backfill, and deploy.
+- [ ] The "one read per page" claim is corrected to match what the frontend actually does.
+- [ ] First Patterns viewport explains the product and routes into notable changes and full tables.
+- [ ] New entry view works at 375 px and is keyboard accessible.
+- [ ] Examples match the new denominator, dry-run behavior, and labels.
+
+### Milestone 14 — Historical stock views and CSV export  (M5)
+Status: not started
+
+- [ ] Quarter selector on stock pages, quarter in the URL, restored on reload.
+- [ ] Missing quarter → explicit unavailable state, never current-quarter substitution.
+- [ ] The 13D/13G section stays separately dated.
+- [ ] CSV export of visible research tables, carrying period, accessions, coverage scope, methodology version.
+- [ ] Export scope stated; all matching rows by default; correct quoting and formula-prefix escaping.
+
+### Milestone 15 — Watchlists and change digest  (M6)
+Status: not started
+
+- [ ] `localStorage` watchlists for stocks and managers, no auth, persist across reload.
+- [ ] First use sets a baseline instead of flagging all history as new.
+- [ ] Each event appears once; reruns do not duplicate.
+- [ ] Corrections and methodology recalcs are labeled apart from real position changes.
+- [ ] Entries link to the stock/manager page and the source filing.
+- [ ] Local-only persistence is explained and unavailable storage degrades gracefully.
+- Outbound email/push stays out of scope; it needs a consent design first.
+
+### Milestone 16 — Consensus filtering and ownership research  (M7)
+Status: not started
+
+16A — manager/style subset filters:
+- [ ] A subset recomputes counts, averages, thresholds, and scores; it does not just hide rows.
+- [ ] Selected universe and threshold are visible and shareable.
+- [ ] Empty and under-threshold subsets show explicit states.
+- [ ] Selecting everything reproduces the published numbers (parity fixture).
+- Note: this moves aggregation into the browser, which contradicts "the browser never computes a signal" in CLAUDE.md. Update that rule first, or do it server-side.
+
+16B — ownership pagination and purpose changes:
+- [ ] Events past the 300-row feed are reachable; stable ordering, no gaps or dupes at boundaries.
+- [ ] Filters and ranges apply to the full query scope while paging.
+- [ ] Purpose summaries cite accessions and supporting text.
+- [ ] Missing prior text → "comparison unavailable", never "purpose unchanged".
+- [ ] Summary failure leaves deterministic ownership data usable.
+
+### Release verification (Milestones 9-13)
+- Run `pytest` in `ingest`, `npm run test` and `npm run build` in `web`. Report the real commands and outcomes.
+- For 10-12, diff representative before/after outputs and explain the expected change.
+- Document recomputation order before publishing a changed contract; never let the UI mix methodology versions.
+- Browser-check every changed flow. Feature milestones 14-16 do not gate the core release.
+
+---
+
 ---
 
 ## Doc specs

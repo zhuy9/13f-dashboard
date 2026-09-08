@@ -1,7 +1,35 @@
 """All derived signal tables, computed once per ingest run. Pure functions: DataFrame in, DataFrame/dict out."""
 
+import re
+
 import numpy as np
 import pandas as pd
+
+# Checked in order: a class naming debt wins over one naming a warrant, and so on down.
+_KIND_PATTERNS = [
+    ("NOTE", re.compile(r"^\s*(NOTE|BOND|DBCV|DEB|CONV|SR NT|NT\b)")),
+    ("WARRANT", re.compile(r"(^\s*\*?W\b|W EXP|\bWTS?\b|WARRANT)")),
+    ("UNIT", re.compile(r"\bUNITS?\b")),
+]
+
+
+def security_kind(cls) -> str:
+    """The kind of instrument a 13F row describes, from the filer's own free-text Class field.
+
+    A 13F carries convertible notes, warrants and units next to common stock, and they are not
+    the same thing: a warrant's reported value is not equity exposure, and a note is debt. The
+    filer's own words are the honest source -- OpenFIGI calls every corporate "US DOMESTIC",
+    convertible or not, and only the SEC's eligibility rules imply these notes are convertible.
+
+    `# ponytail:` Class is free text truncated to 16 chars by the form ("NOTE  0.500% 6/0"), so
+    this is a prefix heuristic that falls back to EQUITY -- what the field means in the large
+    majority of rows. Widen the patterns when a filer writes something they do not cover.
+    """
+    text = "" if cls is None or (isinstance(cls, float) and pd.isna(cls)) else str(cls).strip().upper()
+    for kind, pattern in _KIND_PATTERNS:
+        if pattern.search(text):
+            return kind
+    return "EQUITY"
 
 
 def totals(h: pd.DataFrame) -> pd.DataFrame:
@@ -46,6 +74,7 @@ def manager_quarter_summary(h: pd.DataFrame, periods: list[str]) -> pd.DataFrame
         short=("short", "first"),
         name=("name", "first"),
         sector=("sector", "first"),
+        kind=("kind", "first"),
         value=("value", "sum"),
         shares=("shares", "sum"),
     )
@@ -55,7 +84,7 @@ def manager_quarter_summary(h: pd.DataFrame, periods: list[str]) -> pd.DataFrame
     rows = []
     for period, cik, symbol, cur_row, prev_row, manager_filed_prev in _period_pairs(cur, periods, filed, "symbol"):
         row = cur_row if cur_row is not None else prev_row
-        short, name, sector = row["short"], row["name"], row["sector"]
+        short, name, sector, kind = row["short"], row["name"], row["sector"], row["kind"]
         # A SOLD_OUT row has no current side: it is emitted at zero off the prior quarter's row.
         value, shares, weight = (cur_row["value"], cur_row["shares"], cur_row["weight"]) if cur_row is not None else (0, 0, 0.0)
 
@@ -90,6 +119,7 @@ def manager_quarter_summary(h: pd.DataFrame, periods: list[str]) -> pd.DataFrame
                 "short": short,
                 "name": name,
                 "sector": sector,
+                "kind": kind,
                 "value": value,
                 "shares": shares,
                 "weight": weight,
@@ -425,7 +455,7 @@ def derive_all(h: pd.DataFrame, funds: list[dict], cfg: dict) -> dict:
     # The newest `quarters` periods -- a manager who stopped filing drags older ones into the
     # union, where they render as near-empty quarters holding that one stale filer.
     periods = sorted(h["period"].unique())[-cfg["quarters"] :]
-    h = h[h["period"].isin(periods)]
+    h = h[h["period"].isin(periods)].assign(kind=lambda d: d["cls"].map(security_kind))
     managers_per_period = {p: len(ciks) for p, ciks in _filed_ciks(h).items()}
 
     mqs = manager_quarter_summary(h, periods)
@@ -437,7 +467,7 @@ def derive_all(h: pd.DataFrame, funds: list[dict], cfg: dict) -> dict:
         "periods": periods,
         "holdings": h,
         "totals": totals(h),
-        "symbols": h[["symbol", "name", "sector"]].drop_duplicates("symbol").reset_index(drop=True),
+        "symbols": h[["symbol", "name", "sector", "kind"]].drop_duplicates("symbol").reset_index(drop=True),
         "manager_quarter_summary": mqs,
         "manager_sector_exposure": mse,
         "stock_quarter_summary": sqs,

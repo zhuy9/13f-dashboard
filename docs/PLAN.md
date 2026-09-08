@@ -117,7 +117,7 @@ value (int $), shares (int), put_call ("PUT"|"CALL"|null)
 
 ### A. `manager_quarter_summary` — per (cik, period, symbol), equity only
 ```
-sector
+sector, kind
 value, shares, weight = value / total_value
 prev_value, prev_shares, prev_weight
 change = weight - prev_weight            (percentage points; null when prev unknown)
@@ -128,6 +128,8 @@ status: NEW        prev absent, current present
         SOLD_OUT   prev present, current absent  (emit a row: value 0, weight 0, change = -prev_weight)
         null       no prior quarter for this manager in the window
 ```
+`kind` is EQUITY / NOTE / WARRANT / UNIT, from `security_kind()` over the filing's own free-text `Class` field. A 13F carries convertible notes, warrants and units beside common stock and they are not equivalent -- a warrant's reported value is not equity exposure. Sector stays the *issuer's* (a Coinbase convertible reads Technology), so exposure stays economic and `kind` says what the instrument is.
+
 Status uses **shares** (price moves change weight without a trade). `# ponytail: stock splits look like ADDED; split-adjust if it matters.`
 
 ### B. `manager_sector_exposure` — per (cik, period, sector)
@@ -239,10 +241,10 @@ Config keys (`signals_config.json` → `ownership`): `start_date` (first filing 
 | Doc | Content | Read by |
 |---|---|---|
 | `meta/latest` | `latestPeriod, periods[], managers[{cik, short, name, cluster}], clusters[{label, members, commonHoldings, topSector}], updatedAt` | every page, once |
-| `meta/symbols` | `symbols[{symbol, name, sector}]` | the search box, on first focus only |
+| `meta/symbols` | `symbols[{symbol, name, sector, kind}]` | the search box, on first focus only |
 | `managers/{cik}` | `cik, name, short, cluster, periods[]` | manager page |
 | `manager_quarters/{cik}_{period}` | `filedAt, totalValue, count, counts{new,added,trimmed,unchanged,soldOut}, positions[A rows incl. SOLD_OUT], sectors[B rows], mostSimilar[{cik, short, score}]` | manager page |
-| `stocks/{symbol}` | `symbol, name, sector, trend[D rows], latest{C summary + holders + soldOut + options{calls[], puts[]}}` | stock page |
+| `stocks/{symbol}` | `symbol, name, sector, kind, trend[D rows], latest{C summary + holders + soldOut + options{calls[], puts[]}}` | stock page |
 | `signals/{period}` | all E tables, F, G (`ciks[]`, `matrix[][]`), H (symbols with options only) | patterns page |
 | `securities/{cusip}` | enrichment cache (ingest only) | — |
 | `ownership/feed` | `updatedAt, startDate, lastFiledAt, counts{filings, investors, issuers}, events[J event rows, newest first, ≤ recent_events]` | ownership page |

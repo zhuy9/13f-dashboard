@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from derive import _OPTIONS_EXPOSURE_COLUMNS, conviction_score, derive_all, options_exposure
+from derive import _OPTIONS_EXPOSURE_COLUMNS, conviction_score, derive_all, options_exposure, security_kind
 
 FIXTURE = Path(__file__).parent / "fixtures" / "holdings_small.csv"
 
@@ -38,6 +38,31 @@ def h() -> pd.DataFrame:
 @pytest.fixture
 def out(h) -> dict:
     return derive_all(h, FUNDS, CFG)
+
+
+@pytest.mark.parametrize(
+    "cls, expected",
+    [
+        ("COM", "EQUITY"),
+        ("COM CL A", "EQUITY"),
+        ("ORD SHS", "EQUITY"),
+        ("IBOXX HI YD ETF", "EQUITY"),  # a bond ETF is still an equity-style holding
+        ("NOTE  0.500% 6/0", "NOTE"),  # truncated to 16 chars by the form
+        ("SR NT 5% 2030", "NOTE"),
+        ("*W EXP 01/01/202", "WARRANT"),
+        ("WTS", "WARRANT"),
+        ("TR UNIT", "UNIT"),
+        (None, "EQUITY"),  # missing Class falls back to what the field means almost always
+        ("", "EQUITY"),
+    ],
+)
+def test_security_kind_reads_the_filers_own_class_field(cls, expected):
+    assert security_kind(cls) == expected
+
+
+def test_positions_carry_their_instrument_kind(h):
+    kinds = derive_all(h, FUNDS, CFG)["manager_quarter_summary"]["kind"]
+    assert set(kinds) == {"EQUITY"}, "the fixture is all COM"
 
 
 def test_derive_all_keeps_only_the_newest_quarters_periods(h):

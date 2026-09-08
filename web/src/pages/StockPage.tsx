@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { useParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStates'
+import { KindBadge } from '@/components/KindBadge'
 import { HoldersTable } from '@/components/stock/HoldersTable'
 import { MajorShareholders } from '@/components/stock/MajorShareholders'
 import { OptionsGroups } from '@/components/stock/OptionsGroups'
@@ -42,7 +43,8 @@ export function StockPage() {
             name
           ) : (
             <>
-              {symbol} <span className="font-normal text-ink-muted">{name}</span>
+              {symbol} <span className="font-normal text-ink-muted">{name}</span>{' '}
+              <KindBadge kind={stock?.kind ?? null} />
             </>
           )}
         </h1>

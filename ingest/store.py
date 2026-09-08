@@ -180,6 +180,7 @@ def _build_stock_docs(tables: dict, funds: list[dict]) -> dict[str, dict]:
             "symbol": symbol,
             "name": meta["name"],
             "sector": meta["sector"],
+            "kind": meta["kind"],
             "trend": _records(trend[trend["symbol"] == symbol].drop(columns=["symbol"])),
             "latest": latest,
         }

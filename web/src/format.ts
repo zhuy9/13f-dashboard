@@ -1,4 +1,4 @@
-import type { PositionStatus } from './types'
+import type { PositionStatus, SecurityKind } from './types'
 
 export function money(value: number): string {
   const abs = Math.abs(value)
@@ -64,6 +64,12 @@ export const STATUS_COLORS: Record<PositionStatus, string> = {
   TRIMMED: '#9a6700',
   UNCHANGED: '#6b6759',
   SOLD_OUT: '#cf222e',
+}
+
+export const KIND_COLORS: Record<Exclude<SecurityKind, 'EQUITY'>, string> = {
+  NOTE: '#7209b7',
+  WARRANT: '#9a6700',
+  UNIT: '#6b6759',
 }
 
 export const PUT_COLOR = '#cf222e'

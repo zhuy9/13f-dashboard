@@ -2,6 +2,10 @@ import type { Timestamp } from 'firebase/firestore/lite'
 
 export type PositionStatus = 'NEW' | 'ADDED' | 'TRIMMED' | 'UNCHANGED' | 'SOLD_OUT'
 
+// What the filing's own Class field says the row is. A 13F carries convertible notes,
+// warrants and units beside common stock; their reported value is not equity exposure.
+export type SecurityKind = 'EQUITY' | 'NOTE' | 'WARRANT' | 'UNIT'
+
 // meta/latest
 export interface ManagerRef {
   cik: string
@@ -27,7 +31,7 @@ export interface Meta {
 
 // meta/symbols -- its own doc so meta/latest stays small; only the search box reads it.
 export interface SymbolIndex {
-  symbols: { symbol: string; name: string; sector: string }[]
+  symbols: { symbol: string; name: string; sector: string; kind: SecurityKind }[]
 }
 
 // managers/{cik}
@@ -45,6 +49,7 @@ export interface Position {
   short: string
   name: string
   sector: string
+  kind: SecurityKind
   value: number
   shares: number
   weight: number
@@ -144,6 +149,7 @@ export interface Stock {
   symbol: string
   name: string
   sector: string
+  kind: SecurityKind
   trend: StockTrendPoint[]
   latest: StockLatest | null
 }

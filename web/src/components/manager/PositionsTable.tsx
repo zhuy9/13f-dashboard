@@ -1,3 +1,4 @@
+import { KindBadge } from '@/components/KindBadge'
 import { StatusBadge } from '@/components/StatusBadge'
 import { StockLink } from '@/components/StockLink'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -21,8 +22,9 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
       <TableBody>
         {sorted.map((p) => (
           <TableRow key={p.symbol}>
-            <TableCell>
-              <StockLink symbol={p.symbol} className="font-tabular font-medium text-call hover:underline" />
+            <TableCell className="whitespace-nowrap">
+              <StockLink symbol={p.symbol} className="font-tabular font-medium text-call hover:underline" />{' '}
+              <KindBadge kind={p.kind} />
             </TableCell>
             <TableCell className="max-w-xs truncate">{p.name}</TableCell>
             <TableCell className="font-tabular text-right">{pct(p.weight)}</TableCell>

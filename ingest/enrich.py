@@ -99,7 +99,9 @@ def ensure_securities(
             ticker = ticker_hints.get(cusip) or match.get("ticker")
             security_type = match.get("securityType")  # "ETP"; securityType2 says "Mutual Fund"
             sic, sic_description = (None, None)
-            issuer_cik = ticker_to_cik.get(ticker) if ticker else None
+            # OpenFIGI names a bond "TSLA 2 05/15/24", so the first token is the issuer's
+            # own ticker. No real US ticker contains a space, so this is a no-op for equities.
+            issuer_cik = ticker_to_cik.get(ticker.split(" ")[0]) if ticker else None
             if issuer_cik:
                 sic, sic_description = sec_sic(issuer_cik, identity)
             cached[cusip] = {

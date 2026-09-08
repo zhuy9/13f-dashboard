@@ -64,3 +64,55 @@ export function ManagerList({ names, label, heading }: { names?: string[]; label
     </InfoPopover>
   )
 }
+
+// The explanations below are shared because the facts are shared. Each was written out
+// separately on the Patterns tables, the manager page and the stock page, in three wordings
+// that were already drifting apart -- and explanatory text saying subtly different things in
+// three places is worse than none. Exported as components rather than constants so this file
+// exports only components, which is what the fast-refresh lint rule wants.
+
+export function SharesVsWeight() {
+  return (
+    <p>
+      <strong>Status compares share counts, weight compares proportion.</strong> A position can read Added while its
+      weight falls, or Trimmed while it rises, because the rest of the book moved around it — no trade in this
+      holding is needed for the two to disagree, and it is not an error.
+    </p>
+  )
+}
+
+export function WeightBasis() {
+  return (
+    <p>
+      A weight is a position's share of that manager's <strong>reported equity holdings</strong> — not of its total
+      assets. Option, convertible note and warrant rows are excluded from the denominator.
+    </p>
+  )
+}
+
+export function SplitBasis() {
+  return (
+    <p>
+      Share counts are compared on a consistent basis: where a stock split, last quarter's count is restated onto the
+      current basis before anything is compared.
+    </p>
+  )
+}
+
+export function UnadjustedFlag() {
+  return (
+    <p>
+      <em>UNADJUSTED?</em> marks a share count that moved like a split with no corporate action on file to confirm
+      one, so that comparison may not be like-for-like.
+    </p>
+  )
+}
+
+export function AmendedLabel() {
+  return (
+    <p>
+      <em>AMENDED</em> means the holding was first reported in an amended filing, usually because it was
+      confidential. That is when it was disclosed, not when it was bought.
+    </p>
+  )
+}

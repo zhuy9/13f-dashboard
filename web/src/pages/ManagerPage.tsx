@@ -1,7 +1,14 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStates'
-import { Explain } from '@/components/Explain'
+import {
+  AmendedLabel,
+  Explain,
+  SharesVsWeight,
+  SplitBasis,
+  UnadjustedFlag,
+  WeightBasis,
+} from '@/components/Explain'
 import { ManagerLists } from '@/components/manager/ManagerLists'
 import { OwnershipFilings } from '@/components/manager/OwnershipFilings'
 import { PositionsTable } from '@/components/manager/PositionsTable'
@@ -126,24 +133,12 @@ export function ManagerPage() {
           <section>
             <h2 className="mb-1 text-lg font-medium">Positions</h2>
             <Explain>
-              <p>
-                <strong>Shares Δ is about shares, Weight Δ is about proportion.</strong> A position can be marked
-                Added while its weight falls, because the rest of the book grew faster or the stock lagged it. The two
-                disagreeing is not an error — status compares share counts, weight compares shares of the portfolio.
-              </p>
-              <p>
-                Share counts are compared on a consistent basis: where a stock split, last quarter's count is restated
-                onto the current basis first. <em>UNADJUSTED?</em> marks a share count that moved like a split with no
-                corporate action on file to confirm one, so that comparison may not be like-for-like.
-              </p>
-              <p>
-                <em>AMENDED</em> means the holding was first reported in an amended filing, usually because it was
-                confidential. That is when it was disclosed, not when it was bought.
-              </p>
-              <p>
-                Weights are a share of reported equity holdings. Notes and warrants are listed but excluded from every
-                weight; option positions are not listed here at all.
-              </p>
+              <SharesVsWeight />
+              <SplitBasis />
+              <UnadjustedFlag />
+              <AmendedLabel />
+              <WeightBasis />
+              <p>Notes and warrants are listed here and badged; option positions are not listed at all.</p>
             </Explain>
             <PositionsTable positions={mqState.data.positions} />
           </section>

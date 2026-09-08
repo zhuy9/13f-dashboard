@@ -1,8 +1,9 @@
 import { lazy, Suspense, useEffect, useMemo, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStates'
-import { Explain } from '@/components/Explain'
+import { Explain, SharesVsWeight, WeightBasis } from '@/components/Explain'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { StatTile } from '@/components/StatTile'
 import { useMeta } from '@/context/MetaContext'
 import { getSignals } from '@/data'
 import { pct, pp, quarterLabel } from '@/format'
@@ -30,21 +31,7 @@ interface Section {
 
 // Every average needs to name the population it averages over, or the number is unreadable.
 // "Avg Weight 3%" means nothing until you know whether the denominator is holders, buyers, or
-// all 33 tracked managers.
-const WEIGHT_BASIS = (
-  <p>
-    A weight is a position's share of that manager's <strong>reported equity holdings</strong> — not of its total
-    assets. Options, convertible notes and warrants are excluded from the denominator.
-  </p>
-)
-
-const SHARES_VS_WEIGHT = (
-  <p>
-    <strong>Status is about shares, weight change is about proportion.</strong> A manager can add shares while the
-    position's weight falls, because the rest of the book grew faster or the stock lagged it. The two disagreeing is
-    not an error.
-  </p>
-)
+// all 33 tracked managers -- and on this page the three tables genuinely differ.
 
 function buildSections(data: Signals, labelByCik: Map<string, string>): Section[] {
   return [
@@ -66,7 +53,7 @@ function buildSections(data: Signals, labelByCik: Map<string, string>): Section[
             <em>Score</em> is relative within the quarter: 100 is that quarter's highest raw score, not a probability
             or a rating. Open a score to see its arithmetic. Scores are not comparable across quarters.
           </p>
-          {WEIGHT_BASIS}
+          <WeightBasis />
           <p>
             A manager filing for the first time has no prior quarter to compare against, so its positions count as
             neither new nor added.
@@ -88,7 +75,7 @@ function buildSections(data: Signals, labelByCik: Map<string, string>): Section[
             <strong>Sold Out means the position left the 13F</strong>, which is not the same as the manager selling
             everything: a holding can drop below the reporting threshold, or move to a form a 13F does not cover.
           </p>
-          {SHARES_VS_WEIGHT}
+          <SharesVsWeight />
         </>
       ),
     },
@@ -106,7 +93,7 @@ function buildSections(data: Signals, labelByCik: Map<string, string>): Section[
             <em>Avg Weight</em> and <em>Max Weight</em> are over those qualifying managers too, not over every holder,
             so both sit above the 3% threshold by construction.
           </p>
-          {WEIGHT_BASIS}
+          <WeightBasis />
         </>
       ),
     },
@@ -117,7 +104,7 @@ function buildSections(data: Signals, labelByCik: Map<string, string>): Section[
       help: (
         <>
           <p>The largest brand-new positions this quarter, one row per manager and stock, ranked by weight.</p>
-          {WEIGHT_BASIS}
+          <WeightBasis />
         </>
       ),
     },
@@ -128,8 +115,8 @@ function buildSections(data: Signals, labelByCik: Map<string, string>): Section[
       help: (
         <>
           <p>The largest increases in weight, one row per manager and stock.</p>
-          {SHARES_VS_WEIGHT}
-          {WEIGHT_BASIS}
+          <SharesVsWeight />
+          <WeightBasis />
         </>
       ),
     },
@@ -140,7 +127,7 @@ function buildSections(data: Signals, labelByCik: Map<string, string>): Section[
       help: (
         <>
           <p>The largest decreases in weight, including positions that left the 13F entirely.</p>
-          {SHARES_VS_WEIGHT}
+          <SharesVsWeight />
         </>
       ),
     },
@@ -247,20 +234,10 @@ function Notable({ data }: { data: Signals }) {
 
   return (
     // One column below 640 px: two of these side by side at 375 px leaves about 165 px for
-    // "15 managers at 7.9% average", which truncates to nothing useful. min-w-0 is what lets
-    // `truncate` truncate at all -- a grid item defaults to min-width:auto, so without it long
-    // text widens the track instead of ellipsing.
+    // "15 managers at 7.9% average", which truncates to nothing useful.
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {cards.map((c) => (
-        <a
-          key={c.label}
-          href={c.href}
-          className="min-w-0 rounded border border-line px-4 py-3 hover:border-ink-muted"
-        >
-          <div className="text-xs text-ink-muted">{c.label}</div>
-          <div className="truncate font-tabular text-lg font-semibold">{c.symbol}</div>
-          <div className="truncate text-xs text-ink-muted">{c.detail}</div>
-        </a>
+        <StatTile key={c.label} label={c.label} value={c.symbol} detail={c.detail} href={c.href} />
       ))}
     </div>
   )

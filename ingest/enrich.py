@@ -6,7 +6,7 @@ from typing import Optional
 import pandas as pd
 import requests
 
-from api_constants import OPENFIGI_URL, SEC_SUBMISSIONS_URL, SEC_TICKERS_URL
+from api_constants import OPENFIGI_URL, SEC_SUBMISSIONS_URL, SEC_TICKER_TXT_URL, SEC_TICKERS_URL
 from sectors import sic_to_sector
 
 
@@ -35,11 +35,32 @@ def openfigi_map(cusips: list[str], api_key: Optional[str] = None) -> dict[str, 
 
 
 def sec_ticker_to_cik(identity: str) -> dict[str, str]:
-    """TICKER -> 10-digit zero-padded CIK, from SEC's company_tickers.json."""
+    """TICKER -> 10-digit zero-padded CIK, from both of SEC's ticker lists.
+
+    `company_tickers.json` lists current registrants only. A company that deregisters -- taken
+    private, or acquired -- is dropped from it, and because sector comes from the issuer's SIC
+    code, which needs the CIK, the holding then has no sector at all. That is not a small edge
+    case: a 13F window is 3 years long and an event-driven manager holds acquisition targets on
+    purpose, so the names most likely to vanish are the ones it holds most.
+
+    `ticker.txt` is the older list and keeps them, so it fills the gaps. company_tickers.json
+    still wins where both have a ticker: it is the maintained one, and a recycled ticker should
+    resolve to whoever holds it now, not to the company that used to.
+    """
     headers = {"User-Agent": identity}
+
+    txt = requests.get(SEC_TICKER_TXT_URL, headers=headers, timeout=30)
+    txt.raise_for_status()
+    mapping = {}
+    for line in txt.text.splitlines():
+        ticker, _, cik = line.partition("\t")
+        if ticker and cik.strip().isdigit():
+            mapping[ticker.strip().upper()] = cik.strip().zfill(10)
+
     resp = requests.get(SEC_TICKERS_URL, headers=headers, timeout=30)
     resp.raise_for_status()
-    return {row["ticker"]: str(row["cik_str"]).zfill(10) for row in resp.json().values()}
+    mapping.update({row["ticker"]: str(row["cik_str"]).zfill(10) for row in resp.json().values()})
+    return mapping
 
 
 def sec_sic(cik10: str, identity: str) -> tuple[Optional[int], Optional[str]]:

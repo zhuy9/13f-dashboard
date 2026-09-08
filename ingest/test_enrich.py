@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pandas as pd
 
-from enrich import attach, ensure_securities
+from enrich import attach, ensure_securities, sec_ticker_to_cik
 
 
 class _FakeDb:
@@ -90,3 +90,56 @@ def test_a_ticker_rename_keeps_one_continuous_position_and_share_classes_stay_ap
 
     assert list(out["symbol"]) == ["GOOGL", "GOOGL", "GOOG"]
     assert out[out["period"] == "2026-06-30"]["symbol"].nunique() == 2
+
+
+def test_a_deregistered_ticker_still_resolves_to_its_cik(monkeypatch):
+    """A company that goes private is dropped from company_tickers.json, and without a CIK it
+    gets no SIC and therefore no sector. ticker.txt keeps it, so the gap is fillable -- 15% of
+    the symbols on the site were sitting in Unknown for exactly this reason, and an
+    event-driven manager holds acquisition targets on purpose."""
+
+    class _Resp:
+        def __init__(self, text="", payload=None):
+            self.text, self._payload = text, payload
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self._payload
+
+    def fake_get(url, headers, timeout):
+        if url.endswith("ticker.txt"):
+            return _Resp(text="ea\t712515\naapl\t320193\n")  # ticker.txt keeps EA
+        return _Resp(payload={"0": {"ticker": "AAPL", "cik_str": 320193}})  # json dropped it
+
+    monkeypatch.setattr("enrich.requests.get", fake_get)
+
+    mapping = sec_ticker_to_cik("a@b.com")
+
+    assert mapping["EA"] == "0000712515", "a deregistered ticker must still resolve"
+    assert mapping["AAPL"] == "0000320193"
+
+
+def test_the_maintained_list_wins_when_a_ticker_appears_in_both(monkeypatch):
+    """A ticker can be reassigned to a different company after the first one leaves. The
+    maintained list says who holds it now, so it has to override the archival one."""
+
+    class _Resp:
+        def __init__(self, text="", payload=None):
+            self.text, self._payload = text, payload
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self._payload
+
+    def fake_get(url, headers, timeout):
+        if url.endswith("ticker.txt"):
+            return _Resp(text="xyz\t111\n")
+        return _Resp(payload={"0": {"ticker": "XYZ", "cik_str": 999}})
+
+    monkeypatch.setattr("enrich.requests.get", fake_get)
+
+    assert sec_ticker_to_cik("a@b.com")["XYZ"] == "0000000999"

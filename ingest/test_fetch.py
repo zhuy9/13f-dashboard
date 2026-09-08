@@ -102,13 +102,19 @@ def test_collapse_sums_one_book_split_across_two_filer_ciks():
     assert out.iloc[0]["value"] == 1192581569 + 569340000
 
 
-def test_edgar_ticker_hints_skips_blank_and_missing_cusip():
+def test_edgar_ticker_hints_skips_blanks_missing_cusips_and_stringified_nulls():
+    """A stringified null must never become a hint. A hint suppresses the OpenFIGI lookup and
+    then becomes the symbol, so every CUSIP sharing one merges into a single fake stock -- live,
+    "NONE" collapsed 119 securities into a $5.9B stocks/NONE holding six managers."""
     raw = pd.DataFrame(
         [
             {"Cusip": "037833100", "Ticker": "AAPL"},
             {"Cusip": "H1467J104", "Ticker": "CB"},
             {"Cusip": "999999999", "Ticker": ""},
             {"Cusip": "", "Ticker": "XYZ"},
+            {"Cusip": "111111111", "Ticker": None},
+            {"Cusip": "222222222", "Ticker": float("nan")},
+            {"Cusip": "333333333", "Ticker": "none"},
         ]
     )
     hints = edgar_ticker_hints(raw)

@@ -8,6 +8,9 @@ from edgar import Company
 
 BASE_COLUMNS = ["cik", "short", "period", "filed_at", "cusip", "name", "cls", "value", "shares", "put_call"]
 
+# Uppercased strings a stringified null leaves behind, plus the empty cell. No real US ticker.
+_NOT_A_TICKER = {"", "NAN", "NONE", "NULL", "NA"}
+
 _printed_columns = False
 
 
@@ -86,7 +89,12 @@ def edgar_ticker_hints(df: pd.DataFrame) -> dict[str, str]:
     edgartools' own ticker resolution covers names OpenFIGI's free CUSIP mapping misses
     (foreign-domiciled, US-listed issuers like Chubb or ASML), so enrich.py prefers this
     hint and only falls back to OpenFIGI when a CUSIP has none.
+
+    A missing ticker survives `astype(str)` as the literal "NAN" or "NONE", and a hint is
+    believed absolutely: it suppresses the OpenFIGI lookup, and `enrich.attach` makes the
+    ticker the symbol. So one sentinel leaking through merges every CUSIP carrying it into
+    a single fake stock -- which is exactly what "NONE" did.
     """
     cusip = df["Cusip"].astype(str).str.strip()
     ticker = df["Ticker"].astype(str).str.strip().str.upper()
-    return {c: t for c, t in zip(cusip, ticker) if c and t and t != "NAN"}
+    return {c: t for c, t in zip(cusip, ticker) if c and t not in _NOT_A_TICKER}

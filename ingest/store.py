@@ -108,6 +108,7 @@ def _build_meta(tables: dict, funds: list[dict], periods: list[str]) -> dict:
         "periods": periods,
         "managers": managers,
         "clusters": _clean(clusters_at_latest),
+        "methodologyVersion": tables["methodology_version"],
         "updatedAt": firestore.SERVER_TIMESTAMP,
     }
 
@@ -140,6 +141,9 @@ def _build_manager_quarter_docs(tables: dict, funds: list[dict]) -> dict[str, di
         docs[f"{cik}_{period}"] = {
             "filedAt": totals_idx.loc[(cik, period), "filed_at"],
             "totalValue": int(totals_idx.loc[(cik, period), "total_value"]),
+            # The filing total covers every row. The equity value is the weight denominator,
+            # so the two differ for any manager reporting options, notes, or warrants.
+            "equityValue": int(totals_idx.loc[(cik, period), "equity_value"]),
             "count": int((grp["value"] > 0).sum()),
             "counts": {
                 "new": int(counts.get("NEW", 0)),

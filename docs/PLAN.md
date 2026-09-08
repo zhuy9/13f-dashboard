@@ -119,7 +119,7 @@ value (int $), shares (int), put_call ("PUT"|"CALL"|null)
 ### A. `manager_quarter_summary` — per (cik, period, symbol), equity only
 ```
 sector, kind
-value, shares, weight = value / total_value
+value, shares, weight = value / equity_value   (null when the manager reported no eligible equity)
 prev_value, prev_shares, prev_weight
 change = weight - prev_weight            (percentage points; null when prev unknown)
 status: NEW        prev absent, current present
@@ -133,8 +133,10 @@ status: NEW        prev absent, current present
 
 Status uses **shares** (price moves change weight without a trade). `# ponytail: stock splits look like ADDED; split-adjust if it matters.`
 
+`equity_value` (Milestone 10) is the sum of a manager-quarter's `eligible_equity` rows: `put_call` blank **and** `kind == EQUITY`. Options are out because an option row's reported value is the underlying's value, not premium or invested capital; notes and warrants are out because they are not the share. ETFs/funds are in. `totals()` publishes both `total_value` (every row, for reconciling against the filing) and `equity_value` (the denominator). NOTE/WARRANT rows stay in this table so the UI can badge them, but every conviction signal downstream consumes `mqs[kind == "EQUITY"]` only, so eligible-equity weights sum to 1.
+
 ### B. `manager_sector_exposure` — per (cik, period, sector)
-`weight = sum(value in sector) / total_value`, `prev_weight`, `change`.
+`weight = sum(eligible-equity value in sector) / equity_value`, `prev_weight`, `change`. Same denominator as A, so a manager's sector weights also sum to 1.
 
 ### C. `stock_quarter_summary` — per (period, symbol), equity only
 ```
@@ -241,10 +243,10 @@ Config keys (`signals_config.json` → `ownership`): `start_date` (first filing 
 
 | Doc | Content | Read by |
 |---|---|---|
-| `meta/latest` | `latestPeriod, periods[], managers[{cik, short, name, cluster}], clusters[{label, members, commonHoldings, topSector}], updatedAt` | every page, once |
+| `meta/latest` | `latestPeriod, periods[], managers[{cik, short, name, cluster}], clusters[{label, members, commonHoldings, topSector}], methodologyVersion, updatedAt` | every page, once |
 | `meta/symbols` | `symbols[{symbol, name, sector}]` | the search box, on first focus only |
 | `managers/{cik}` | `cik, name, short, cluster, periods[]` | manager page |
-| `manager_quarters/{cik}_{period}` | `filedAt, totalValue, count, counts{new,added,trimmed,unchanged,soldOut}, positions[A rows incl. SOLD_OUT], sectors[B rows], mostSimilar[{cik, short, score}]` | manager page |
+| `manager_quarters/{cik}_{period}` | `filedAt, totalValue, equityValue, count, counts{new,added,trimmed,unchanged,soldOut}, positions[A rows incl. SOLD_OUT], sectors[B rows], mostSimilar[{cik, short, score}]` | manager page |
 | `stocks/{symbol}` | `symbol, name, sector, kind, trend[D rows], latest{C summary + holders + soldOut + options{calls[], puts[]}}` | stock page |
 | `signals/{period}` | all E tables, F, G (`ciks[]`, `matrix[][]`), H (symbols with options only) | patterns page |
 | `securities/{cusip}` | enrichment cache (ingest only) | — |
@@ -977,24 +979,26 @@ Acceptance criteria
 - [x] `docs/METHODOLOGY.md` exists, is linked from README, and lists the open limitations as open.
 
 ### Milestone 10 — Equity-only weights and a documented score  (M1)
-Status: not started
+Status: in progress
 
 Tasks
 1. `totals()` returns `total_value` (the filing total, all rows, kept for reconciliation) **and** `equity_value` (sum of `put_call.isna()` and `kind == "EQUITY"` rows).
 2. `manager_quarter_summary` and `manager_sector_exposure` divide by `equity_value`. Notes and warrants stay in the table (`kind` already marks them) but leave the denominator and the conviction math. ETFs/funds read `EQUITY` and stay in — documented, not silently.
 3. Option-underlying value is never called premium, invested capital, or delta-adjusted exposure. `options_exposure` keeps its own numbers.
-4. Add `methodologyVersion` to `meta/latest`; the web app shows it and refuses to mix versions.
+4. Add `methodology_version` to `signals_config.json`, carry it through `derive_all`, publish it as `meta/latest.methodologyVersion`, and show it in the footer. **Not** a mixing guard: `derive_all` recomputes every period in one run from the fetched filings, so a published dataset is single-version by construction and there is nothing to compare against. Add a guard only if per-quarter incremental publishing ever lands.
 5. UI copy: weights are a share of the *reported equity portfolio*, not AUM.
 6. Score formula unchanged. `docs/METHODOLOGY.md` documents its inputs, the per-quarter normalization, and that 100 is "highest raw score this quarter", not a probability.
 
 Acceptance criteria
-- [ ] Fixture: equities at 60 and 40 plus a CALL row of 900 → weights 0.60 and 0.40.
-- [ ] Eligible equity weights sum to 1.0 within tolerance; a zero-equity manager yields no division by zero.
-- [ ] A NOTE and a WARRANT row appear in `manager_quarter_summary` but do not change any weight.
-- [ ] Both `total_value` and `equity_value` are stored and distinguishable in the UI.
-- [ ] `stock_quarter_summary`, `high_conviction`, `sector_rotation`, and `conviction_score` all consume the equity denominator.
-- [ ] Score docs state the per-quarter relative scale; one hand-checked score fixture reproduces its components.
-- [ ] Migration note in this file names the affected Firestore docs and says a full re-ingest is required.
+- [x] Fixture: equities at 60 and 40 plus a CALL row of 900 → weights 0.60 and 0.40.
+- [x] Eligible equity weights sum to 1.0 within tolerance; a zero-equity manager yields no division by zero.
+- [x] A NOTE and a WARRANT row appear in `manager_quarter_summary` but do not change any weight.
+- [x] Both `total_value` and `equity_value` are stored and distinguishable in the UI.
+- [x] `stock_quarter_summary`, `high_conviction`, `sector_rotation`, and `conviction_score` all consume the equity denominator.
+- [x] Score docs state the per-quarter relative scale; one hand-checked score fixture reproduces its components.
+- [x] Migration note in this file names the affected Firestore docs and says a full re-ingest is required.
+
+**Migration (methodology v1 → v2).** Every published weight changes, so this is a full rewrite, not a patch. Affected docs: `manager_quarters/{cik}_{period}` (`positions[].weight/prevWeight/change`, `sectors[].weight/prevWeight/change`, new `equityValue`), `stocks/{symbol}` (`latest.avgWeight/medianWeight/maxWeight/holders[]`, `trend[]`, `score`), `signals/{period}` (every E/F/G table), `meta/latest` (new `methodologyVersion`). GCS Parquet under `parquet/**` is rewritten the same way. Procedure: one `python ingest.py` over the full `quarters` window — `derive_all` recomputes every period from the fetched filings, and `write_firestore(prune=True)` replaces the docs, so no separate backfill and no mixed-version window. `securities/` and `raw/**` are untouched. Run `--dry-run` first and compare a known manager's top weights against the same manager's filing: an option-heavy book should move the most.
 
 ### Milestone 11 — Splits, identifier changes, 13F-HR/A  (M2)
 Status: not started

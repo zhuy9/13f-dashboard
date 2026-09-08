@@ -75,8 +75,9 @@ export function ManagerPage() {
 
       {mqState.data && (
         <>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
-            <StatTile label="Total Value" value={money(mqState.data.totalValue)} />
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
+            <StatTile label="Reported Total" value={money(mqState.data.totalValue)} />
+            <StatTile label="Equity Value" value={money(mqState.data.equityValue)} />
             <StatTile label="Positions" value={mqState.data.count} />
             <StatTile label="New" value={mqState.data.counts.new} />
             <StatTile label="Added" value={mqState.data.counts.added} />

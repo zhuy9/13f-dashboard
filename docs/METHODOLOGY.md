@@ -3,7 +3,9 @@
 What every number on the site means, and what it does not cover. This file is the stable
 reference. `docs/PLAN.md` is implementation history; read this one for definitions.
 
-Last reviewed: 2026-09-08.
+Last reviewed: 2026-09-08. Methodology version: **2** (`methodology_version` in
+`ingest/signals_config.json`, published as `meta/latest.methodologyVersion` and shown in the
+site footer). Version 1 divided portfolio weights by the filing total including option rows.
 
 ## Sources
 
@@ -31,15 +33,24 @@ An option row is reported under the underlying stock's CUSIP, and its value is t
 underlying shares, not the premium paid. It is not invested capital and it is not
 delta-adjusted exposure, so it is never treated as either.
 
-`weight` is a position's reported value over the manager's reported total. Both the total and
-the equity-only subtotal are stored, so a weight can be reconciled against the filing.
+`weight` is a position's reported value over the manager's **equity value**: the sum of its
+common-equity rows only. Option rows, convertible notes, and warrants are excluded from that
+denominator. So the eligible-equity weights of one manager-quarter sum to 100%.
 
-**Open limitation (Milestone 10):** the denominator currently includes option rows. For a
-manager with a large option book, equity weights therefore read lower than the equity-only
-figure, and are not directly comparable to a manager who reports no options. Milestone 10
-switches the denominator to equity only and stamps a methodology version on the published data.
+Both figures are published. `totalValue` is the filing total over every row, which is what
+reconciles against the filing itself. `equityValue` is the denominator above. The manager page
+shows them as "Reported Total" and "Equity Value", and they differ for any manager reporting
+options, notes, or warrants.
 
-Weight is a share of the *reported* portfolio. It is not a share of the manager's assets.
+ETFs and funds count as equity and stay in the denominator. A manager holding half its book in
+SPY really is half invested in equities. Convertible notes are debt and warrants are not the
+share, so both stay out of it — but they remain in the holdings table, badged by kind, so they
+are still inspectable.
+
+A manager reporting no eligible equity at all has no weight, not a weight of zero. A zero
+denominator is an unanswerable question, not zero conviction.
+
+Weight is a share of the *reported equity* portfolio. It is not a share of the manager's assets.
 Anything a 13F does not cover — cash, bonds, foreign listings, private holdings, short positions
 — is invisible here. For an endowment, most of the real portfolio is invisible.
 
@@ -69,6 +80,20 @@ or completes a filing by amendment is represented by its original filing only.
 A 0-100 number per (quarter, stock). It combines how many tracked managers hold the stock, their
 average weight in it, how many opened or added to it, and their average weight change. The
 constants are in `ingest/signals_config.json` under `score`.
+
+The exact factors, with a worked example, are in
+`ingest/test_derive.py::test_conviction_score_components_are_reproducible_by_hand`:
+
+```
+raw = manager_count
+      x (1 + avg_weight / weight_scale)
+      x (1 + new_count * new_bonus)
+      x (1 + added_count * added_bonus)
+      x min(max(avg_change, 0) / accumulation_scale + 1, accumulation_cap)
+```
+
+`avg_change` is the mean weight change across current holders, where a NEW position counts as
+its full weight because it came from zero. The score is then rescaled per quarter.
 
 Two things it is not:
 
@@ -111,7 +136,6 @@ other is current.
 
 ## Standing limitations, in one list
 
-- Weight denominator includes option rows (Milestone 10).
 - No stock-split adjustment (Milestone 11).
 - No `13F-HR/A` amendment handling (Milestone 11).
 - Conviction Score is relative within a quarter only.

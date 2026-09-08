@@ -36,9 +36,49 @@ def security_kind(cls) -> str:
     return "EQUITY"
 
 
+def eligible_equity(h: pd.DataFrame) -> pd.Series:
+    """The rows that count as common-equity exposure: shares, not options, notes, or warrants.
+
+    An option row's reported value is the value of the underlying shares -- not the premium
+    paid, not invested capital, not delta-adjusted exposure. Counting it as portfolio value
+    made a manager with a large option book read as less concentrated in its actual stocks
+    than it is, and made equity conviction incomparable between managers who use options and
+    managers who do not. A convertible note is debt and a warrant is not the share either.
+
+    ETFs and funds stay in: they read `EQUITY` and are held as equity exposure. That is a
+    deliberate choice, not an oversight -- a manager whose book is half SPY really is half
+    invested in equities.
+    """
+    return h["put_call"].isna() & (h["kind"] == "EQUITY")
+
+
 def totals(h: pd.DataFrame) -> pd.DataFrame:
-    """(cik, period) -> total_value (equity + options) and filed_at."""
-    return h.groupby(["cik", "period"], as_index=False).agg(total_value=("value", "sum"), filed_at=("filed_at", "first"))
+    """(cik, period) -> total_value, equity_value, filed_at.
+
+    `total_value` is the filing total over every row -- equity, options, notes, warrants. It is
+    what reconciles against the filing itself, and it is the only thing it is used for.
+    `equity_value` is the weight denominator: `eligible_equity` rows only.
+    """
+    eq = h["value"].where(eligible_equity(h), 0)
+    return (
+        h.assign(_equity_value=eq)
+        .groupby(["cik", "period"], as_index=False)
+        .agg(total_value=("value", "sum"), equity_value=("_equity_value", "sum"), filed_at=("filed_at", "first"))
+    )
+
+
+def _equity_weight(cur: pd.DataFrame, equity_value: pd.Series) -> pd.Series:
+    """`cur.value` over its (cik, period)'s equity_value, NaN where that denominator is zero.
+
+    A zero denominator is not zero conviction, it is an unanswerable question -- a manager
+    holding only options and notes has no equity portfolio for a weight to be a share of.
+
+    Looked up by .map over the key index rather than .apply(axis=1): such a manager leaves
+    `cur` empty, and apply on an empty frame returns a frame, not a column.
+    """
+    keys = pd.MultiIndex.from_frame(cur[["cik", "period"]])
+    denom = pd.Series(keys.map(equity_value), index=cur.index)
+    return (cur["value"] / denom.where(denom > 0)).astype(float)
 
 
 def _filed_ciks(h: pd.DataFrame) -> dict:
@@ -69,9 +109,14 @@ def _period_pairs(cur: pd.DataFrame, periods: list[str], filed: dict, key_col: s
 
 
 def manager_quarter_summary(h: pd.DataFrame, periods: list[str]) -> pd.DataFrame:
-    """Table A: per (cik, period, symbol), equity only."""
+    """Table A: per (cik, period, symbol), non-option rows only.
+
+    Notes and warrants stay here so they remain inspectable (the `kind` column marks them and
+    the UI badges them), but they are outside the weight denominator, so their weights do not
+    belong to the equity book and the eligible-equity weights still sum to 1.
+    """
     equity = h[h["put_call"].isna()]
-    tot = totals(h).set_index(["cik", "period"])["total_value"]
+    tot = totals(h).set_index(["cik", "period"])["equity_value"]
     filed = _filed_ciks(h)
 
     cur = equity.groupby(["cik", "period", "symbol"], as_index=False).agg(
@@ -82,8 +127,7 @@ def manager_quarter_summary(h: pd.DataFrame, periods: list[str]) -> pd.DataFrame
         value=("value", "sum"),
         shares=("shares", "sum"),
     )
-    cur["total_value"] = cur.apply(lambda r: tot[(r["cik"], r["period"])], axis=1)
-    cur["weight"] = cur["value"] / cur["total_value"]
+    cur["weight"] = _equity_weight(cur, tot)
 
     rows = []
     for period, cik, symbol, cur_row, prev_row, manager_filed_prev in _period_pairs(cur, periods, filed, "symbol"):
@@ -138,14 +182,13 @@ def manager_quarter_summary(h: pd.DataFrame, periods: list[str]) -> pd.DataFrame
 
 
 def manager_sector_exposure(h: pd.DataFrame, periods: list[str]) -> pd.DataFrame:
-    """Table B: per (cik, period, sector), equity value over total_value (equity + options)."""
-    equity = h[h["put_call"].isna()]
-    tot = totals(h).set_index(["cik", "period"])["total_value"]
+    """Table B: per (cik, period, sector), eligible-equity value over equity_value."""
+    equity = h[eligible_equity(h)]
+    tot = totals(h).set_index(["cik", "period"])["equity_value"]
     filed = _filed_ciks(h)
 
     cur = equity.groupby(["cik", "period", "sector"], as_index=False).agg(value=("value", "sum"))
-    cur["total_value"] = cur.apply(lambda r: tot[(r["cik"], r["period"])], axis=1)
-    cur["weight"] = cur["value"] / cur["total_value"]
+    cur["weight"] = _equity_weight(cur, tot)
 
     rows = []
     for period, cik, sector, cur_row, prev_row, manager_filed_prev in _period_pairs(cur, periods, filed, "sector"):
@@ -464,11 +507,16 @@ def derive_all(h: pd.DataFrame, funds: list[dict], cfg: dict) -> dict:
 
     mqs = manager_quarter_summary(h, periods)
     mse = manager_sector_exposure(h, periods)
-    sqs = conviction_score(stock_quarter_summary(mqs, managers_per_period), cfg)
+    # Every conviction signal is about common equity, so notes and warrants are dropped here
+    # rather than in each consumer. They stay in the stored `mqs` table, where they are
+    # inspectable on the manager page and badged by kind.
+    eq_mqs = mqs[mqs["kind"] == "EQUITY"]
+    sqs = conviction_score(stock_quarter_summary(eq_mqs, managers_per_period), cfg)
     trend = stock_trend(sqs)
 
     return {
         "periods": periods,
+        "methodology_version": cfg["methodology_version"],
         "holdings": h,
         "totals": totals(h),
         "symbols": h[["symbol", "name", "sector", "kind"]].drop_duplicates("symbol").reset_index(drop=True),
@@ -476,9 +524,9 @@ def derive_all(h: pd.DataFrame, funds: list[dict], cfg: dict) -> dict:
         "manager_sector_exposure": mse,
         "stock_quarter_summary": sqs,
         "stock_trend": trend,
-        **consensus_tables(sqs, mqs, trend, cfg),
+        **consensus_tables(sqs, eq_mqs, trend, cfg),
         "sector_rotation": sector_rotation(mse, cfg),
-        "manager_similarity": manager_similarity(mqs),
+        "manager_similarity": manager_similarity(eq_mqs),
         "options_exposure": options_exposure(h),
-        "clusters": clusters(mqs, mse, funds),
+        "clusters": clusters(eq_mqs, mse, funds),
     }

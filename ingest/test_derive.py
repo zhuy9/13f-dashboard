@@ -3,7 +3,14 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from derive import _OPTIONS_EXPOSURE_COLUMNS, conviction_score, derive_all, options_exposure, security_kind
+from derive import (
+    _OPTIONS_EXPOSURE_COLUMNS,
+    conviction_score,
+    derive_all,
+    manager_quarter_summary,
+    options_exposure,
+    security_kind,
+)
 
 FIXTURE = Path(__file__).parent / "fixtures" / "holdings_small.csv"
 
@@ -15,6 +22,7 @@ FUNDS = [
 
 # Small, fixture-scaled thresholds -- not the production signals_config.json values.
 CFG = {
+    "methodology_version": 2,
     "quarters": 2,
     "consensus_min_managers": 1,
     "high_conviction_min_weight": 0.2,
@@ -86,11 +94,23 @@ def _mqs_row(mqs: pd.DataFrame, cik: str, period: str, symbol: str) -> pd.Series
 
 
 def test_weights_and_totals(out):
-    totals = out["totals"].set_index(["cik", "period"])["total_value"]
-    assert totals[("1111111111", P1)] == 44000
-    assert totals[("1111111111", P2)] == 35000
+    """M1 P1 files 29,000 of equity plus a 15,000 PUT, so the filing total is 44,000 and the
+    weight denominator is 29,000. Both are kept: the total is what reconciles against the
+    filing, the equity value is what a conviction weight is a share of."""
+    totals = out["totals"].set_index(["cik", "period"])
+    assert totals.loc[("1111111111", P1), "total_value"] == 44000
+    assert totals.loc[("1111111111", P1), "equity_value"] == 29000
+    assert totals.loc[("1111111111", P2), "total_value"] == 35000
+    assert totals.loc[("1111111111", P2), "equity_value"] == 32000
     aaa_p1 = _mqs_row(out["manager_quarter_summary"], "1111111111", P1, "AAA")
-    assert aaa_p1["weight"] == pytest.approx(10000 / 44000)
+    assert aaa_p1["weight"] == pytest.approx(10000 / 29000)
+
+
+def test_eligible_equity_weights_sum_to_one_per_manager_quarter(out):
+    mqs = out["manager_quarter_summary"]
+    held = mqs[(mqs["kind"] == "EQUITY") & (mqs["value"] > 0)]
+    for (cik, period), grp in held.groupby(["cik", "period"]):
+        assert grp["weight"].sum() == pytest.approx(1.0), f"{cik} {period}"
 
 
 def test_every_status_occurs(out):
@@ -111,10 +131,11 @@ def test_every_status_occurs(out):
 
 def test_change_sign_and_null_rules(out):
     mqs = out["manager_quarter_summary"]
-    # DDD: shares fell (TRIMMED) but weight rose slightly -- status is share-based, change is weight-based.
-    ddd = _mqs_row(mqs, "1111111111", P2, "DDD")
-    assert ddd["status"] == "TRIMMED"
-    assert ddd["change"] > 0
+    # CCC: shares did not move (UNCHANGED) but its weight rose -- status is share-based,
+    # change is weight-based, and the rest of M1's book shrank around it.
+    ccc = _mqs_row(mqs, "1111111111", P2, "CCC")
+    assert ccc["status"] == "UNCHANGED"
+    assert ccc["change"] > 0
     # BBB: shares rose (ADDED) but weight fell -- same principle, opposite direction.
     bbb = _mqs_row(mqs, "2222222222", P2, "BBB")
     assert bbb["status"] == "ADDED"
@@ -134,7 +155,7 @@ def test_sold_out_row_emitted_with_change_negative_prev_weight(out):
     fff = _mqs_row(out["manager_quarter_summary"], "1111111111", P2, "FFF")
     assert fff["value"] == 0
     assert fff["weight"] == 0
-    assert fff["prev_weight"] == pytest.approx(4000 / 44000)
+    assert fff["prev_weight"] == pytest.approx(4000 / 29000)
     assert fff["change"] == pytest.approx(-fff["prev_weight"])
 
 
@@ -187,7 +208,7 @@ def test_sector_rotation_counts(out):
     energy = rotation.loc["Energy"]
     assert energy["increasing"] == 1  # M2 rose
     assert energy["decreasing"] == 1  # M1 fell (sold FFF out)
-    assert energy["avg_change"] == pytest.approx((-0.090909 + 0.3) / 2, abs=1e-4)
+    assert energy["avg_change"] == pytest.approx((-4000 / 29000 + 0.3) / 2, abs=1e-4)
 
 
 def test_similarity_identical_and_orthogonal(out):
@@ -267,3 +288,139 @@ def test_conviction_score_rewards_concentrated_recent_over_widely_held_stale():
     assert scored.loc["HOT", "score"] > scored.loc["WIDE", "score"]
     assert scored.loc["HOT", "score"] == 100  # highest raw in its period -> normalized to 100
     assert scored.loc["WIDE", "score"] == pytest.approx(round(100 * 18 / 84))
+
+
+def _rows(period: str, *specs) -> pd.DataFrame:
+    """A one-manager holdings frame. Each spec is (symbol, cls, value, shares, put_call)."""
+    return pd.DataFrame(
+        [
+            {
+                "cik": "9999999999",
+                "short": "M9",
+                "period": period,
+                "filed_at": "2026-08-14",
+                "cusip": f"{symbol}000000",
+                "symbol": symbol,
+                "ticker": symbol,
+                "name": f"{symbol} Co",
+                "sector": "Tech",
+                "cls": cls,
+                "value": value,
+                "shares": shares,
+                "put_call": put_call,
+            }
+            for symbol, cls, value, shares, put_call in specs
+        ]
+    )
+
+
+def _weights(h: pd.DataFrame) -> dict[str, float]:
+    mqs = derive_all(h, [{"cik": "9999999999", "short": "M9", "cluster": "Beta"}], CFG)["manager_quarter_summary"]
+    return dict(zip(mqs["symbol"], mqs["weight"]))
+
+
+def test_an_option_row_does_not_dilute_the_equity_weights():
+    """F1: the denominator used to include option rows. An option's reported value is the value
+    of the underlying shares, so a 900 CALL on a 100-dollar equity book used to push both real
+    positions under 6% and make this manager look utterly unconcentrated."""
+    weights = _weights(_rows(P2, ("AAA", "COM", 60, 6, None), ("BBB", "COM", 40, 4, None), ("AAA", "COM", 900, 90, "CALL")))
+
+    assert weights["AAA"] == pytest.approx(0.60)
+    assert weights["BBB"] == pytest.approx(0.40)
+
+
+def test_notes_and_warrants_stay_inspectable_but_change_no_weight():
+    """A convertible note is debt and a warrant is not the share. Both stay in the table so the
+    manager page can badge them, and both stay out of the denominator."""
+    equity_only = _weights(_rows(P2, ("AAA", "COM", 60, 6, None), ("BBB", "COM", 40, 4, None)))
+    with_paper = _weights(
+        _rows(
+            P2,
+            ("AAA", "COM", 60, 6, None),
+            ("BBB", "COM", 40, 4, None),
+            ("CCC", "NOTE  0.500% 6/0", 500, 500, None),
+            ("DDD", "*W EXP 01/01/202", 300, 300, None),
+        )
+    )
+
+    assert with_paper["AAA"] == pytest.approx(equity_only["AAA"])
+    assert with_paper["BBB"] == pytest.approx(equity_only["BBB"])
+    assert set(with_paper) == {"AAA", "BBB", "CCC", "DDD"}  # still there to look at
+
+
+def test_a_manager_holding_no_eligible_equity_gets_no_weight_rather_than_zero():
+    """Zero equity value is an unanswerable denominator, not zero conviction. It must not
+    divide by zero and must not render as a real 0% position. Straight at
+    manager_quarter_summary: a universe with no equity at all leaves every later table empty,
+    which is a separate (and hypothetical) concern from the division itself."""
+    h = _rows(P2, ("AAA", "COM", 900, 90, "CALL"), ("CCC", "NOTE  5% 2030", 500, 500, None))
+    h = h.assign(kind=h["cls"].map(security_kind))
+
+    mqs = manager_quarter_summary(h, [P2])
+
+    assert mqs["weight"].isna().all()
+    assert not (mqs["weight"] == 0).any()
+
+
+def test_trimmed_can_still_gain_weight_because_the_two_axes_are_independent():
+    """Status compares shares, change compares weights. Selling a third of AAA while the rest of
+    the book halves leaves AAA both TRIMMED and a larger share of the portfolio. The UI shows
+    both numbers side by side, so the fixture that proves they can disagree earns its keep."""
+    h = pd.concat(
+        [
+            _rows(P1, ("AAA", "COM", 300, 300, None), ("BBB", "COM", 700, 700, None)),
+            _rows(P2, ("AAA", "COM", 200, 200, None), ("BBB", "COM", 100, 100, None)),
+        ],
+        ignore_index=True,
+    )
+    mqs = derive_all(h, [{"cik": "9999999999", "short": "M9", "cluster": "Beta"}], CFG)["manager_quarter_summary"]
+    aaa = _mqs_row(mqs, "9999999999", P2, "AAA")
+
+    assert aaa["status"] == "TRIMMED"
+    assert aaa["weight"] == pytest.approx(200 / 300)
+    assert aaa["change"] == pytest.approx(200 / 300 - 300 / 1000)
+
+
+def test_conviction_score_components_are_reproducible_by_hand():
+    """F3: the score had no documented breakdown. Every factor here is checked against the
+    formula in METHODOLOGY.md, and the raw numbers come out exact, not approximate.
+
+    WIDE: 12 managers x (1 + 0.025/0.05) x 1 (no new) x 1 (no added) x 1 (no accumulation) = 18
+    HOT:   4 managers x (1 + 0.09/0.05)  x (1 + 3*0.5) x 1 x min(0.09/0.02 + 1, 3) = 4*2.8*2.5*3 = 84
+
+    And the 0-100 scale is per quarter: HOT is 100 because it is that quarter's highest raw
+    score, not because it is a certainty. WIDE reads 21, meaning 18/84 of the quarter's top.
+    """
+    cfg = {
+        "score": {"weight_scale": 0.05, "new_bonus": 0.5, "added_bonus": 0.25, "accumulation_scale": 0.02, "accumulation_cap": 3}
+    }
+    sqs = pd.DataFrame(
+        [
+            {
+                "period": "P",
+                "symbol": "WIDE",
+                "manager_count": 12,
+                "avg_weight": 0.025,
+                "new_count": 0,
+                "added_count": 0,
+                "holders": [{"status": "UNCHANGED", "change": 0.0, "weight": 0.025} for _ in range(12)],
+            },
+            {
+                "period": "P",
+                "symbol": "HOT",
+                "manager_count": 4,
+                "avg_weight": 0.09,
+                "new_count": 3,
+                "added_count": 0,
+                "holders": [{"status": "NEW", "change": None, "weight": 0.09} for _ in range(3)]
+                + [{"status": "UNCHANGED", "change": 0.09, "weight": 0.09}],
+            },
+        ]
+    )
+
+    scored = conviction_score(sqs, cfg).set_index("symbol")
+
+    assert scored.loc["WIDE", "avg_change"] == pytest.approx(0.0)
+    assert scored.loc["HOT", "avg_change"] == pytest.approx(0.09)
+    assert scored.loc["HOT", "score"] == 100
+    assert scored.loc["WIDE", "score"] == round(100 * 18 / 84) == 21

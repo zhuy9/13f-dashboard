@@ -26,6 +26,7 @@ export interface Meta {
   periods: string[]
   managers: ManagerRef[]
   clusters: ClusterSummary[]
+  methodologyVersion: number
   updatedAt: Timestamp
 }
 
@@ -76,6 +77,7 @@ export interface SimilarManager {
 export interface ManagerQuarter {
   filedAt: string
   totalValue: number
+  equityValue: number
   count: number
   counts: {
     new: number

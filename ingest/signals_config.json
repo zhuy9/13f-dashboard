@@ -1,4 +1,5 @@
 {
+  "methodology_version": 2,
   "quarters": 12,
   "consensus_min_managers": 3,
   "high_conviction_min_weight": 0.03,

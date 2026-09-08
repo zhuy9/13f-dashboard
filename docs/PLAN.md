@@ -1025,7 +1025,7 @@ Acceptance criteria
 - [x] Amendment-disclosed holdings carry a disclosure label and no invented trade date.
 
 ### Milestone 12 — Explanations, provenance, freshness  (M3)
-Status: done 2e1e1ed + 10c17c3
+Status: done c010ee0 + e1dcf25
 
 Tasks
 1. Help text next to every signal heading and ambiguous column. Explain shares-vs-weight explicitly (a position can be `ADDED` while its weight falls, because the rest of the book grew more).

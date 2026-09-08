@@ -174,3 +174,25 @@ thead th {
     @apply font-sans;
   }
 }
+/* Tailwind's preflight sets `margin: 0` on every element, and that is author-origin so it beats
+   the UA stylesheet's `[popover] { inset: 0; margin: auto }`. The result is that an open popover
+   pins to the viewport's top-left corner instead of centring. Re-assert the centring; this is
+   the fallback every browser gets. */
+[popover]:popover-open {
+  margin: auto;
+}
+
+/* Then sit the panel under the control that opened it, where anchor positioning exists. This
+   needs an explicit anchor-name per instance, set inline by InfoPopover: a popover's *implicit*
+   anchor (its invoker) is not resolved by every engine that ships the properties, and one shared
+   name is worse than useless -- `position-anchor` would resolve to the last matching element in
+   the document rather than the one clicked, so every row's panel would fly to the last row.
+   Guarded on `position-anchor` so browsers without it keep the centred fallback above, margin
+   included. */
+@supports (position-anchor: --a) {
+  [popover].anchored:popover-open {
+    position-area: block-end span-inline-start;
+    margin: 0.25rem 0 0 0;
+    position-try-fallbacks: flip-block, flip-inline;
+  }
+}

@@ -10,7 +10,7 @@ on:
         required: false
         type: string
       dry_run:
-        description: "Dry run (no Firestore/GCS writes)"
+        description: "Dry run (reads only; no Firestore, securities-cache, or GCS writes)"
         required: false
         type: boolean
         default: false

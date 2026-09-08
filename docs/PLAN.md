@@ -3,6 +3,7 @@
 > Planning + documentation: the planning model. Development: a cheaper model, one milestone at a time.
 > This file is the single source of truth for the dev model.
 > Every milestone has numbered tasks and a checkbox list of acceptance criteria (AC). A milestone is done only when every AC box is checked.
+> Definitions and standing limitations live in [METHODOLOGY.md](METHODOLOGY.md), not here. This file is implementation history.
 
 ## Context
 
@@ -957,7 +958,7 @@ Source: a product/documentation review of commit `4851a08` (`_darren/13f-dashboa
 | F9 | README has no demo/screenshots; methodology is buried in this plan. | `README.md` | confirmed |
 
 ### Milestone 9 — Baseline verification and honest claims  (M0)
-Status: not started
+Status: in progress
 
 Tasks
 1. Record the reviewed commit and the F1-F9 verdicts in the table above (done as part of this milestone's planning commit).
@@ -968,12 +969,12 @@ Tasks
 6. New `docs/METHODOLOGY.md`: definitions, denominators, score scale, event labels, and the standing limitations (no split adjustment, no 13F-HR/A, relative score). Link it from README and from this plan.
 
 Acceptance criteria
-- [ ] F1-F9 verdict table above is filled in against the current commit with file evidence.
-- [ ] README states the 5-business-day initial 13D deadline, the 2-business-day amendment deadline, and that 13G deadlines depend on filer category, with a current SEC link.
-- [ ] A 6%-to-4% event renders `Below 5%` and nowhere claims zero shares.
-- [ ] `test_ingest.py` proves `--dry-run` calls neither `ensure_securities`' batch commit nor `write_gcs`, with a cache miss and `GCS_BUCKET` set.
-- [ ] A non-dry run still writes the cache, GCS, and Firestore (existing tests stay green).
-- [ ] `docs/METHODOLOGY.md` exists, is linked from README, and lists the open limitations as open.
+- [x] F1-F9 verdict table above is filled in against the current commit with file evidence.
+- [x] README states the 5-business-day initial 13D deadline, the 2-business-day amendment deadline, and that 13G deadlines depend on filer category, with a current SEC link.
+- [x] A 6%-to-4% event renders `Below 5%` and nowhere claims zero shares.
+- [x] `test_ingest.py` proves `--dry-run` calls neither `ensure_securities`' batch commit nor `write_gcs`, with a cache miss and `GCS_BUCKET` set.
+- [x] A non-dry run still writes the cache, GCS, and Firestore (existing tests stay green).
+- [x] `docs/METHODOLOGY.md` exists, is linked from README, and lists the open limitations as open.
 
 ### Milestone 10 — Equity-only weights and a documented score  (M1)
 Status: not started

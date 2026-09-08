@@ -151,7 +151,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--quarters", type=int, default=config["quarters"])
     parser.add_argument("--fund", type=str, default=None, help="CIK of a single fund")
-    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--dry-run", action="store_true", help="fetch and compute, but write nothing to Firestore or GCS")
     parser.add_argument("--refresh", choices=["none", "unknown", "all"], default="none", help="rebuild securities/ cache entries")
     args = parser.parse_args()
 
@@ -192,7 +192,11 @@ def main() -> int:
         raw_by_filing.update(fund_raw)
 
     all_cusips = sorted({c for _, base in base_by_fund for c in base["cusip"]})
-    securities = ensure_securities(db, all_cusips, identity, api_key, args.refresh, ticker_hints) if all_cusips else {}
+    securities = (
+        ensure_securities(db, all_cusips, identity, api_key, args.refresh, ticker_hints, persist=not args.dry_run)
+        if all_cusips
+        else {}
+    )
 
     enriched_frames = []
     for fund, base in base_by_fund:
@@ -210,7 +214,8 @@ def main() -> int:
     if len(holdings):
         tables = derive_all(holdings, funds, config)
 
-        bucket_name = os.environ.get("GCS_BUCKET")
+        # A dry run must not touch remote state, and the GCS archive is remote state.
+        bucket_name = None if args.dry_run else os.environ.get("GCS_BUCKET")
         if bucket_name:
             from google.cloud import storage
 

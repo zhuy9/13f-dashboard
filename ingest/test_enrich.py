@@ -50,3 +50,17 @@ def test_an_etf_is_sectored_from_openfigi_not_from_its_sic(monkeypatch):
 
     assert itot["sector"] == "ETF / Fund"
     assert itot["sic"] == 6726  # still recorded, just no longer what decides
+
+
+def test_persist_false_enriches_in_memory_and_writes_no_cache_entry(monkeypatch):
+    """A dry run must not advance remote state, and the securities/ cache is remote state.
+    The enriched entry is still returned, so the run's own output is unaffected."""
+    monkeypatch.setattr("enrich.openfigi_map", lambda cusips, key: {"037833100": {"ticker": "AAPL", "securityType": "Common"}})
+    monkeypatch.setattr("enrich.sec_ticker_to_cik", lambda identity: {"AAPL": "0000320193"})
+    monkeypatch.setattr("enrich.sec_sic", lambda cik, identity: (3571, "Electronic Computers"))
+    db = _FakeDb()  # empty cache: a miss, the case that would otherwise write
+
+    out = ensure_securities(db, ["037833100"], "a@b.com", None, "none", None, persist=False)
+
+    assert out["037833100"]["ticker"] == "AAPL"
+    assert db.written == {}

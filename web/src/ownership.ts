@@ -25,6 +25,10 @@ export function eventLabel(event: OwnershipEventKind, form: OwnershipForm): stri
   if (event === 'NEW') return `NEW ${form}`
   if (event === 'SWITCHED_TO_13D') return 'SWITCHED TO 13D'
   if (event === 'SWITCHED_TO_13G') return 'SWITCHED TO 13G'
+  // The stored `EXITED` only means the stake fell under the 5% reporting threshold. The
+  // investor may still hold 4.9%, so "exited" is the one label here that reads as a claim
+  // about the position rather than about the filing. The identifier stays; the wording goes.
+  if (event === 'EXITED') return 'BELOW 5%'
   return event
 }
 

@@ -169,3 +169,14 @@ def test_holders13f_joins_the_13f_side_and_keeps_zero_distinct_from_unknown(fili
     assert set(events(df.assign(symbol="ZZZ"), FUNDS, CFG, {"AAA": 5})["holders13f"]) == {0}
     assert set(events(df, FUNDS, CFG, {})["holders13f"]) == {0}, "an empty map is still an answer"
     assert events(df, FUNDS, CFG)["holders13f"].isna().all()
+
+
+def test_exited_keeps_the_remaining_stake_and_never_claims_zero(filings):
+    """EXITED only means the stake fell under the 5% reporting threshold. The fixture's last
+    Alpha filing reports 600,000 shares at 4.0%, and both must survive onto the event -- the UI
+    labels this "Below 5%", which would be a lie if the numbers were zeroed here."""
+    ev = events(filings, FUNDS, CFG)
+    row = ev[ev["accession"] == "0000000001-26-000005"].iloc[0]
+
+    assert row["event"] == "EXITED"
+    assert row["pct"] == 4.0 and row["shares"] == 600000

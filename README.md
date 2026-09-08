@@ -64,28 +64,28 @@ The style labels are set by hand. You can change them in `ingest/funds.json`.
 
 The site also tracks two other SEC filings: Schedule 13D and Schedule 13G.
 
-Both are filed by anyone who owns 5% or more of a company's stock.
+Either one is filed by an investor who owns more than 5% of a class of a company's shares.
 
-A 13D means the investor may try to influence the company. Think activist investors.
+Which form you file depends on whether you are eligible for the shorter one.
 
-A 13G means the investor is passive. They just hold the stock and stay quiet.
+A 13G is the short form. Three kinds of investor may use it. Large institutions buying in the ordinary course of business. Passive investors who hold under 20% and do not seek control. And investors exempt from the rules for other reasons. All three must lack any intent to change or influence control of the company.
 
-A 13D matters more. It often signals an activist campaign is starting.
+A 13D is the long form. It is what you file when you are not eligible for a 13G. That includes investors who do intend to influence the company. It also includes investors who simply hold too much, or who lost their 13G eligibility for a technical reason.
 
-These filings must be reported within 5 business days. A 13F can take up to 45 days.
+So a 13D is worth reading, but it is not proof of an activist campaign. And a 13G filer is not always a quiet small holder. The largest index funds file 13Gs on hundreds of companies.
 
-This site tracks 13D filings from every investor on EDGAR, not just the managers above.
+The deadlines differ too. An initial 13D is due within 5 business days of crossing the threshold. A 13D amendment is due within 2 business days of a material change. A 13G deadline depends on the filer's category and on what triggered the filing. A passive investor's first 13G is due in 5 business days. A large institution's is due 45 days after the end of the quarter. A 13F, by contrast, can take up to 45 days after the quarter ends.
 
-It only tracks 13G filings from the managers in the table above.
+The SEC's own summary of these rules is in its [beneficial ownership fact sheet](https://www.sec.gov/files/33-11253-fact-sheet.pdf).
 
 Ownership events start on December 18, 2024. Older filings are not structured data, so we skip them.
 
 Each new filing becomes one of these events:
 
-- **New.** A new 5%+ stake.
+- **New.** A first filing on a stake above 5%.
 - **Increased.** The stake grew by a meaningful amount.
 - **Decreased.** The stake shrank by a meaningful amount.
-- **Exited.** The stake dropped below 5%.
+- **Below 5%.** The stake fell under the 5% reporting threshold. This is not the same as selling out. The investor may still hold 4.9%, which no longer has to be reported here.
 - **Switched.** The investor moved from a 13G to a 13D, or the other way.
 - **Updated.** Something else changed, like the filing's stated purpose.
 
@@ -193,7 +193,9 @@ cp .env.example .env
 npm run dev
 ```
 
-`--dry-run` downloads and computes everything but writes nothing. Drop the flag to write to Firestore.
+`--dry-run` downloads and computes everything, prints a summary, and writes nothing. No Firestore documents, no securities cache entries, no GCS files. Drop the flag to write for real.
+
+How the numbers are defined, and what they do not cover, is in [docs/METHODOLOGY.md](docs/METHODOLOGY.md).
 
 ## Add a manager
 

@@ -63,8 +63,12 @@ def ensure_securities(
     api_key: Optional[str] = None,
     refresh: str = "none",
     ticker_hints: Optional[dict[str, str]] = None,
+    persist: bool = True,
 ) -> dict[str, dict]:
     """Read the `securities/` cache, enrich whatever `refresh` asks for, write back, return the full map.
+
+    `persist=False` keeps the enriched entries in memory and writes nothing -- what a dry run
+    needs, since the cache is remote state a dry run must not advance.
 
     `refresh`: "none" fills gaps only, "unknown" also redoes entries that came back Unknown,
     "all" rebuilds every entry -- the one to reach for after a rule changes, since a cached
@@ -113,11 +117,12 @@ def ensure_securities(
                 "sector": sic_to_sector(sic, security_type),
             }
 
-        for i in range(0, len(to_enrich), 400):
-            batch = db.batch()
-            for cusip in to_enrich[i : i + 400]:
-                batch.set(collection.document(cusip), cached[cusip])
-            batch.commit()
+        if persist:
+            for i in range(0, len(to_enrich), 400):
+                batch = db.batch()
+                for cusip in to_enrich[i : i + 400]:
+                    batch.set(collection.document(cusip), cached[cusip])
+                batch.commit()
 
     return {c: cached[c] for c in cusips}
 

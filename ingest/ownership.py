@@ -36,12 +36,14 @@ def _ticker_hints(rows: list[dict], identity: str) -> dict[str, str]:
     return {r["cusip"]: cik_to_ticker[r["issuer_cik"]] for r in rows if r["issuer_cik"] in cik_to_ticker}
 
 
-def _enrich(new_df: pd.DataFrame, rows: list[dict], db, identity: str, api_key: str | None) -> pd.DataFrame:
+def _enrich(new_df: pd.DataFrame, rows: list[dict], db, identity: str, api_key: str | None, persist: bool = True) -> pd.DataFrame:
     """Some filings (notes, non-standard securities) carry no CUSIP -- give those an
     issuer-scoped fallback symbol instead of routing them through the CUSIP-keyed cache."""
     has_cusip = new_df["cusip"].notna()
     cusips = sorted(new_df.loc[has_cusip, "cusip"].unique())
-    securities = ensure_securities(db, cusips, identity, api_key, "none", _ticker_hints(rows, identity)) if cusips else {}
+    securities = (
+        ensure_securities(db, cusips, identity, api_key, "none", _ticker_hints(rows, identity), persist=persist) if cusips else {}
+    )
     resolved = attach(new_df[has_cusip], securities)
 
     unresolved = new_df[~has_cusip].copy()
@@ -118,7 +120,7 @@ def main() -> int:
 
     new_df = pd.DataFrame(rows, columns=FILING_COLUMNS)
     if len(new_df):
-        new_df = _enrich(new_df, rows, db, identity, os.environ.get("OPENFIGI_API_KEY"))
+        new_df = _enrich(new_df, rows, db, identity, os.environ.get("OPENFIGI_API_KEY"), persist=not args.dry_run)
 
     have_state = state is not None and len(state)
     if have_state and len(new_df):

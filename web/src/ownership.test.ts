@@ -79,10 +79,12 @@ describe('eventLabel', () => {
     expect(eventLabel('SWITCHED_TO_13D', '13D')).toBe('SWITCHED TO 13D')
     expect(eventLabel('SWITCHED_TO_13G', '13G')).toBe('SWITCHED TO 13G')
   })
+  it('says BELOW 5% for EXITED, which never meant the stake went to zero', () => {
+    expect(eventLabel('EXITED', '13D')).toBe('BELOW 5%')
+  })
   it('passes through the other kinds as-is', () => {
     expect(eventLabel('INCREASED', '13D')).toBe('INCREASED')
     expect(eventLabel('DECREASED', '13D')).toBe('DECREASED')
-    expect(eventLabel('EXITED', '13D')).toBe('EXITED')
     expect(eventLabel('UPDATED', '13D')).toBe('UPDATED')
   })
   it('shows an em dash for null (unknown, no prior filing in the log)', () => {

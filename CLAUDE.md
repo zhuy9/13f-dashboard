@@ -103,7 +103,7 @@ This repository is PUBLIC.
 - `total_percent` / `total_shares` are the **max** across reporting persons, never a sum — nested entities in one filing report the same aggregate.
 - Amendments **are** the data here — the opposite of the 13F `13F-HR/A` rule. Every amendment changes the position.
 - No prior filing in our log for that `(investor, cusip)` pair ⇒ event `null`, never `NEW` — same idea as `status = null` in the 13F table.
-- `ownership.py --dry-run` must not advance state (no GCS or Firestore writes at all) — unlike `ingest.py`, which still archives to GCS on a dry run.
+- Both `--dry-run` modes must not advance remote state: no Firestore writes, no `securities/` cache write-back (`ensure_securities(..., persist=False)`), no GCS archive or state write. Reads and local computation are fine.
 - `GCS_BUCKET` is required for the ownership pipeline; it has no "skip archive" fallback.
 - Each run rewrites `ownership/feed` and only the issuer/investor docs touched by that run's new filings (Firestore's free tier is 20K writes/day) — use `--rebuild` to force every doc.
 

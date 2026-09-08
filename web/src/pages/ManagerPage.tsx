@@ -1,10 +1,9 @@
-import { useEffect, useMemo } from 'react'
+import { lazy, Suspense, useEffect, useMemo } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStates'
 import { ManagerLists } from '@/components/manager/ManagerLists'
 import { OwnershipFilings } from '@/components/manager/OwnershipFilings'
 import { PositionsTable } from '@/components/manager/PositionsTable'
-import { PositionsTreemap } from '@/components/manager/PositionsTreemap'
 import { SectorQoQTable } from '@/components/manager/SectorQoQTable'
 import { SimilarManagers } from '@/components/manager/SimilarManagers'
 import { SectorBars } from '@/components/SectorBars'
@@ -15,6 +14,11 @@ import { useMeta } from '@/context/MetaContext'
 import { getManager, getManagerQuarter } from '@/data'
 import { filedDate, money, quarterLabel } from '@/format'
 import { useAsyncData } from '@/hooks/useAsyncData'
+
+// Recharts is the heaviest dependency in the app and only three views draw a chart.
+const PositionsTreemap = lazy(() =>
+  import('@/components/manager/PositionsTreemap').then((m) => ({ default: m.PositionsTreemap })),
+)
 
 export function ManagerPage() {
   const { cik = '' } = useParams<{ cik: string }>()
@@ -90,7 +94,9 @@ export function ManagerPage() {
 
           <section>
             <h2 className="mb-2 text-lg font-medium">Top 25 Positions by Weight</h2>
-            <PositionsTreemap positions={mqState.data.positions} sectorBySymbol={sectorBySymbol} />
+            <Suspense fallback={<LoadingState />}>
+              <PositionsTreemap positions={mqState.data.positions} sectorBySymbol={sectorBySymbol} />
+            </Suspense>
           </section>
 
           <section className="grid grid-cols-1 gap-6 md:grid-cols-2">

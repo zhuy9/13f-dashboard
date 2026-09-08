@@ -1,13 +1,15 @@
+import { lazy, Suspense } from 'react'
 import { useParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStates'
 import { HoldersTable } from '@/components/stock/HoldersTable'
 import { MajorShareholders } from '@/components/stock/MajorShareholders'
 import { OptionsGroups } from '@/components/stock/OptionsGroups'
-import { TrendCharts } from '@/components/stock/TrendCharts'
 import { StatTile } from '@/components/StatTile'
 import { getOwnershipIssuer, getStock } from '@/data'
 import { useAsyncData } from '@/hooks/useAsyncData'
 import { isUnresolvedSymbol } from '@/ownership'
+
+const TrendCharts = lazy(() => import('@/components/stock/TrendCharts').then((m) => ({ default: m.TrendCharts })))
 
 export function StockPage() {
   const { symbol: rawSymbol = '' } = useParams<{ symbol: string }>()
@@ -89,7 +91,9 @@ export function StockPage() {
       {stock && (
         <section>
           <h2 className="mb-2 text-lg font-medium">Trend</h2>
-          <TrendCharts trend={stock.trend} />
+          <Suspense fallback={<LoadingState />}>
+            <TrendCharts trend={stock.trend} />
+          </Suspense>
         </section>
       )}
     </div>

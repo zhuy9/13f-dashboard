@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useMemo, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStates'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -16,8 +16,9 @@ import { FastestGrowing } from '@/pages/patterns/FastestGrowing'
 import { HighConviction } from '@/pages/patterns/HighConviction'
 import { ManagerSimilarity } from '@/pages/patterns/ManagerSimilarity'
 import { PutCallExposure } from '@/pages/patterns/PutCallExposure'
-import { SectorRotation } from '@/pages/patterns/SectorRotation'
 import type { Signals } from '@/types'
+
+const SectorRotation = lazy(() => import('@/pages/patterns/SectorRotation').then((m) => ({ default: m.SectorRotation })))
 
 interface Section {
   id: string
@@ -120,7 +121,7 @@ export function PatternsPage() {
       {sections.map((s) => (
         <section key={s.id} id={s.id} className="scroll-mt-40">
           <h2 className="mb-2 text-lg font-medium">{s.label}</h2>
-          {s.node}
+          <Suspense fallback={<LoadingState />}>{s.node}</Suspense>
         </section>
       ))}
     </div>

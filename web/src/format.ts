@@ -37,6 +37,19 @@ export function filedDate(isoDate: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
 }
 
+// A 13F is not due until 45 days after the quarter it covers ends.
+export function filingDue(period: string): string {
+  const [year, month, day] = period.split('-').map(Number)
+  return filedDate(new Date(Date.UTC(year, month - 1, day + 45)).toISOString().slice(0, 10))
+}
+
+// Every period is a quarter end, i.e. the last day of a month, and day 0 of month n is the last
+// day of month n-1 -- so month + 4, day 0 is the next quarter end, rolling the year over itself.
+export function nextPeriod(period: string): string {
+  const [year, month] = period.split('-').map(Number)
+  return new Date(Date.UTC(year, month + 3, 0)).toISOString().slice(0, 10)
+}
+
 export const SECTOR_COLORS: Record<string, string> = {
   Technology: '#4361ee',
   Financials: '#3a86ff',

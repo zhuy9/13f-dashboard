@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { FilingLag } from '@/components/FilingLag'
 import { Footer } from '@/components/Footer'
 import { Header } from '@/components/Header'
 import { MetaProvider } from '@/context/MetaContext'
@@ -13,6 +14,7 @@ export function App() {
   return (
     <MetaProvider>
       <Header />
+      <FilingLag />
       <main>
         <Routes>
           <Route path="/" element={<Navigate to="/patterns" replace />} />

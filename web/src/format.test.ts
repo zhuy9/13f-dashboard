@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filedDate, money, pct, pp, quarterLabel, SECTOR_COLORS } from './format'
+import { filedDate, filingDue, money, nextPeriod, pct, pp, quarterLabel, SECTOR_COLORS } from './format'
 
 describe('money', () => {
   it('formats billions with one decimal', () => {
@@ -53,5 +53,19 @@ describe('SECTOR_COLORS', () => {
   it('colours every sector ingest/sectors.py can emit', () => {
     expect(Object.keys(SECTOR_COLORS)).toHaveLength(13)
     expect(SECTOR_COLORS['Real Estate']).toBeDefined()
+  })
+})
+
+describe('filingDue', () => {
+  it('is 45 days after the quarter ends', () => {
+    expect(filingDue('2026-06-30')).toBe('Aug 14, 2026')
+    expect(filingDue('2026-12-31')).toBe('Feb 14, 2027')
+  })
+})
+
+describe('nextPeriod', () => {
+  it('steps to the next quarter end, across a year boundary', () => {
+    expect(nextPeriod('2026-06-30')).toBe('2026-09-30')
+    expect(nextPeriod('2026-12-31')).toBe('2027-03-31')
   })
 })

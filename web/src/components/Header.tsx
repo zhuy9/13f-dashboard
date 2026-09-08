@@ -10,9 +10,12 @@ const NAV_LINKS = [
 export function Header() {
   return (
     <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-4 border-b border-line bg-paper px-4 py-3">
-      <div className="flex items-center gap-6">
+      {/* Wraps and can shrink: the title plus three nav links need about 400 px side by side,
+          which is wider than a 375 px phone. Without this the group cannot give way, so it
+          widened every page on the site and the whole layout scrolled sideways. */}
+      <div className="flex min-w-0 flex-wrap items-center gap-x-6 gap-y-1">
         <span className="text-lg font-semibold">Consensus Sheet</span>
-        <nav className="flex gap-4">
+        <nav className="flex flex-wrap gap-4">
           {NAV_LINKS.map((link) => (
             <NavLink
               key={link.to}

@@ -65,6 +65,8 @@ export function ManagerList({ names, label, heading }: { names?: string[]; label
   )
 }
 
+// Shared because the facts are shared, and only where more than one page states them: the
+// UNADJUSTED? and AMENDED labels appear on the manager page alone, so their copy lives there.
 // The explanations below are shared because the facts are shared. Each was written out
 // separately on the Patterns tables, the manager page and the stock page, in three wordings
 // that were already drifting apart -- and explanatory text saying subtly different things in
@@ -99,20 +101,3 @@ export function SplitBasis() {
   )
 }
 
-export function UnadjustedFlag() {
-  return (
-    <p>
-      <em>UNADJUSTED?</em> marks a share count that moved like a split with no corporate action on file to confirm
-      one, so that comparison may not be like-for-like.
-    </p>
-  )
-}
-
-export function AmendedLabel() {
-  return (
-    <p>
-      <em>AMENDED</em> means the holding was first reported in an amended filing, usually because it was
-      confidential. That is when it was disclosed, not when it was bought.
-    </p>
-  )
-}

@@ -193,51 +193,47 @@ function buildSections(data: Signals, labelByCik: Map<string, string>): Section[
 // Picks the top row of tables that Python already ranked -- selection and rendering, not a
 // signal computed in the browser. Each card is a way into the full table below it.
 function Notable({ data }: { data: Signals }) {
-  const cards: { href: string; label: string; symbol: string; detail: string }[] = []
-  const buy = data.consensusBuys[0]
-  if (buy) {
-    cards.push({
+  const [buy, sold, crowded, rotation] = [
+    data.consensusBuys[0],
+    data.consensusExits[0],
+    data.highConviction[0],
+    data.sectorRotation[0],
+  ]
+  // Keys match StatTile's props so each survivor spreads straight in.
+  const cards = [
+    buy && {
       href: '#consensus-buys',
       label: 'Most bought',
-      symbol: buy.symbol,
+      value: buy.symbol,
       detail: `${buy.newBuyers} opened, ${buy.added} added`,
-    })
-  }
-  const exit = data.consensusExits[0]
-  if (exit) {
-    cards.push({
+    },
+    sold && {
       href: '#consensus-exits',
       label: 'Most sold',
-      symbol: exit.symbol,
-      detail: `${exit.soldOut} sold out, ${exit.trimmed} trimmed`,
-    })
-  }
-  const crowded = data.highConviction[0]
-  if (crowded) {
-    cards.push({
+      value: sold.symbol,
+      detail: `${sold.soldOut} sold out, ${sold.trimmed} trimmed`,
+    },
+    crowded && {
       href: '#high-conviction',
       label: 'Most crowded',
-      symbol: crowded.symbol,
+      value: crowded.symbol,
       detail: `${crowded.managers} managers at ${pct(crowded.avgWeight)} average`,
-    })
-  }
-  const rotation = data.sectorRotation[0]
-  if (rotation) {
-    cards.push({
+    },
+    rotation && {
       href: '#sector-rotation',
       label: 'Sector moving in',
-      symbol: rotation.sector,
+      value: rotation.sector,
       detail: `${pp(rotation.avgChange)} average weight`,
-    })
-  }
-  if (cards.length === 0) return null
+    },
+  ].filter(Boolean)
 
+  if (cards.length === 0) return null
   return (
     // One column below 640 px: two of these side by side at 375 px leaves about 165 px for
     // "15 managers at 7.9% average", which truncates to nothing useful.
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {cards.map((c) => (
-        <StatTile key={c.label} label={c.label} value={c.symbol} detail={c.detail} href={c.href} />
+        <StatTile key={c.label} {...c} />
       ))}
     </div>
   )

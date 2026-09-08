@@ -1,14 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStates'
-import {
-  AmendedLabel,
-  Explain,
-  SharesVsWeight,
-  SplitBasis,
-  UnadjustedFlag,
-  WeightBasis,
-} from '@/components/Explain'
+import { Explain, SharesVsWeight, SplitBasis, WeightBasis } from '@/components/Explain'
 import { ManagerLists } from '@/components/manager/ManagerLists'
 import { OwnershipFilings } from '@/components/manager/OwnershipFilings'
 import { PositionsTable } from '@/components/manager/PositionsTable'
@@ -135,8 +128,14 @@ export function ManagerPage() {
             <Explain>
               <SharesVsWeight />
               <SplitBasis />
-              <UnadjustedFlag />
-              <AmendedLabel />
+              <p>
+                <em>UNADJUSTED?</em> marks a share count that moved like a split with no corporate action on file to
+                confirm one, so that comparison may not be like-for-like.
+              </p>
+              <p>
+                <em>AMENDED</em> means the holding was first reported in an amended filing, usually because it was
+                confidential. That is when it was disclosed, not when it was bought.
+              </p>
               <WeightBasis />
               <p>Notes and warrants are listed here and badged; option positions are not listed at all.</p>
             </Explain>

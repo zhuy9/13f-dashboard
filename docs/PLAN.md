@@ -121,6 +121,10 @@ value (int $), shares (int), put_call ("PUT"|"CALL"|null)
 sector, kind
 value, shares, weight = value / equity_value   (null when the manager reported no eligible equity)
 prev_value, prev_shares, prev_weight
+adj_prev_shares = round(prev_shares * split_factor)   (prior shares on the current share basis)
+share_change = shares / adj_prev_shares - 1           (null when there is no prior side)
+split_unverified (bool)                  a clean share multiple no corporate action explains
+disclosed_by_amendment (bool)            first reported in a 13F-HR/A, not a trade date
 change = weight - prev_weight            (percentage points; null when prev unknown)
 status: NEW        prev absent, current present
         ADDED      shares > prev_shares
@@ -131,7 +135,7 @@ status: NEW        prev absent, current present
 ```
 `kind` is EQUITY / NOTE / WARRANT, from `security_kind()` over the filing's own free-text `Class` field. No UNIT: "unit" in a 13F is nearly always LP or trust units (Icahn `DEPOSITARY UNIT`, SPY `TR UNIT`, KKR `COM UNITS`), which are equity. A 13F carries convertible notes, warrants and units beside common stock and they are not equivalent -- a warrant's reported value is not equity exposure. Sector stays the *issuer's* (a Coinbase convertible reads Technology), so exposure stays economic and `kind` says what the instrument is.
 
-Status uses **shares** (price moves change weight without a trade). `# ponytail: stock splits look like ADDED; split-adjust if it matters.`
+Status uses **shares** (price moves change weight without a trade), compared on a consistent basis: `adj_prev_shares`, not `prev_shares`. `split_factor()` multiplies the ratios of every `ingest/corporate_actions.json` entry effective in `(prev_period, period]`, where `ratio` is new shares per old share (2 for a 2-for-1 forward, 0.1 for a 1-for-10 reverse — one signed field, since the direction is which side of 1 it sits on). Splits are data, never inferred: an unexplained clean multiple sets `split_unverified` and adjusts nothing.
 
 `equity_value` (Milestone 10) is the sum of a manager-quarter's `eligible_equity` rows: `put_call` blank **and** `kind == EQUITY`. Options are out because an option row's reported value is the underlying's value, not premium or invested capital; notes and warrants are out because they are not the share. ETFs/funds are in. `totals()` publishes both `total_value` (every row, for reconciling against the filing) and `equity_value` (the denominator). NOTE/WARRANT rows stay in this table so the UI can badge them, but every conviction signal downstream consumes `mqs[kind == "EQUITY"]` only, so eligible-equity weights sum to 1.
 
@@ -1001,23 +1005,23 @@ Acceptance criteria
 **Migration (methodology v1 → v2).** Every published weight changes, so this is a full rewrite, not a patch. Affected docs: `manager_quarters/{cik}_{period}` (`positions[].weight/prevWeight/change`, `sectors[].weight/prevWeight/change`, new `equityValue`), `stocks/{symbol}` (`latest.avgWeight/medianWeight/maxWeight/holders[]`, `trend[]`, `score`), `signals/{period}` (every E/F/G table), `meta/latest` (new `methodologyVersion`). GCS Parquet under `parquet/**` is rewritten the same way. Procedure: one `python ingest.py` over the full `quarters` window — `derive_all` recomputes every period from the fetched filings, and `write_firestore(prune=True)` replaces the docs, so no separate backfill and no mixed-version window. `securities/` and `raw/**` are untouched. Run `--dry-run` first and compare a known manager's top weights against the same manager's filing: an option-heavy book should move the most.
 
 ### Milestone 11 — Splits, identifier changes, 13F-HR/A  (M2)
-Status: not started
+Status: in progress
 
 Tasks
 1. `ingest/corporate_actions.json`: `{cusip, symbol, effective_date, ratio, direction, source}`. Data, not inference — a big share delta alone never creates an entry.
 2. `derive.py` adjusts prior-quarter shares by any action effective between the two report dates. Both reported and adjusted share counts stay on the row.
-3. Ticker renames map through CUSIP, which is already the join key. Distinct share classes keep distinct CUSIPs and stay separate.
+3. Ticker renames map through CUSIP, which is already the join key. Distinct share classes keep distinct CUSIPs and stay separate. **This needed no code**: the `securities/` cache is keyed by CUSIP and holds one current ticker per security, so every quarter of a renamed ticker resolves to the same symbol and a rename cannot read as a sell plus a buy. Locked with a test rather than built.
 4. `fetch.py` accepts `13F-HR/A`: a restatement replaces that (cik, period) snapshot; an additive amendment unions its rows. Keep every accession; ingesting the same accession twice changes nothing.
 5. A holding first disclosed by an amendment is labeled as newly *disclosed*, not newly *acquired*.
 
 Acceptance criteria
-- [ ] 2-for-1 split with unchanged economics → `UNCHANGED`, not `ADDED`; reverse split → not `TRIMMED`.
-- [ ] Split plus a real 10% increase → `ADDED` with the 10% intact after adjustment.
-- [ ] A ticker rename keeps one continuous position; two share classes stay two rows.
-- [ ] A share jump with no corporate-action entry is flagged unverified, not silently adjusted.
-- [ ] Fixtures cover: original, restatement, additive amendment, duplicate ingest.
-- [ ] Re-running the same accessions is idempotent.
-- [ ] Amendment-disclosed holdings carry a disclosure label and no invented trade date.
+- [x] 2-for-1 split with unchanged economics → `UNCHANGED`, not `ADDED`; reverse split → not `TRIMMED`.
+- [x] Split plus a real 10% increase → `ADDED` with the 10% intact after adjustment.
+- [x] A ticker rename keeps one continuous position; two share classes stay two rows.
+- [x] A share jump with no corporate-action entry is flagged unverified, not silently adjusted.
+- [x] Fixtures cover: original, restatement, additive amendment, duplicate ingest.
+- [x] Re-running the same accessions is idempotent.
+- [x] Amendment-disclosed holdings carry a disclosure label and no invented trade date.
 
 ### Milestone 12 — Explanations, provenance, freshness  (M3)
 Status: not started
@@ -1164,7 +1168,7 @@ The live site URL lives in the GitHub repo's own "website" field (repo Settings 
 - **Auto-clustering, Jaccard / sector similarity** — cosine + manual labels first.
 - **Auth, Cloud SQL, BigQuery** — public data; BigQuery is one command over the Parquet when SQL is wanted.
 - **More than 12 quarters** — the dollars/thousands boundary is the real limit; a 16th quarter back reaches 2022-09-30, which was filed in thousands and would need unit handling first.
-- **13F-HR/A amendments, split adjustment, GICS sectors** — when the inaccuracy actually bites.
+- **GICS sectors** — SIC codes from the SEC are free and close enough; GICS needs a licence.
 - **More shadcn components** — only when a listed view cannot be built with the 5.
 - **Legacy `SC 13D` / `SC 13G` text filings (pre 2024-12-18)** — need an HTML/text parser; structured XML only for now.
 - **Universe-wide 13G** — drop the roster filter in `ownership_fetch.list_filings` and add a passive-giant exclusion list (Vanguard, BlackRock, State Street, …) when wanted.

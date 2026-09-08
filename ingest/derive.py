@@ -175,6 +175,7 @@ def manager_quarter_summary(h: pd.DataFrame, periods: list[str], actions: list[d
         name=("name", "first"),
         sector=("sector", "first"),
         kind=("kind", "first"),
+        disclosed_by_amendment=("disclosed_by_amendment", "max"),
         value=("value", "sum"),
         shares=("shares", "sum"),
     )
@@ -184,6 +185,8 @@ def manager_quarter_summary(h: pd.DataFrame, periods: list[str], actions: list[d
     for period, cik, symbol, cur_row, prev_row, manager_filed_prev in _period_pairs(cur, periods, filed, "symbol"):
         row = cur_row if cur_row is not None else prev_row
         short, name, sector, kind = row["short"], row["name"], row["sector"], row["kind"]
+        # Only meaningful for a row that exists now; a SOLD_OUT row is not "disclosed" at all.
+        disclosed_by_amendment = bool(cur_row["disclosed_by_amendment"]) if cur_row is not None else False
         # A SOLD_OUT row has no current side: it is emitted at zero off the prior quarter's row.
         value, shares, weight = (cur_row["value"], cur_row["shares"], cur_row["weight"]) if cur_row is not None else (0, 0, 0.0)
 
@@ -228,6 +231,9 @@ def manager_quarter_summary(h: pd.DataFrame, periods: list[str], actions: list[d
                 "name": name,
                 "sector": sector,
                 "kind": kind,
+                # How the holding came to light, never when it was bought: a position revealed
+                # by an amendment was usually confidential, not newly acquired.
+                "disclosed_by_amendment": disclosed_by_amendment,
                 "value": value,
                 "shares": shares,
                 "weight": weight,

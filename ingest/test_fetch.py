@@ -1,6 +1,35 @@
 import pandas as pd
 
-from fetch import BASE_COLUMNS, collapse, edgar_ticker_hints, normalize
+from fetch import BASE_COLUMNS, Filing, collapse, edgar_ticker_hints, normalize, resolve_amendments
+
+
+def _filing(
+    accession: str = "0001-26-000001",
+    period: str = "2026-06-30",
+    filed_at: str = "2026-08-14",
+    is_amendment: bool = False,
+    amendment_type=None,
+    amendment_no: int = 0,
+    holdings: pd.DataFrame = None,
+) -> Filing:
+    return Filing(accession, period, filed_at, is_amendment, amendment_type, amendment_no, None, holdings)
+
+
+def _holdings(*cusips: str) -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "Issuer": f"CO {c}",
+                "Class": "COM",
+                "Cusip": c,
+                "Ticker": c[:4],
+                "PutCall": "",
+                "Value": 1000,
+                "SharesPrnAmount": 10,
+            }
+            for c in cusips
+        ]
+    )
 
 
 def test_normalize_uppercases_merges_drops_and_ints():
@@ -63,7 +92,7 @@ def test_normalize_uppercases_merges_drops_and_ints():
         ]
     )
 
-    out = normalize(raw, cik="1234567", short="Test Fund", period="2026-06-30", filed_at="2026-08-14")
+    out = normalize(raw, cik="1234567", short="Test Fund", filing=_filing())
 
     assert set(out["cusip"]) == {"037833100", "595112103", "30303M102", "874039100"}
 
@@ -91,6 +120,7 @@ def test_collapse_sums_one_book_split_across_two_filer_ciks():
     def row(value: int, shares: int) -> dict:
         return {
             "cik": "1336528", "short": "Pershing", "period": "2026-03-31", "filed_at": "2026-05-15",
+            "accession": "0001-26-000001", "disclosed_by_amendment": False,
             "cusip": "44267T102", "name": "HOWARD HUGHES", "cls": "COM",
             "value": value, "shares": shares, "put_call": None,
         }  # fmt: skip
@@ -119,3 +149,97 @@ def test_edgar_ticker_hints_skips_blanks_missing_cusips_and_stringified_nulls():
     )
     hints = edgar_ticker_hints(raw)
     assert hints == {"037833100": "AAPL", "H1467J104": "CB"}
+
+
+def _kept_cusips(kept) -> list[str]:
+    return sorted(c for _, df in kept for c in df["Cusip"])
+
+
+def test_an_original_filing_alone_is_kept_as_is():
+    kept, notes = resolve_amendments([_filing(holdings=_holdings("AAA", "BBB"))])
+
+    assert _kept_cusips(kept) == ["AAA", "BBB"]
+    assert notes == []
+
+
+def test_a_restatement_replaces_the_original_it_corrects():
+    """A RESTATEMENT re-files the whole report. Unioning it with the original would double
+    every position the manager did not change."""
+    original = _filing("acc1", holdings=_holdings("AAA", "BBB"))
+    restated = _filing("acc2", is_amendment=True, amendment_type="RESTATEMENT", amendment_no=1, holdings=_holdings("AAA"))
+
+    kept, notes = resolve_amendments([restated, original])
+
+    assert _kept_cusips(kept) == ["AAA"]
+    assert [f.accession for f, _ in kept] == ["acc2"]
+    assert notes == []
+
+
+def test_an_additive_amendment_unions_with_the_original_instead_of_replacing_it():
+    """NEW HOLDINGS carries only the positions that were confidential. Treating it as a
+    restatement would throw the real portfolio away and leave one holding behind."""
+    original = _filing("acc1", holdings=_holdings("AAA", "BBB"))
+    added = _filing("acc2", is_amendment=True, amendment_type="NEW HOLDINGS", amendment_no=1, holdings=_holdings("CCC"))
+
+    kept, notes = resolve_amendments([original, added])
+
+    assert _kept_cusips(kept) == ["AAA", "BBB", "CCC"]
+    assert notes == []
+
+
+def test_an_additive_amendment_that_re_reports_a_held_position_counts_it_once():
+    original = _filing("acc1", holdings=_holdings("AAA", "BBB"))
+    added = _filing("acc2", is_amendment=True, amendment_type="NEW HOLDINGS", amendment_no=1, holdings=_holdings("BBB", "CCC"))
+
+    kept, notes = resolve_amendments([original, added])
+
+    assert _kept_cusips(kept) == ["AAA", "BBB", "CCC"]
+    assert "counted once" in notes[0]
+
+
+def test_resolving_the_same_accessions_twice_is_idempotent():
+    """The pipeline is stateless and refetches every window, so the same filings are resolved
+    on every run. A duplicate accession also arrives for real when two aliases13f CIKs list
+    the same filing."""
+    filings = [
+        _filing("acc1", holdings=_holdings("AAA", "BBB")),
+        _filing("acc2", is_amendment=True, amendment_type="NEW HOLDINGS", amendment_no=1, holdings=_holdings("CCC")),
+    ]
+
+    once, _ = resolve_amendments(filings)
+    twice, _ = resolve_amendments(filings + filings)
+
+    assert _kept_cusips(once) == _kept_cusips(twice) == ["AAA", "BBB", "CCC"]
+
+
+def test_an_amendment_with_no_type_is_skipped_and_reported_never_guessed():
+    """Guessing RESTATEMENT deletes a portfolio; guessing NEW HOLDINGS double-counts one.
+    Neither is allowed to happen quietly."""
+    original = _filing("acc1", holdings=_holdings("AAA", "BBB"))
+    untyped = _filing("acc2", is_amendment=True, amendment_type=None, amendment_no=1, holdings=_holdings("ZZZ"))
+
+    kept, notes = resolve_amendments([original, untyped])
+
+    assert _kept_cusips(kept) == ["AAA", "BBB"]
+    assert "no type" in notes[0] and "skipped" in notes[0]
+
+
+def test_a_holding_only_an_amendment_disclosed_is_labelled_as_disclosed_not_as_bought():
+    """Filing disclosure is not a trade date. A previously-confidential position was held all
+    along, so the row says how it came to light and nothing about when it was acquired."""
+    added = _filing("acc2", is_amendment=True, amendment_type="NEW HOLDINGS", amendment_no=1, holdings=_holdings("CCC"))
+
+    rows = normalize(added.holdings, cik="1234567", short="Test Fund", filing=added)
+
+    assert rows.iloc[0]["disclosed_by_amendment"]
+    assert rows.iloc[0]["accession"] == "acc2"
+    assert rows.iloc[0]["filed_at"] == "2026-08-14"  # when it was filed, not when it was bought
+
+
+def test_only_amended_filings_in_the_window_is_reported():
+    restated = _filing("acc2", is_amendment=True, amendment_type="RESTATEMENT", amendment_no=1, holdings=_holdings("AAA"))
+
+    kept, notes = resolve_amendments([restated])
+
+    assert _kept_cusips(kept) == ["AAA"]
+    assert "no original" in notes[0]

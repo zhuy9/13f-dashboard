@@ -51,6 +51,8 @@ export interface Position {
   name: string
   sector: string
   kind: SecurityKind
+  // How the position came to light, not when it was bought.
+  disclosedByAmendment: boolean
   value: number
   shares: number
   weight: number

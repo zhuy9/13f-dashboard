@@ -300,6 +300,8 @@ def _rows(period: str, *specs) -> pd.DataFrame:
                 "short": "M9",
                 "period": period,
                 "filed_at": "2026-08-14",
+                "accession": f"9999-26-{symbol}",
+                "disclosed_by_amendment": False,
                 "cusip": f"{symbol}000000",
                 "symbol": symbol,
                 "ticker": symbol,
@@ -507,3 +509,16 @@ def test_split_factors_compound_and_ignore_other_symbols():
     assert split_factor("AAA", P1, P2, actions) == 6.0
     assert split_factor("BBB", P1, P2, actions) == 5.0
     assert split_factor("CCC", P1, P2, actions) == 1.0
+
+
+def test_an_amendment_disclosed_holding_keeps_its_label_through_to_the_position_row(out):
+    """The label has to survive the aggregation, or the manager page cannot show it. The shared
+    fixture files nothing by amendment, so the default must stay False across the board."""
+    h = _rows(P2, ("AAA", "COM", 100, 10, None))
+    h.loc[0, "disclosed_by_amendment"] = True
+    h = h.assign(kind=h["cls"].map(security_kind))
+
+    mqs = manager_quarter_summary(h, [P2], ())
+
+    assert mqs.iloc[0]["disclosed_by_amendment"]
+    assert not out["manager_quarter_summary"]["disclosed_by_amendment"].any()

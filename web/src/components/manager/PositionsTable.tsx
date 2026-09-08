@@ -27,6 +27,12 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
             <TableCell className="whitespace-nowrap">
               <StockLink symbol={p.symbol} className="font-tabular font-medium text-call hover:underline" />{' '}
               <KindBadge kind={p.kind} />
+              {p.disclosedByAmendment && (
+                <span title="First disclosed in an amended filing (13F-HR/A), usually because the position was confidential. That is when it was reported, not when it was bought.">
+                  {' '}
+                  <ColorBadge color="#6639ba" label="AMENDED" />
+                </span>
+              )}
             </TableCell>
             <TableCell className="max-w-xs truncate">{p.name}</TableCell>
             <TableCell className="font-tabular text-right">{pct(p.weight)}</TableCell>

@@ -5,6 +5,7 @@ import json
 import os
 import sys
 from datetime import datetime, timezone
+from itertools import groupby
 from pathlib import Path
 
 import edgar
@@ -15,7 +16,16 @@ from firebase_admin import firestore
 
 from derive import derive_all
 from enrich import attach, ensure_securities
-from fetch import BASE_COLUMNS, collapse, edgar_ticker_hints, fetch_filings, filed_notice, filing_rows, normalize
+from fetch import (
+    BASE_COLUMNS,
+    collapse,
+    edgar_ticker_hints,
+    fetch_filings,
+    filed_notice,
+    filing_rows,
+    normalize,
+    resolve_amendments,
+)
 from store import write_firestore, write_gcs
 
 HERE = Path(__file__).parent
@@ -35,23 +45,31 @@ def load_corporate_actions() -> list[dict]:
     return json.loads((HERE / "corporate_actions.json").read_text())
 
 
-def fetch_manager(fund: dict, quarters: int) -> tuple[pd.DataFrame, dict[str, str], dict[tuple, bytes]]:
-    """One manager's last `quarters` 13F-HR filings, across every CIK the firm files them under.
+def fetch_manager(fund: dict, quarters: int) -> tuple[pd.DataFrame, dict[str, str], dict[tuple, bytes], list[str]]:
+    """One manager's filings over the last `quarters` report periods, across every CIK the firm
+    files them under.
 
     Rows from every `aliases13f` CIK carry the roster cik/short, so `collapse` sums a book split
-    across filers into one."""
+    across filers into one. Amendments are resolved per (filer, period) by `resolve_amendments`
+    before any of that: a restatement replaces its original, an additive amendment unions with
+    it, and one accession contributes once however many times it is seen."""
     frames = []
     ticker_hints: dict[str, str] = {}
     raw_by_filing: dict[tuple, bytes] = {}
+    notes: list[str] = []
     for cik in [fund["cik"], *fund.get("aliases13f", [])]:
-        for f in fetch_filings(cik, quarters):
-            period, filed_at, raw_xml, df = filing_rows(f)
-            frames.append(normalize(df, fund["cik"], fund["short"], period, filed_at))
-            ticker_hints.update(edgar_ticker_hints(df))
-            if raw_xml:
-                raw_by_filing[(cik, period)] = raw_xml  # the real filer, so two CIKs cannot collide
+        parsed = [filing_rows(f) for f in fetch_filings(cik, quarters)]
+        for period, group in groupby(sorted(parsed, key=lambda f: f.period), key=lambda f: f.period):
+            kept, period_notes = resolve_amendments(list(group))
+            notes += [f"{fund['short']} {note}" for note in period_notes]
+            for filing, rows in kept:
+                frames.append(normalize(rows, fund["cik"], fund["short"], filing))
+                ticker_hints.update(edgar_ticker_hints(rows))
+                if filing.raw_xml:
+                    # Keyed by accession: an amended quarter archives every filing it had.
+                    raw_by_filing[(cik, period, filing.accession)] = filing.raw_xml
     base = collapse(pd.concat(frames, ignore_index=True)) if frames else pd.DataFrame(columns=BASE_COLUMNS)
-    return base, ticker_hints, raw_by_filing
+    return base, ticker_hints, raw_by_filing, notes
 
 
 def print_dry_run_summary(short: str, enriched: pd.DataFrame) -> None:
@@ -185,10 +203,11 @@ def main() -> int:
     base_by_fund: list[tuple[dict, pd.DataFrame]] = []
     ticker_hints: dict[str, str] = {}
     raw_by_filing: dict[tuple, bytes] = {}
+    amendment_notes: list[str] = []
     failed: list[str] = []
     for fund in funds:
         try:
-            base, fund_hints, fund_raw = fetch_manager(fund, args.quarters)
+            base, fund_hints, fund_raw, fund_notes = fetch_manager(fund, args.quarters)
         except Exception as e:
             print(f"ERROR: {fund['short']} ({fund['cik']}) failed: {e}", file=sys.stderr)
             failed.append(fund["short"])
@@ -196,6 +215,7 @@ def main() -> int:
         base_by_fund.append((fund, base))
         ticker_hints.update(fund_hints)
         raw_by_filing.update(fund_raw)
+        amendment_notes += fund_notes
 
     all_cusips = sorted({c for _, base in base_by_fund for c in base["cusip"]})
     securities = (
@@ -211,6 +231,8 @@ def main() -> int:
         if args.dry_run:
             print_dry_run_summary(fund["short"], enriched)
 
+    for note in amendment_notes:
+        print(f"amendment: {note}")
     fail_line = [f"FAILED: {', '.join(failed)}"] if failed else []
     holdings = pd.concat(enriched_frames, ignore_index=True) if enriched_frames else pd.DataFrame()
     if args.dry_run and len(holdings):
@@ -249,6 +271,7 @@ def main() -> int:
                 f"unmapped tickers: {holdings['ticker'].isna().mean():.1%}",
             ]
             + ([f"pruned {pruned} stale documents"] if pruned else [])
+            + [f"amendment: {note}" for note in amendment_notes]
             + stale_lines
             + fail_line,
         )

@@ -42,13 +42,16 @@ _FIRESTORE_BATCH_BYTES = 4_000_000
 
 def write_gcs(bucket, raw_by_filing: dict, tables: dict) -> None:
     """Raw 13F XML + one Parquet per table per period. Best-effort: log and continue per object."""
-    for (cik, period), raw_xml in raw_by_filing.items():
+    for (cik, period, accession), raw_xml in raw_by_filing.items():
         if not raw_xml:
             continue
+        # Named by accession, not just by period: an amended quarter has more than one filing
+        # and the original must not be overwritten by the amendment that corrected it.
+        path = f"raw/{cik}/{period}/{accession}.xml"
         try:
-            bucket.blob(f"raw/{cik}/{period}/infotable.xml").upload_from_string(raw_xml, content_type="application/xml")
+            bucket.blob(path).upload_from_string(raw_xml, content_type="application/xml")
         except Exception:
-            logger.exception("GCS upload failed: raw/%s/%s", cik, period)
+            logger.exception("GCS upload failed: %s", path)
 
     for name in _PARQUET_TABLES:
         df = tables.get(name)

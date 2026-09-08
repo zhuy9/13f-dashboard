@@ -67,13 +67,25 @@ it get more important".
 A manager that did not file the previous quarter gets `status = null`, not `NEW`. Missing data
 is never rendered as zero.
 
-**Open limitation (Milestone 11):** share counts are compared as reported, with no adjustment
-for stock splits. A 2-for-1 split doubles the share count with no trade behind it, and currently
-reads as `ADDED`. A reverse split reads as `TRIMMED`. Weight is unaffected, because it is
-relative.
+Share counts are compared on a consistent basis. Splits are recorded in
+`ingest/corporate_actions.json`, one entry per action with the source it came from, and the
+prior quarter's count is restated onto the current share basis before status is decided. Both
+counts are published: `prevShares` as filed, `adjPrevShares` adjusted. Weight was never
+affected, because it is relative.
 
-**Open limitation (Milestone 11):** `13F-HR/A` amendments are ignored. A manager that corrects
-or completes a filing by amendment is represented by its original filing only.
+Splits are never inferred. A share count that looks like a split is not evidence that one
+happened, so a clean multiple with no recorded action is flagged (`UNADJUSTED?` in the UI) and
+nothing is adjusted. The flag looks at value as well as shares: a split leaves a position's
+value alone because the price divides by the same number, while a purchase moves both.
+
+`13F-HR/A` amendments are processed by type. A `RESTATEMENT` re-files the whole report and
+replaces the filing it corrects. A `NEW HOLDINGS` amendment adds only positions that were
+previously confidential and is unioned with the original. An amendment whose cover page states
+no type is skipped and reported in the run log, never guessed at.
+
+A holding first disclosed by an amendment is labelled `AMENDED`. That says how it came to
+light, not when it was bought — such a position was usually held all along under a
+confidential-treatment request. Filing disclosure never establishes a trade date.
 
 ## Conviction Score
 
@@ -136,8 +148,8 @@ other is current.
 
 ## Standing limitations, in one list
 
-- No stock-split adjustment (Milestone 11).
-- No `13F-HR/A` amendment handling (Milestone 11).
+- Split adjustment covers only the actions recorded in `ingest/corporate_actions.json`; a
+  split nobody has added there is flagged, not corrected.
 - Conviction Score is relative within a quarter only.
 - Ownership feed capped at 300 events; the 7-day count is anchored to the newest filing, not to
   now (Milestone 12).

@@ -33,3 +33,18 @@ def test_sic_38xx_is_instruments_not_all_medical():
     assert sic_to_sector(3845) == "Health Care"  # electromedical
     assert sic_to_sector(3851) == "Health Care"  # ophthalmic goods: ALC, BLCO, COO
     assert sic_to_sector(3861) == "Consumer Discretionary"  # photographic equipment
+
+
+def test_reits_are_real_estate_not_financials():
+    """GICS split Real Estate out of Financials in 2016; SIC 6798 sits inside the 6000-6799
+    financials range, so REITs need an explicit carve above it."""
+    assert sic_to_sector(6798) == "Real Estate"
+    assert sic_to_sector(6500) == "Real Estate"
+    assert sic_to_sector(6021) == "Financials"
+
+
+def test_measured_carves_beat_their_enclosing_range():
+    assert sic_to_sector(5331) == "Consumer Staples"  # WMT, COST -- range says Consumer Disc
+    assert sic_to_sector(6324) == "Health Care"  # UNH, ELV -- range says Financials
+    assert sic_to_sector(4922) == "Energy & Mining"  # KMI, WMB -- range says Utilities
+    assert sic_to_sector(4923) == "Utilities"  # gas distribution still is one

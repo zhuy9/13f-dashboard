@@ -418,7 +418,7 @@ Tasks
    (7000,7369,"Consumer Discretionary") (7370,7379,"Technology") (7380,7999,"Consumer Discretionary")
    (8000,8099,"Health Care") (8100,8999,"Industrials")
    ```
-   `# ponytail: SIC ranges are coarse; swap for a GICS source if sector accuracy matters.`
+   `# ponytail: SIC ranges are coarse; swap for a GICS source if sector accuracy matters.` Measured, not assumed: `ingest/reconcile_sectors.py` scores the table against GICS with the S&P 500 as ground truth (84.7% of 496 names; `--propose` suggests carves the evidence supports, and is currently exhausted). Single-SIC carves sit above the broad ranges, which are first-match-wins.
    ETFs and other funds are sectored from OpenFIGI's `securityType2 == "ETP"`, which wins over the SIC:
    a fund's own SIC is 6726 (investment offices), which the range table would read as Financials.
 3. `fetch.py`

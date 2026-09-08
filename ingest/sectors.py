@@ -3,7 +3,35 @@
 from typing import Optional
 
 # (low, high, sector) — inclusive range, first match wins.
+#
+# The single-SIC entries below come first because they override the broad ranges under them.
+# They are not hand-picked: each was measured against GICS using the S&P 500 as ground truth
+# (scripted, see the commit that added them). A code is carved out only when every S&P member
+# of it disagrees with the range's answer, or when the range is right for almost none of them.
+# SICs that are genuinely mixed -- 3823 holds Ametek, Keysight and Danaher; 7372 holds 15
+# software names plus a bank -- are deliberately left to their range.
 SIC_RANGES: list[tuple[int, int, str]] = [
+    (1400, 1400, "Materials"),  # nonmetallic mineral mining: MLM, VMC
+    (1520, 1531, "Consumer Discretionary"),  # homebuilders: DHI, NVR, PHM, LEN
+    (2860, 2870, "Materials"),  # organic and agricultural chemicals: IFF, LYB, CF, MOS
+    (3021, 3021, "Consumer Discretionary"),  # footwear: NKE, DECK
+    (3420, 3420, "Industrials"),  # handtools and hardware: SNA, SWK
+    (3663, 3663, "Technology"),  # broadcasting and comms equipment: QCOM, MSI
+    (3724, 3730, "Industrials"),  # aircraft engines, ships: HON, RTX, GD, HII
+    (4400, 4400, "Consumer Discretionary"),  # water transport is cruise lines: CCL, RCL, NCLH
+    (4700, 4700, "Consumer Discretionary"),  # transport services is online travel: BKNG, EXPE
+    (4922, 4922, "Energy & Mining"),  # gas transmission, not a utility: KMI, WMB, TRGP
+    (4953, 4953, "Industrials"),  # refuse systems: WM, RSG
+    (5122, 5122, "Health Care"),  # drug wholesale: MCK, CAH, COR
+    (5331, 5331, "Consumer Staples"),  # variety stores: WMT, COST, TGT, DG, DLTR
+    (6324, 6324, "Health Care"),  # hospital & medical service plans: UNH, ELV, CI, CNC, HUM
+    (6500, 6599, "Real Estate"),  # real estate operators and developers: CBRE, INVH
+    (6798, 6798, "Real Estate"),  # REITs -- 26 of the S&P's 29 real estate names sit here
+    (7320, 7320, "Financials"),  # credit reporting and ratings: SPGI, MCO
+    (7370, 7370, "Communication"),  # the range says Technology; every S&P name here is media
+    (7389, 7389, "Financials"),  # business services NEC, mostly payments: FIS, FISV, GPN, MSCI
+    (7900, 7900, "Communication"),  # amusement & recreation: LYV, TKO
+    (8731, 8731, "Health Care"),  # commercial biological research: IQV, CRL, INCY
     (100, 999, "Other"),
     (1000, 1499, "Energy & Mining"),
     (1500, 1799, "Industrials"),

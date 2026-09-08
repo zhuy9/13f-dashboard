@@ -48,6 +48,7 @@ export const SECTOR_COLORS: Record<string, string> = {
   Materials: '#4cc9f0',
   Communication: '#560bad',
   Utilities: '#023e8a',
+  'Real Estate': '#b5838d',
   'ETF / Fund': '#adb5bd',
   Other: '#ced4da',
 }

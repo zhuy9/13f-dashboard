@@ -48,7 +48,10 @@ describe('filedDate', () => {
 })
 
 describe('SECTOR_COLORS', () => {
-  it('has exactly 12 fixed sectors', () => {
-    expect(Object.keys(SECTOR_COLORS)).toHaveLength(12)
+  // The sector names come from ingest/sectors.py. A sector with no colour here silently falls
+  // back to grey, so this count has to move whenever that file gains or loses one.
+  it('colours every sector ingest/sectors.py can emit', () => {
+    expect(Object.keys(SECTOR_COLORS)).toHaveLength(13)
+    expect(SECTOR_COLORS['Real Estate']).toBeDefined()
   })
 })

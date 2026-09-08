@@ -34,11 +34,10 @@ def filing_rows(filing) -> tuple[str, str, Optional[bytes], pd.DataFrame]:
 
 
 def collapse(rows: pd.DataFrame) -> pd.DataFrame:
-    """Sum duplicate rows into the one row per (cik, period, cusip, put_call) the base table promises.
+    """Sum duplicates into the one row per (cik, period, cusip, put_call) the base table promises.
 
-    Two sources of duplicates: a single filing listing the same security on several lines, and a
-    manager whose book is split across two filer CIKs (`aliases13f`) for the same quarter.
-    """
+    Duplicates come from one filing repeating a security, or from an `aliases13f` book split
+    across two filer CIKs in the same quarter."""
     if rows.empty:
         return rows[BASE_COLUMNS]
     grouped = rows.groupby(["cik", "period", "cusip", "put_call"], dropna=False, as_index=False).agg(

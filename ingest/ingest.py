@@ -32,10 +32,8 @@ def load_config() -> dict:
 def fetch_manager(fund: dict, quarters: int) -> tuple[pd.DataFrame, dict[str, str], dict[tuple, bytes]]:
     """One manager's last `quarters` 13F-HR filings, across every CIK the firm files them under.
 
-    A firm can move its 13F to a new filer or split one book across two (Pershing Square filed a
-    13F-NT for 2026-06-30 naming Pershing Square Inc as the manager reporting for it). Rows from
-    every `aliases13f` CIK carry the roster cik/short, so `collapse` sums the parts into one book.
-    """
+    Rows from every `aliases13f` CIK carry the roster cik/short, so `collapse` sums a book split
+    across filers into one."""
     frames = []
     ticker_hints: dict[str, str] = {}
     raw_by_filing: dict[tuple, bytes] = {}

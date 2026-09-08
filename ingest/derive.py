@@ -419,9 +419,8 @@ def clusters(mqs: pd.DataFrame, mse: pd.DataFrame, funds: list[dict]) -> dict:
 
 
 def derive_all(h: pd.DataFrame, funds: list[dict], cfg: dict) -> dict:
-    # Each manager is fetched `quarters` filings deep, but a manager who stopped filing drags
-    # older periods into the union -- and those render as near-empty quarters holding one stale
-    # manager. The dataset is the newest `quarters` periods; anything older is one filer's tail.
+    # The newest `quarters` periods -- a manager who stopped filing drags older ones into the
+    # union, where they render as near-empty quarters holding that one stale filer.
     periods = sorted(h["period"].unique())[-cfg["quarters"] :]
     h = h[h["period"].isin(periods)]
     managers_per_period = {p: len(ciks) for p, ciks in _filed_ciks(h).items()}

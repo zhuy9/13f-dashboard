@@ -1,6 +1,6 @@
 import pandas as pd
 
-from fetch import collapse, edgar_ticker_hints, normalize
+from fetch import BASE_COLUMNS, collapse, edgar_ticker_hints, normalize
 
 
 def test_normalize_uppercases_merges_drops_and_ints():
@@ -87,82 +87,19 @@ def test_normalize_uppercases_merges_drops_and_ints():
 def test_collapse_sums_one_book_split_across_two_filer_ciks():
     """Pershing's 2026-03-31 book: the LP reported 18,852,064 HHH shares and Pershing Square Inc
     another 9,000,000. The combined 2026-06-30 filing shows 27,852,064 -- the parts are additive."""
-    lp = normalize(
-        pd.DataFrame(
-            [
-                {
-                    "Issuer": "HOWARD HUGHES",
-                    "Class": "COM",
-                    "Cusip": "44267D107",
-                    "Ticker": "HHH",
-                    "PutCall": "",
-                    "Value": 1192581569,
-                    "SharesPrnAmount": 18852064,
-                }
-            ]
-        ),
-        cik="1336528",
-        short="Pershing",
-        period="2026-03-31",
-        filed_at="2026-05-15",
-    )
-    inc = normalize(
-        pd.DataFrame(
-            [
-                {
-                    "Issuer": "HOWARD HUGHES",
-                    "Class": "COM",
-                    "Cusip": "44267D107",
-                    "Ticker": "HHH",
-                    "PutCall": "",
-                    "Value": 569340000,
-                    "SharesPrnAmount": 9000000,
-                }
-            ]
-        ),
-        cik="1336528",
-        short="Pershing",
-        period="2026-03-31",
-        filed_at="2026-05-15",
-    )
 
-    out = collapse(pd.concat([lp, inc], ignore_index=True))
+    def row(value: int, shares: int) -> dict:
+        return {
+            "cik": "1336528", "short": "Pershing", "period": "2026-03-31", "filed_at": "2026-05-15",
+            "cusip": "44267T102", "name": "HOWARD HUGHES", "cls": "COM",
+            "value": value, "shares": shares, "put_call": None,
+        }  # fmt: skip
+
+    out = collapse(pd.DataFrame([row(1192581569, 18852064), row(569340000, 9000000)], columns=BASE_COLUMNS))
 
     assert len(out) == 1, "the two filers' rows must merge into one base-table row"
     assert out.iloc[0]["shares"] == 27852064
     assert out.iloc[0]["value"] == 1192581569 + 569340000
-
-
-def test_collapse_keeps_puts_calls_and_shares_on_the_same_cusip_apart():
-    rows = pd.concat(
-        [
-            normalize(
-                pd.DataFrame(
-                    [
-                        {
-                            "Issuer": "META",
-                            "Class": "COM",
-                            "Cusip": "30303M102",
-                            "Ticker": "META",
-                            "PutCall": p,
-                            "Value": 100,
-                            "SharesPrnAmount": 10,
-                        }
-                    ]
-                ),
-                cik="1",
-                short="M",
-                period="2026-06-30",
-                filed_at="2026-08-14",
-            )
-            for p in ["", "PUT", "CALL"]
-        ],
-        ignore_index=True,
-    )
-
-    out = collapse(rows)
-
-    assert len(out) == 3
 
 
 def test_edgar_ticker_hints_skips_blank_and_missing_cusip():

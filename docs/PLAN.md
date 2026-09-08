@@ -241,7 +241,7 @@ Config keys (`signals_config.json` → `ownership`): `start_date` (first filing 
 | Doc | Content | Read by |
 |---|---|---|
 | `meta/latest` | `latestPeriod, periods[], managers[{cik, short, name, cluster}], clusters[{label, members, commonHoldings, topSector}], updatedAt` | every page, once |
-| `meta/symbols` | `symbols[{symbol, name, sector, kind}]` | the search box, on first focus only |
+| `meta/symbols` | `symbols[{symbol, name, sector}]` | the search box, on first focus only |
 | `managers/{cik}` | `cik, name, short, cluster, periods[]` | manager page |
 | `manager_quarters/{cik}_{period}` | `filedAt, totalValue, count, counts{new,added,trimmed,unchanged,soldOut}, positions[A rows incl. SOLD_OUT], sectors[B rows], mostSimilar[{cik, short, score}]` | manager page |
 | `stocks/{symbol}` | `symbol, name, sector, kind, trend[D rows], latest{C summary + holders + soldOut + options{calls[], puts[]}}` | stock page |

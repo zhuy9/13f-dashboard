@@ -31,7 +31,7 @@ export interface Meta {
 
 // meta/symbols -- its own doc so meta/latest stays small; only the search box reads it.
 export interface SymbolIndex {
-  symbols: { symbol: string; name: string; sector: string; kind: SecurityKind }[]
+  symbols: { symbol: string; name: string; sector: string }[]
 }
 
 // managers/{cik}

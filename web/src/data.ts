@@ -1,27 +1,13 @@
-import { doc, getDoc } from 'firebase/firestore'
+// firestore/lite: one HTTP request per read, no realtime channel, no offline cache. The site
+// only ever calls getDoc, and lite rejects a bad config instead of retrying it forever -- which
+// is what the timeout race here used to exist to work around.
+import { doc, getDoc } from 'firebase/firestore/lite'
 import { db } from './firebase'
 import type { Manager, ManagerQuarter, Meta, Signals, Stock } from './types'
 import type { OwnershipFeed, OwnershipInvestor, OwnershipIssuer } from './ownershipTypes'
 
-// The Firestore SDK retries a bad project/network config indefinitely and never rejects
-// getDoc() on its own, so a wrong VITE_FIREBASE_PROJECT_ID would otherwise hang forever
-// on "Loading...". This bounds every read so a config error surfaces as a visible message.
-const FETCH_TIMEOUT_MS = 10_000
-
-function withTimeout<T>(promise: Promise<T>, path: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(
-        () => reject(new Error(`Timed out loading ${path}. Check your Firebase configuration.`)),
-        FETCH_TIMEOUT_MS,
-      ),
-    ),
-  ])
-}
-
 async function fetchDoc<T>(path: string): Promise<T | null> {
-  const snap = await withTimeout(getDoc(doc(db, path)), path)
+  const snap = await getDoc(doc(db, path))
   return snap.exists() ? (snap.data() as T) : null
 }
 

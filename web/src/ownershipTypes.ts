@@ -1,4 +1,4 @@
-import type { Timestamp } from 'firebase/firestore'
+import type { Timestamp } from 'firebase/firestore/lite'
 
 export type OwnershipForm = '13D' | '13G'
 

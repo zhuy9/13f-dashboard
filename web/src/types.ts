@@ -1,4 +1,4 @@
-import type { Timestamp } from 'firebase/firestore'
+import type { Timestamp } from 'firebase/firestore/lite'
 
 export type PositionStatus = 'NEW' | 'ADDED' | 'TRIMMED' | 'UNCHANGED' | 'SOLD_OUT'
 

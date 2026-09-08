@@ -73,8 +73,11 @@ export function OwnershipPage() {
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Tabs value={filter} onValueChange={setFilter} className="min-w-0 overflow-x-auto">
-          <TabsList>
+        {/* Wrap rather than scroll. overflow-x-auto forces overflow-y to auto too, so the
+            horizontal scrollbar's own height produced a second, vertical one -- and a hidden
+            scrollbar would leave the last filters unreachable without a shift-scroll. */}
+        <Tabs value={filter} onValueChange={setFilter} className="min-w-0">
+          <TabsList className="flex-wrap group-data-horizontal/tabs:h-auto">
             {FILTERS.map((f) => (
               <TabsTrigger key={f.value} value={f.value}>
                 {f.label}

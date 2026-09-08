@@ -72,14 +72,21 @@ export function StockPage() {
               <HoldersTable holders={latest.holders} />
             </section>
 
-            <section>
-              <h2 className="mb-2 text-lg font-medium">Positions by Type</h2>
-              <OptionsGroups
-                equityHolders={latest.holders}
-                calls={latest.options.calls}
-                puts={latest.options.puts}
-              />
-            </section>
+            {/* Only when options were actually reported. 13F options are filed under the
+                underlying equity's CUSIP, so a note or warrant page can never have any -- the
+                section would just repeat the Holders table above under the wrong heading
+                ("Equity Long" for a convertible note). Equity pages with no options got the
+                same duplicate. */}
+            {latest.options.calls.length + latest.options.puts.length > 0 && (
+              <section>
+                <h2 className="mb-2 text-lg font-medium">Positions by Type</h2>
+                <OptionsGroups
+                  equityHolders={latest.holders}
+                  calls={latest.options.calls}
+                  puts={latest.options.puts}
+                />
+              </section>
+            )}
           </>
         ) : (
           <EmptyState message="No holders this quarter." />

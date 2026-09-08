@@ -121,6 +121,7 @@ value (int $), shares (int), put_call ("PUT"|"CALL"|null)
 sector, kind
 value, shares, weight = value / equity_value   (null when the manager reported no eligible equity)
 prev_value, prev_shares, prev_weight
+accession                                the filing that reported it; null on a SOLD_OUT row
 adj_prev_shares = round(prev_shares * split_factor)   (prior shares on the current share basis)
 share_change = shares / adj_prev_shares - 1           (null when there is no prior side)
 split_unverified (bool)                  a clean share multiple no corporate action explains
@@ -247,15 +248,15 @@ Config keys (`signals_config.json` → `ownership`): `start_date` (first filing 
 
 | Doc | Content | Read by |
 |---|---|---|
-| `meta/latest` | `latestPeriod, periods[], managers[{cik, short, name, cluster}], clusters[{label, members, commonHoldings, topSector}], methodologyVersion, updatedAt` | every page, once |
+| `meta/latest` | `latestPeriod, periods[], managers[{cik, short, name, cluster}], clusters[{label, members, commonHoldings, topSector}], coverage[{period, filed[], missing[]}], methodologyVersion, updatedAt` | every page, once |
 | `meta/symbols` | `symbols[{symbol, name, sector}]` | the search box, on first focus only |
 | `managers/{cik}` | `cik, name, short, cluster, periods[]` | manager page |
-| `manager_quarters/{cik}_{period}` | `filedAt, totalValue, equityValue, count, counts{new,added,trimmed,unchanged,soldOut}, positions[A rows incl. SOLD_OUT], sectors[B rows], mostSimilar[{cik, short, score}]` | manager page |
+| `manager_quarters/{cik}_{period}` | `filedAt, totalValue, equityValue, filings[{accession, url, filedAt, isAmendment, amendmentType, filerCik}], count, counts{new,added,trimmed,unchanged,soldOut}, positions[A rows incl. SOLD_OUT], sectors[B rows], mostSimilar[{cik, short, score}]` | manager page |
 | `stocks/{symbol}` | `symbol, name, sector, kind, trend[D rows], latest{C summary + holders + soldOut + options{calls[], puts[]}}` | stock page |
 | `signals/{period}` | all E tables, F, G (`ciks[]`, `matrix[][]`), H (symbols with options only) | patterns page |
 | `securities/{cusip}` | enrichment cache (ingest only) | — |
 | `meta/holder_counts` | `period, counts[{symbol, n}]` — how many tracked managers held each symbol at `period` | the ownership pipeline, once per run (not the browser) |
-| `ownership/feed` | `updatedAt, startDate, lastFiledAt, counts{filings, investors, issuers}, events[J event rows, newest first, ≤ recent_events]` | ownership page |
+| `ownership/feed` | `updatedAt, startDate, lastFiledAt, counts{filings, investors, issuers}, headline{asOf, windowDays, windowSince, filingsInWindow, startDate, new13dSinceStart, activistEntriesSinceStart}, events[J event rows, newest first, ≤ recent_events]` | ownership page |
 | `ownership_issuers/{symbol}` | `symbol, issuerCik, issuerName, sector, holders[J stake rows with is_current], events[newest first, ≤ max_events_per_doc]` | stock page (second read; absent ⇒ section hidden) |
 | `ownership_investors/{cik}` | `cik, name, short\|null, cluster\|null, isRoster, isActivist, stakes[current], events[newest first, ≤ max_events_per_doc]` | investor page; manager page (second read) |
 
@@ -1030,20 +1031,20 @@ Tasks
 1. Help text next to every signal heading and ambiguous column. Explain shares-vs-weight explicitly (a position can be `ADDED` while its weight falls, because the rest of the book grew more).
 2. Expandable detail on ranked signal rows: qualifying managers, the threshold, the score components.
 3. 13F drill-downs link the source filing (accession → EDGAR), the report period, and amendment status.
-4. Three separate timestamps: report period, filing date, last successful pipeline run — per pipeline, 13F and ownership independent.
+4. Three separate timestamps: report period, filing date, last successful pipeline run — per pipeline, 13F and ownership independent. The refresh time is stated once, in the `FilingLag` bar that renders on every page, rather than repeated per view.
 5. Per-quarter manager coverage, naming missing or stale filers. Missing is never rendered as zero.
 6. Ownership headline counts computed over the full event population with an explicit UTC clock and date window, not over the truncated feed.
 
 Acceptance criteria
-- [ ] An `ADDED` row with a negative weight change is explainable from adjacent help text, and the numeric share change is shown.
-- [ ] `Avg Weight` and every other average names its population.
-- [ ] Every consensus row reveals its qualifying managers and rule; a score traces to its inputs.
-- [ ] A holding links to its source filing(s), aliases and amendments included.
-- [ ] Report period, filing date, and refresh time are visibly distinct.
-- [ ] Coverage distinguishes "no filing" from "zero holdings".
-- [ ] Frozen clock 8 days after the newest filing → "last 7 days" reads 0.
-- [ ] Counts stay right when the matching population exceeds the feed limit, and each states its range.
-- [ ] A load failure shows an error, never "no holdings".
+- [x] An `ADDED` row with a negative weight change is explainable from adjacent help text, and the numeric share change is shown.
+- [x] `Avg Weight` and every other average names its population.
+- [x] Every consensus row reveals its qualifying managers and rule; a score traces to its inputs.
+- [x] A holding links to its source filing(s), aliases and amendments included.
+- [x] Report period, filing date, and refresh time are visibly distinct.
+- [x] Coverage distinguishes "no filing" from "zero holdings".
+- [x] Frozen clock 8 days after the newest filing → "last 7 days" reads 0.
+- [x] Counts stay right when the matching population exceeds the feed limit, and each states its range.
+- [x] A load failure shows an error, never "no holdings".
 
 ### Milestone 13 — README, user guide, first-run experience  (M4)
 Status: not started

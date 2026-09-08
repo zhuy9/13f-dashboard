@@ -21,11 +21,18 @@ export interface ClusterSummary {
   topSector: string | null
 }
 
+export interface QuarterCoverage {
+  period: string
+  filed: string[]
+  missing: string[]
+}
+
 export interface Meta {
   latestPeriod: string
   periods: string[]
   managers: ManagerRef[]
   clusters: ClusterSummary[]
+  coverage?: QuarterCoverage[]
   methodologyVersion: number
   updatedAt: Timestamp
 }
@@ -53,6 +60,9 @@ export interface Position {
   kind: SecurityKind
   // How the position came to light, not when it was bought.
   disclosedByAmendment: boolean
+  // Comma-joined when an aliases13f book was reported under more than one filing. Null on a
+  // SOLD_OUT row: no current filing mentions the position at all.
+  accession?: string | null
   value: number
   shares: number
   weight: number
@@ -80,10 +90,20 @@ export interface SimilarManager {
   score: number
 }
 
+export interface SourceFiling {
+  accession: string
+  url: string
+  filedAt: string
+  isAmendment: boolean
+  amendmentType: string | null
+  filerCik: string
+}
+
 export interface ManagerQuarter {
   filedAt: string
   totalValue: number
   equityValue: number
+  filings?: SourceFiling[]
   count: number
   counts: {
     new: number
@@ -171,6 +191,12 @@ export interface ConsensusBuyRow {
   avgWeight: number
   avgWeightIncrease: number
   score: number
+  // score = round(100 * raw / scorePeak); scorePeak is the quarter's highest raw score.
+  // Optional because a document published before this field existed will not carry it, and
+  // the web app deploys on push while the pipeline republishes on its own schedule.
+  raw?: number
+  scorePeak?: number
+  managers?: string[]
 }
 
 export interface ConsensusExitRow {
@@ -179,6 +205,7 @@ export interface ConsensusExitRow {
   soldOut: number
   trimmed: number
   avgReduction: number
+  managers?: string[]
 }
 
 export interface HighConvictionRow {
@@ -189,6 +216,7 @@ export interface HighConvictionRow {
   maxWeight: number
   new: number
   added: number
+  managerNames?: string[]
 }
 
 export interface BiggestNewRow {

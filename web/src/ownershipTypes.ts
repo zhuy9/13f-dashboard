@@ -75,6 +75,17 @@ export interface OwnershipFeed {
     investors: number
     issuers: number
   }
+  // Counted in the pipeline over every event on file. The `events` list below is only the
+  // newest slice, so counting these in the browser meant "among the last N events".
+  headline?: {
+    asOf: string
+    windowDays: number
+    windowSince: string
+    filingsInWindow: number
+    startDate: string
+    new13dSinceStart: number
+    activistEntriesSinceStart: number
+  }
   events: OwnershipEvent[]
 }
 

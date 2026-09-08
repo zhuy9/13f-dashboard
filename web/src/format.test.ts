@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filedDate, filingDue, money, nextPeriod, pct, pp, quarterLabel, SECTOR_COLORS } from './format'
+import { SECTOR_COLORS, filedDate, filingDue, money, nextPeriod, pct, pp, quarterLabel, signedPct } from './format'
 
 describe('money', () => {
   it('formats billions with one decimal', () => {
@@ -67,5 +67,16 @@ describe('nextPeriod', () => {
   it('steps to the next quarter end, across a year boundary', () => {
     expect(nextPeriod('2026-06-30')).toBe('2026-09-30')
     expect(nextPeriod('2026-12-31')).toBe('2027-03-31')
+  })
+})
+
+describe('signedPct', () => {
+  it('always carries a sign, because a share change is a direction as well as a size', () => {
+    expect(signedPct(0.1)).toBe('+10.0%')
+    expect(signedPct(-0.069)).toBe('−6.9%')
+    expect(signedPct(0)).toBe('+0.0%')
+  })
+  it('handles a split-sized move without collapsing to a weight-style figure', () => {
+    expect(signedPct(9)).toBe('+900.0%')
   })
 })

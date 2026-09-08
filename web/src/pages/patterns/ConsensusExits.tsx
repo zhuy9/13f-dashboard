@@ -1,5 +1,6 @@
+import { ManagerList } from '@/components/Explain'
 import { StockLink } from '@/components/StockLink'
-import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { pp } from '@/format'
 import { useSortableRows } from '@/hooks/useSortableRows'
 import type { ConsensusExitRow } from '@/types'
@@ -17,6 +18,7 @@ export function ConsensusExits({ rows }: { rows: ConsensusExitRow[] }) {
           {SortHead('Sold Out', 'soldOut', 'right')}
           {SortHead('Trimmed', 'trimmed', 'right')}
           {SortHead('Avg Reduction', 'avgReduction', 'right')}
+          <TableHead>Sellers</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -29,6 +31,9 @@ export function ConsensusExits({ rows }: { rows: ConsensusExitRow[] }) {
             <TableCell className="font-tabular text-right">{r.soldOut}</TableCell>
             <TableCell className="font-tabular text-right">{r.trimmed}</TableCell>
             <TableCell className="font-tabular text-right">{pp(r.avgReduction)}</TableCell>
+            <TableCell>
+              <ManagerList names={r.managers} />
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>

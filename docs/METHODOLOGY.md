@@ -87,6 +87,17 @@ A holding first disclosed by an amendment is labelled `AMENDED`. That says how i
 light, not when it was bought — such a position was usually held all along under a
 confidential-treatment request. Filing disclosure never establishes a trade date.
 
+## Provenance
+
+Every manager-quarter names the filings its numbers came from: accession, a link to the filing
+on EDGAR, the date it was filed, and whether it was an original or an amendment. Each position
+also carries the accession that reported it, so a holding can be traced to a specific filing
+when a book was split across several.
+
+A firm that files one book under more than one CIK has the filing CIK recorded separately from
+the roster CIK, because that filing is otherwise not findable on EDGAR under the manager's own
+number.
+
 ## Conviction Score
 
 A 0-100 number per (quarter, stock). It combines how many tracked managers hold the stock, their
@@ -105,7 +116,8 @@ raw = manager_count
 ```
 
 `avg_change` is the mean weight change across current holders, where a NEW position counts as
-its full weight because it came from zero. The score is then rescaled per quarter.
+its full weight because it came from zero. The score is then rescaled per quarter. Both `raw` and the quarter's `scorePeak` are published,
+so a displayed score can be checked: `score = round(100 * raw / scorePeak)`.
 
 Two things it is not:
 
@@ -130,9 +142,9 @@ The 13F holder count shown beside an ownership event comes from the most recent 
 is always older than the filing next to it. Zero means no tracked manager held it as of that
 quarter. A dash means the 13F pipeline has not run yet.
 
-**Open limitation (Milestone 12):** the "last 7 days" count on the Ownership page is measured
-back from the newest filing in the feed, not from today, and the feed itself is capped at the
-most recent 300 events.
+Headline counts are computed in the pipeline over every event on file, not in the browser over
+the visible feed, and each one carries the window and scope it was counted over. The feed below
+them is still the newest 300 events; the counts are not limited to it.
 
 ## Dollar values
 
@@ -151,8 +163,8 @@ other is current.
 - Split adjustment covers only the actions recorded in `ingest/corporate_actions.json`; a
   split nobody has added there is flagged, not corrected.
 - Conviction Score is relative within a quarter only.
-- Ownership feed capped at 300 events; the 7-day count is anchored to the newest filing, not to
-  now (Milestone 12).
+- The ownership event feed shows the newest 300 events. Headline counts cover every event, but
+  paging back through older ones is not built yet (Milestone 16B).
 - Sectors come from SEC SIC codes, not GICS.
 - Pre-2024-12-18 13D/13G filings are text, not structured XML, and are skipped.
 - 13G coverage is roster-only.

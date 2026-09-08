@@ -1,3 +1,4 @@
+import { ManagerList } from '@/components/Explain'
 import { StockLink } from '@/components/StockLink'
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table'
 import { pct } from '@/format'
@@ -28,7 +29,9 @@ export function HighConviction({ rows }: { rows: HighConvictionRow[] }) {
               <StockLink symbol={r.symbol} />
             </TableCell>
             <TableCell className="max-w-xs truncate">{r.name}</TableCell>
-            <TableCell className="font-tabular text-right">{r.managers}</TableCell>
+            <TableCell className="font-tabular text-right">
+              <ManagerList names={r.managerNames} label={String(r.managers)} />
+            </TableCell>
             <TableCell className="font-tabular text-right">{pct(r.avgWeight)}</TableCell>
             <TableCell className="font-tabular text-right">{pct(r.maxWeight)}</TableCell>
             <TableCell className="font-tabular text-right">{r.new}</TableCell>

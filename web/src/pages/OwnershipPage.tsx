@@ -19,8 +19,6 @@ const FILTERS: { value: OwnershipFilter; label: string }[] = [
   { value: 'activists', label: 'Activists' },
 ]
 
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
-
 export function OwnershipPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const feedState = useAsyncData(getOwnershipFeed, [])
@@ -52,24 +50,36 @@ export function OwnershipPage() {
   const feed = feedState.data
   const filtered = filterEvents(feed.events, filter, query)
 
-  const cutoff = feed.lastFiledAt ? new Date(feed.lastFiledAt).getTime() - SEVEN_DAYS_MS : null
-  const recentCount = cutoff === null ? 0 : feed.events.filter((e) => new Date(e.filedAt).getTime() >= cutoff).length
-  const new13dCount = feed.events.filter((e) => e.event === 'NEW' && e.form === '13D').length
-  const activistCount = feed.events.filter(
-    (e) => e.isActivist && (e.event === 'NEW' || e.event === 'SWITCHED_TO_13D'),
-  ).length
+  // Counted in the pipeline over every event on file. Counting them here meant counting the
+  // newest `recent_events` rows only, and the 7-day window was measured back from the newest
+  // filing rather than from today, so it could never report a quiet week.
+  const { headline } = feed
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 p-4">
       <header>
         <h1 className="text-2xl font-semibold">Ownership</h1>
-        <p className="text-sm text-ink-muted">Schedule 13D and 13G filings, since {feed.startDate}.</p>
+        <p className="text-sm text-ink-muted">
+          Schedule 13D and 13G filings, since {feed.startDate}.
+          {headline && ` Counts below are as of ${headline.asOf}.`}
+        </p>
       </header>
 
+      {/* No headline block means the feed predates these counts. Showing a dash beats
+          recomputing them here from the truncated event list, which is the bug this replaced. */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatTile label="Filings, last 7 days" value={recentCount} />
-        <StatTile label="New 13Ds" value={new13dCount} />
-        <StatTile label="Activist entries" value={activistCount} />
+        <StatTile
+          label={headline ? `Filings, ${headline.windowDays} days to ${headline.asOf}` : 'Filings, last 7 days'}
+          value={headline ? headline.filingsInWindow : '—'}
+        />
+        <StatTile
+          label={`New 13Ds since ${headline?.startDate ?? feed.startDate}`}
+          value={headline ? headline.new13dSinceStart : '—'}
+        />
+        <StatTile
+          label={`Activist entries since ${headline?.startDate ?? feed.startDate}`}
+          value={headline ? headline.activistEntriesSinceStart : '—'}
+        />
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

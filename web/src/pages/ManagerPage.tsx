@@ -1,15 +1,18 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStates'
+import { Explain } from '@/components/Explain'
 import { ManagerLists } from '@/components/manager/ManagerLists'
 import { OwnershipFilings } from '@/components/manager/OwnershipFilings'
 import { PositionsTable } from '@/components/manager/PositionsTable'
 import { SectorQoQTable } from '@/components/manager/SectorQoQTable'
 import { SimilarManagers } from '@/components/manager/SimilarManagers'
+import { SourceFilings } from '@/components/manager/SourceFilings'
 import { SectorBars } from '@/components/SectorBars'
 import { StatTile } from '@/components/StatTile'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useMeta } from '@/context/MetaContext'
 import { getManager, getManagerQuarter } from '@/data'
 import { filedDate, money, quarterLabel } from '@/format'
 import { useAsyncData } from '@/hooks/useAsyncData'
@@ -23,6 +26,7 @@ export function ManagerPage() {
   const { cik = '' } = useParams<{ cik: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
 
+  const { meta } = useMeta()
   const managerState = useAsyncData(() => getManager(cik), [cik])
   const manager = managerState.data
   const urlPeriod = searchParams.get('period')
@@ -38,6 +42,8 @@ export function ManagerPage() {
     () => (cik && period ? getManagerQuarter(cik, period) : Promise.resolve(null)),
     [cik, period],
   )
+
+  const missingThisQuarter = meta?.coverage?.find((c) => c.period === period)?.missing.includes(cik) ?? false
 
   if (managerState.loading) return <LoadingState />
   if (managerState.error) return <ErrorState message={managerState.error} />
@@ -63,14 +69,28 @@ export function ManagerPage() {
               ))}
             </SelectContent>
           </Select>
-          {mqState.data && <span className="text-xs text-ink-muted">Filed {filedDate(mqState.data.filedAt)}</span>}
+          {/* The quarter the holdings describe and the day the filing appeared are different
+              dates; the last pipeline refresh is a third, stated once in the bar at the top. */}
+          {mqState.data && (
+            <span className="text-xs text-ink-muted">
+              Holdings as of {period && quarterLabel(period)} · filed {filedDate(mqState.data.filedAt)}
+            </span>
+          )}
         </div>
       </header>
 
       {mqState.loading && <LoadingState />}
+      {/* An error is not an empty portfolio. Saying "no filing" when the read failed invents a
+          fact about the manager out of a network problem. */}
       {mqState.error && <ErrorState message={mqState.error} />}
       {!mqState.loading && !mqState.error && !mqState.data && (
-        <EmptyState message="No filing for this quarter." />
+        <EmptyState
+          message={
+            missingThisQuarter
+              ? `No 13F filing from ${manager.short} for this quarter. That is missing data, not a portfolio of zero.`
+              : 'No filing for this quarter.'
+          }
+        />
       )}
 
       {mqState.data && (
@@ -104,9 +124,42 @@ export function ManagerPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 text-lg font-medium">Positions</h2>
+            <h2 className="mb-1 text-lg font-medium">Positions</h2>
+            <Explain>
+              <p>
+                <strong>Shares Δ is about shares, Weight Δ is about proportion.</strong> A position can be marked
+                Added while its weight falls, because the rest of the book grew faster or the stock lagged it. The two
+                disagreeing is not an error — status compares share counts, weight compares shares of the portfolio.
+              </p>
+              <p>
+                Share counts are compared on a consistent basis: where a stock split, last quarter's count is restated
+                onto the current basis first. <em>UNADJUSTED?</em> marks a share count that moved like a split with no
+                corporate action on file to confirm one, so that comparison may not be like-for-like.
+              </p>
+              <p>
+                <em>AMENDED</em> means the holding was first reported in an amended filing, usually because it was
+                confidential. That is when it was disclosed, not when it was bought.
+              </p>
+              <p>
+                Weights are a share of reported equity holdings. Notes and warrants are listed but excluded from every
+                weight; option positions are not listed here at all.
+              </p>
+            </Explain>
             <PositionsTable positions={mqState.data.positions} />
           </section>
+
+          {mqState.data.filings && mqState.data.filings.length > 0 && (
+            <section>
+              <h2 className="mb-1 text-lg font-medium">Source Filings</h2>
+              <Explain summary="Why more than one filing?">
+                <p>
+                  A quarter normally has one filing. It has more when the manager amended it, or when the firm reports
+                  one book under several CIKs — both are combined into the numbers above.
+                </p>
+              </Explain>
+              <SourceFilings filings={mqState.data.filings} cik={cik} />
+            </section>
+          )}
 
           <section>
             <ManagerLists positions={mqState.data.positions} />

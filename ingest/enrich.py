@@ -61,10 +61,14 @@ def ensure_securities(
     cusips: list[str],
     identity: str,
     api_key: Optional[str] = None,
-    refresh_unknown: bool = False,
+    refresh: str = "none",
     ticker_hints: Optional[dict[str, str]] = None,
 ) -> dict[str, dict]:
-    """Read the `securities/` cache, enrich anything missing (or unknown, if asked), write back, return the full map.
+    """Read the `securities/` cache, enrich whatever `refresh` asks for, write back, return the full map.
+
+    `refresh`: "none" fills gaps only, "unknown" also redoes entries that came back Unknown,
+    "all" rebuilds every entry -- the one to reach for after a rule changes, since a cached
+    sector is never revisited otherwise.
 
     `ticker_hints` (CUSIP -> ticker, from edgartools' own resolution) is preferred over
     OpenFIGI, which has coverage gaps for foreign-domiciled US-listed issuers.
@@ -79,7 +83,10 @@ def ensure_securities(
         if snap.exists:
             cached[snap.id] = snap.to_dict()
 
-    to_enrich = [c for c in cusips if c not in cached or (refresh_unknown and cached[c].get("sector") == "Unknown")]
+    def stale(cusip: str) -> bool:
+        return refresh == "all" or (refresh == "unknown" and cached[cusip].get("sector") == "Unknown")
+
+    to_enrich = [c for c in cusips if c not in cached or stale(c)]
 
     if to_enrich:
         need_openfigi = [c for c in to_enrich if not ticker_hints.get(c)]

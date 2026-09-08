@@ -427,9 +427,9 @@ Tasks
    - `openfigi_map(cusips, api_key)`: POST `https://api.openfigi.com/v3/mapping`, `[{"idType":"ID_CUSIP","idValue":c}]`, header `X-OPENFIGI-APIKEY` when set; batch 100 with key / 10 without; on 429 sleep 6 s and retry once; pick first item with `exchCode == "US"` else first; unmapped → `ticker None`.
    - `sec_ticker_to_cik(identity)`: GET `https://www.sec.gov/files/company_tickers.json`, `User-Agent: <identity>`; `TICKER → 10-digit CIK`.
    - `sec_sic(cik10, identity)`: GET `https://data.sec.gov/submissions/CIK{cik10}.json`; `(sic, sicDescription)`; `time.sleep(0.11)`.
-   - `ensure_securities(db, cusips, identity, api_key, refresh_unknown=False) -> dict[cusip, dict]`: read cache, enrich missing (and unknown if flag), write in batches of 400, return full map.
+   - `ensure_securities(db, cusips, identity, api_key, refresh="none") -> dict[cusip, dict]`: read cache, enrich missing plus whatever `refresh` asks for ("unknown" redoes Unknown entries, "all" rebuilds every one), write in batches of 400, return full map.
    - `attach(df, securities) -> DataFrame`: adds `ticker`, `sector`, `symbol` (`ticker` or `"_"+cusip`).
-5. `ingest.py` (CLI only for now): args `--quarters N` (default from config), `--fund CIK`, `--dry-run`, `--refresh-unknown`. Flow: funds → fetch → normalize → union CUSIPs → `ensure_securities` → `attach` → concatenate into the base table. Dry run prints per manager and period: row count, total value, top 10 by value with ticker/sector, PUT/CALL counts. Loads `ingest/.env` via `python-dotenv`. Exit non-zero if any manager failed, after processing the rest.
+5. `ingest.py` (CLI only for now): args `--quarters N` (default from config), `--fund CIK`, `--dry-run`, `--refresh {none,unknown,all}`. Flow: funds → fetch → normalize → union CUSIPs → `ensure_securities` → `attach` → concatenate into the base table. Dry run prints per manager and period: row count, total value, top 10 by value with ticker/sector, PUT/CALL counts. Loads `ingest/.env` via `python-dotenv`. Exit non-zero if any manager failed, after processing the rest.
 6. `test_sectors.py` (ETP / None / in-range / out-of-range) and `test_fetch.py` (`normalize` on a 6-row fixture: upper-cases put/call, merges duplicate CUSIP, drops blank CUSIP, ints).
 7. Commit `feat: 13F fetch, normalize, and enrichment`.
 
@@ -455,12 +455,12 @@ Status: done e887713
   nested object, matching normal JS/TS style for Milestone 4's `types.ts`.
 - Firestore **forbids arrays nested directly inside arrays**. `signals/{period}.managerSimilarity`
   therefore stores `matrix` as `[{values: [...]}, ...]` (one row-object per manager), not `number[][]`.
-- A manager's "last 4 quarters" can span more than 4 *calendar* quarters in the union across all
-  11 managers, when one manager has an irregular filing gap (skips a quarter, so its own last-4
-  reach further back). Real run: `meta/latest.periods` has 5 entries, not 4; `signals` has 5 docs,
-  not 4. `manager_quarters` is still exactly 44 (11 × 4, each manager's own count). This is the
-  intended behavior of "periods = sorted distinct periods in the window" (docs/PLAN.md line 95),
-  not a bug.
+- ~~A manager's "last 4 quarters" can span more than 4 *calendar* quarters in the union across all
+  11 managers... This is the intended behavior, not a bug.~~ **Superseded.** It stopped being
+  harmless once a manager went stale: Yale's last filing was 2025-09-30, so its own last-4 reached
+  back to 2024-12-31 and dragged two quarters into the union that held Yale alone, plus a third
+  holding only Yale and Pershing. They rendered as empty quarters in the period picker.
+  `derive_all` now trims to the newest `quarters` periods and drops holdings outside them.
 
 Real Firestore run confirmed live: 11 `managers`, 44 `manager_quarters`, 514 `stocks`, 5 `signals`.
 `meta/latest` ≈ 27.8 KB, `signals/{latestPeriod}` ≈ 34.5 KB — both far under the 300 KB target.
@@ -690,7 +690,7 @@ Sub-milestones 8.1 → 8.7 are sequential. Contract: section J, the Firestore ta
 - `Filing(cik=int, company=str, form=str, filing_date=str, accession_no=str)` is a public constructor — rebuild filings from the deduped rows.
 - Only the lead reporting person reliably has a CIK; the 13G cover has none — 13G filer identity is the header filer CIK.
 - Volumes: ~2,600 13D-family index rows per quarter incl. duplicates → roughly 7-10K unique filings since 2024-12-18 → backfill 20-40 min at SEC's 10 req/s; daily ≈ 30-50 filings. Firestore free tier = 20K writes/day → write only touched docs.
-- Reuse: `enrich.ensure_securities(db, cusips, identity, api_key, refresh_unknown, ticker_hints)` + `enrich.attach`; invert `enrich.sec_ticker_to_cik(identity)` (`{cik10: ticker}`, first ticker wins) to build `ticker_hints = {cusip: ticker}` from `issuer_cik` so the backfill barely touches OpenFIGI. `store._clean`, `store._records`, `store._commit_in_batches` are imported as-is (`test_store.py` already does). `ingest.py` exposes `load_funds`, `load_config`, `init_firestore` — import them; **no** `clients.py`. Web patterns: `useAsyncData`, `useSortableRows`, `SideBadge`/`StatusBadge`, `AsyncStates`, `format.ts`; `firestore.rules` needs no change (blanket public read).
+- Reuse: `enrich.ensure_securities(db, cusips, identity, api_key, refresh, ticker_hints)` + `enrich.attach`; invert `enrich.sec_ticker_to_cik(identity)` (`{cik10: ticker}`, first ticker wins) to build `ticker_hints = {cusip: ticker}` from `issuer_cik` so the backfill barely touches OpenFIGI. `store._clean`, `store._records`, `store._commit_in_batches` are imported as-is (`test_store.py` already does). `ingest.py` exposes `load_funds`, `load_config`, `init_firestore` — import them; **no** `clients.py`. Web patterns: `useAsyncData`, `useSortableRows`, `SideBadge`/`StatusBadge`, `AsyncStates`, `format.ts`; `firestore.rules` needs no change (blanket public read).
 - Mirror `derive.py`: no prior data ⇒ `null`, never `NEW`.
 
 Refactors decided: (1) CLAUDE.md "Where logic lives" becomes two files (`derive.py` for 13F, `ownership_derive.py` for 13D/13G) — done in 8.7; (2) `funds.json` optional `aliases` — done in 8.1; (3) ownership TS types go in `web/src/ownershipTypes.ts` so `types.ts` stays under 300 lines. Rejected: extracting a `clients.py`; renaming `store.py` helpers; merging 13D/13G fields into `stocks/` docs (the monthly 13F `batch.set` would wipe them).

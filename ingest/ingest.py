@@ -152,7 +152,7 @@ def main() -> int:
     parser.add_argument("--quarters", type=int, default=config["quarters"])
     parser.add_argument("--fund", type=str, default=None, help="CIK of a single fund")
     parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--refresh-unknown", action="store_true")
+    parser.add_argument("--refresh", choices=["none", "unknown", "all"], default="none", help="rebuild securities/ cache entries")
     args = parser.parse_args()
 
     identity = os.environ.get("EDGAR_IDENTITY")
@@ -192,7 +192,7 @@ def main() -> int:
         raw_by_filing.update(fund_raw)
 
     all_cusips = sorted({c for _, base in base_by_fund for c in base["cusip"]})
-    securities = ensure_securities(db, all_cusips, identity, api_key, args.refresh_unknown, ticker_hints) if all_cusips else {}
+    securities = ensure_securities(db, all_cusips, identity, api_key, args.refresh, ticker_hints) if all_cusips else {}
 
     enriched_frames = []
     for fund, base in base_by_fund:

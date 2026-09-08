@@ -217,6 +217,8 @@ Edit `ingest/signals_config.json`. Then run the ingest workflow.
 
 ETFs and index funds are the exception. They are labelled "ETF / Fund" from OpenFIGI, not from the SIC. A fund's own industry code says "investment offices", which would put an S&P 500 fund in the Financials sector.
 
+Sector lookups are cached per stock and never redone on their own. If you change how sectors are decided, run `python ingest.py --refresh all` once to rebuild the cache. `--refresh unknown` is the cheaper version: it only redoes the stocks whose sector came out "Unknown".
+
 ## License
 
 MIT. See `LICENSE`.

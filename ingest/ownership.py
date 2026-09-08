@@ -40,7 +40,7 @@ def _enrich(new_df: pd.DataFrame, rows: list[dict], db, identity: str, api_key: 
     issuer-scoped fallback symbol instead of routing them through the CUSIP-keyed cache."""
     has_cusip = new_df["cusip"].notna()
     cusips = sorted(new_df.loc[has_cusip, "cusip"].unique())
-    securities = ensure_securities(db, cusips, identity, api_key, False, _ticker_hints(rows, identity)) if cusips else {}
+    securities = ensure_securities(db, cusips, identity, api_key, "none", _ticker_hints(rows, identity)) if cusips else {}
     resolved = attach(new_df[has_cusip], securities)
 
     unresolved = new_df[~has_cusip].copy()

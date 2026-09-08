@@ -14,6 +14,12 @@ on:
         required: false
         type: boolean
         default: false
+      refresh:
+        description: "Rebuild securities/ cache entries (run after a sector or ticker rule changes)"
+        required: false
+        type: choice
+        options: [none, unknown, all]
+        default: none
 
 permissions:
   contents: write
@@ -46,10 +52,12 @@ jobs:
           GCS_BUCKET: ${{ vars.GCS_BUCKET }}
           FUND: ${{ github.event.inputs.fund }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}
+          REFRESH: ${{ github.event.inputs.refresh }}
         run: |
           args=()
           if [ -n "$FUND" ]; then args+=(--fund "$FUND"); fi
           if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          if [ -n "$REFRESH" ]; then args+=(--refresh "$REFRESH"); fi
           python ingest/ingest.py "${args[@]}"
 
       - name: Commit keepalive marker

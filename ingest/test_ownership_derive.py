@@ -158,3 +158,14 @@ def test_reporting_ciks_survives_a_parquet_round_trip():
     ev = events(round_tripped, FUNDS, CFG)
     assert ev.iloc[0]["investor_cik"] == "1791786"
     assert ev.iloc[0]["is_roster"]
+
+
+def test_holders13f_joins_the_13f_side_and_keeps_zero_distinct_from_unknown(filings):
+    """`meta/holder_counts` is a snapshot of the last 13F quarter, so a symbol it does not list
+    is held by no tracked manager -- 0. Having no snapshot at all is a different answer: null."""
+    df = filings.assign(symbol="AAA")
+
+    assert set(events(df, FUNDS, CFG, {"AAA": 5})["holders13f"]) == {5}
+    assert set(events(df.assign(symbol="ZZZ"), FUNDS, CFG, {"AAA": 5})["holders13f"]) == {0}
+    assert set(events(df, FUNDS, CFG, {})["holders13f"]) == {0}, "an empty map is still an answer"
+    assert events(df, FUNDS, CFG)["holders13f"].isna().all()

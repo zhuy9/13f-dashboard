@@ -40,6 +40,9 @@ export interface OwnershipEvent {
   priority: OwnershipPriority
   purpose: string | null
   url: string
+  // Tracked managers holding this symbol at the last 13F quarter, from meta/holder_counts.
+  // null when ingest has never run; 0 when it has and nobody holds it.
+  holders13f: number | null
 }
 
 export interface OwnershipStake {

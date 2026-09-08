@@ -15,6 +15,7 @@ from ingest import counts_line, init_firestore, load_config, load_funds, step_su
 from ownership_derive import derive_all
 from ownership_fetch import FILING_COLUMNS, fetch_rows, list_filings
 from ownership_store import build_feed, build_investor_docs, build_issuer_docs, read_state, write_firestore, write_state
+from store import read_holder_counts
 
 HERE = Path(__file__).parent
 
@@ -129,7 +130,10 @@ def main() -> int:
         step_summary(f"Ownership {since} .. {until}", ["no filings in the window"])
         return 1 if failed else 0
 
-    tables = derive_all(filings, funds, cfg)
+    # The 13F side of the join: how many tracked managers already held what these filings land on.
+    holder_counts = read_holder_counts(db)
+
+    tables = derive_all(filings, funds, cfg, holder_counts)
     new_accessions = set(new_df["accession"]) if len(new_df) else set()
     touched = tables["events"][tables["events"]["accession"].isin(new_accessions)]
 
@@ -137,6 +141,7 @@ def main() -> int:
         f"{len(new_df)} new filings, {failed} failed",
         f"events: {counts_line(touched['event'])}",
         f"priority: {counts_line(touched['priority'])}",
+        f"13F holder counts: {len(holder_counts or {})} symbols",
     ]
 
     if args.dry_run:

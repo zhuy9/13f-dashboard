@@ -27,6 +27,7 @@ function event(overrides: Partial<OwnershipEvent>): OwnershipEvent {
     priority: 'HIGH',
     purpose: null,
     url: 'https://www.sec.gov/example',
+    holders13f: 5,
     ...overrides,
   }
 }

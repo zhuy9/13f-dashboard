@@ -3,6 +3,7 @@
 import io
 import json
 import logging
+from typing import Optional
 from urllib.parse import quote
 
 import pandas as pd
@@ -233,6 +234,25 @@ def _prune(db, collection: str, keep: set[str]) -> int:
     return len(stale)
 
 
+def _build_holder_counts(tables: dict, latest_period: str) -> dict:
+    """How many tracked managers held each symbol at the newest quarter. `ownership.py` reads
+    this one doc per run to say what a 13D/13G lands on top of, which is the only place the two
+    pipelines meet. A list of records, not a map: symbols include convertible-note descriptions
+    like "COIN 0.5 06/01/26", and a "." in a Firestore field name is a field-path separator."""
+    sqs = tables["stock_quarter_summary"]
+    held = sqs[(sqs["period"] == latest_period) & (sqs["manager_count"] > 0)]
+    counts = held[["symbol", "manager_count"]].rename(columns={"manager_count": "n"})
+    return {"period": latest_period, "counts": _records(counts)}
+
+
+def read_holder_counts(db) -> Optional[dict[str, int]]:
+    """The other side of `_build_holder_counts`, for `ownership.py`. None -- not {} -- when the
+    doc is absent because ingest has never run: no answer is not the same answer as zero."""
+    snap = db.document("meta/holder_counts").get()
+    doc = snap.to_dict() if snap.exists else None
+    return {r["symbol"]: r["n"] for r in doc["counts"]} if doc else None
+
+
 def write_firestore(db, tables: dict, funds: list[dict], periods: list[str], prune: bool = True) -> int:
     """Write meta/latest and the four owned collections in batches of 400, then delete anything
     this run did not write. Returns the number of stale docs deleted.
@@ -254,6 +274,7 @@ def write_firestore(db, tables: dict, funds: list[dict], periods: list[str], pru
     writes: list[tuple[str, dict]] = [
         ("meta/latest", _build_meta(tables, funds, periods)),
         ("meta/symbols", {"symbols": _records(tables["symbols"][["symbol", "name", "sector"]])}),
+        ("meta/holder_counts", _build_holder_counts(tables, periods[-1])),
     ]
     for collection, docs in owned.items():
         writes += [(f"{collection}/{doc_id}", doc) for doc_id, doc in docs.items()]

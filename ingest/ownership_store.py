@@ -19,7 +19,7 @@ EVENT_FIELDS = [
     "accession", "form", "is_amendment", "amendment_no", "filed_at", "event_date",
     "investor_cik", "investor_name", "short", "is_roster", "is_activist",
     "issuer_cik", "issuer_name", "symbol", "sector", "shares", "pct", "prev_pct",
-    "change_pp", "event", "priority", "purpose", "url",
+    "change_pp", "event", "priority", "purpose", "url", "holders13f",
 ]  # fmt: skip
 
 STAKE_FIELDS = [

@@ -89,6 +89,8 @@ Each new filing becomes one of these events:
 - **Switched.** The investor moved from a 13G to a 13D, or the other way.
 - **Updated.** Something else changed, like the filing's stated purpose.
 
+Each event also shows how many tracked managers already held the stock. That number comes from the last 13F quarter, so it is always older than the filing next to it. Zero means none of them held it. A dash means the 13F side has not run yet.
+
 ## The signals
 
 The site computes these signals once per quarter.

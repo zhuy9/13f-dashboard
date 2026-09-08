@@ -21,7 +21,9 @@ export function EventsTable({
   const { sorted, SortHead } = useSortableRows(events, 'filedAt')
   if (events.length === 0) return <p className="text-sm text-ink-muted">No filings.</p>
 
-  const columnCount = 6 + Number(!hideInvestor) + Number(!hideIssuer)
+  // The issuer columns are Ticker and 13F Holders; both are facts about the stock, so a stock
+  // page (hideIssuer) would repeat the same value down every row.
+  const columnCount = 6 + Number(!hideInvestor) + 2 * Number(!hideIssuer)
 
   return (
     <Table>
@@ -30,6 +32,7 @@ export function EventsTable({
           {SortHead('Filed', 'filedAt')}
           {!hideInvestor && SortHead('Investor', 'investorName')}
           {!hideIssuer && SortHead('Ticker', 'symbol')}
+          {!hideIssuer && SortHead('13F Holders', 'holders13f', 'right')}
           {SortHead('Form', 'form')}
           {SortHead('Event', 'event')}
           {SortHead('Own %', 'pct', 'right')}
@@ -51,6 +54,9 @@ export function EventsTable({
               )}
               {!hideIssuer && (
                 <TableCell>{e.symbol.startsWith('_') ? e.symbol : <StockLink symbol={e.symbol} />}</TableCell>
+              )}
+              {!hideIssuer && (
+                <TableCell className="font-tabular text-right">{e.holders13f ?? '—'}</TableCell>
               )}
               <TableCell>
                 <FormBadge form={e.form} />

@@ -135,6 +135,8 @@ flowchart LR
 
     C -->|"ownership_derive.py\npure math, no network calls"| D["Events: new, increased,\ndecreased, exited, switched, updated"]
 
+    H[("Firestore\nmeta/holder_counts\nwritten by the 13F pipeline")] -->|"read once per run"| C
+
     D -->|"ownership_store.py"| E[("Firestore\nfeed, per-stock, per-investor docs")]
     D -->|"ownership_store.py"| F[("Cloud Storage\narchive")]
 
@@ -144,6 +146,11 @@ flowchart LR
 The website never mixes the two pipelines' data at read time — a stock page
 does two separate one-document reads, one for its 13F holders and one for
 its 13D/13G shareholders, and renders whichever ones exist.
+
+The two do meet once, and it happens in the pipeline, not the browser: the 13F
+run writes `meta/holder_counts` (how many tracked managers hold each stock),
+and the daily ownership run reads that one document, so every event can say
+what it landed on top of — "a 13D on a stock 5 tracked managers already own".
 
 ## Why it's built this way
 

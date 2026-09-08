@@ -76,9 +76,14 @@ def _priority(row: pd.Series) -> str:
     return "LOW"
 
 
-def events(filings: pd.DataFrame, funds: list[dict], cfg: dict) -> pd.DataFrame:
+def events(filings: pd.DataFrame, funds: list[dict], cfg: dict, holder_counts: Optional[dict] = None) -> pd.DataFrame:
     """One row per filing, canonicalized to a roster investor where applicable and
-    classified against the previous filing on the same (investor, cusip) timeline."""
+    classified against the previous filing on the same (investor, cusip) timeline.
+
+    `holder_counts` is `meta/holder_counts` (symbol -> tracked managers holding it at the last
+    13F quarter), and `filings` must carry the `symbol` column `enrich.attach` adds when one is
+    passed. A symbol missing from a map we do have means nobody holds it, so 0; no map at all
+    (None) means unknown, so null."""
     imap = investor_map(funds)
     out = filings.copy()
 
@@ -103,6 +108,8 @@ def events(filings: pd.DataFrame, funds: list[dict], cfg: dict) -> pd.DataFrame:
     out["prev_accession_in_log"] = grouped["accession"].shift(1)
     out["has_prev"] = out["prev_accession_in_log"].notna()
 
+    counted = holder_counts is not None
+    out["holders13f"] = out["symbol"].map(holder_counts).fillna(0).astype(int) if counted else None
     out["event"] = out.apply(lambda r: _classify(r, cfg), axis=1)
     out["change_pp"] = out["pct"] - out["prev_pct"]
     out["priority"] = out.apply(_priority, axis=1)
@@ -123,8 +130,8 @@ def recent(events_df: pd.DataFrame, n: int) -> pd.DataFrame:
     return events_df.sort_values(["filed_at", "accession"], ascending=[False, False]).head(n).reset_index(drop=True)
 
 
-def derive_all(filings: pd.DataFrame, funds: list[dict], cfg: dict) -> dict:
-    ev = events(filings, funds, cfg)
+def derive_all(filings: pd.DataFrame, funds: list[dict], cfg: dict, holder_counts: Optional[dict] = None) -> dict:
+    ev = events(filings, funds, cfg, holder_counts)
     return {
         "filings": filings,
         "events": ev,

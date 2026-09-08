@@ -6,7 +6,16 @@ import pandas as pd
 import pytest
 
 from derive import derive_all
-from store import _build_manager_quarter_docs, _build_meta, _build_stock_docs, _camel, _clean, _commit_in_batches, write_firestore
+from store import (
+    _build_manager_quarter_docs,
+    _build_meta,
+    _build_stock_docs,
+    _camel,
+    _clean,
+    _commit_in_batches,
+    read_holder_counts,
+    write_firestore,
+)
 
 FIXTURE = Path(__file__).parent / "fixtures" / "holdings_small.csv"
 FUNDS = [
@@ -154,3 +163,30 @@ def test_stock_doc_id_encodes_slash_matching_web_encodeuricomponent():
     # unit/warrant ticker like "ABC/U" would otherwise split into a bad nested path.
     assert quote("ABC/U", safe="") == "ABC%2FU"
     assert quote("BRK.B", safe="") == "BRK.B"  # ordinary tickers are untouched
+
+
+class _OneDocDb:
+    """Just enough Firestore for read_holder_counts: a single document get()."""
+
+    def __init__(self, doc):
+        self.doc = doc
+
+    def document(self, path):
+        snap = SimpleNamespace(exists=self.doc is not None, to_dict=lambda: self.doc)
+        return SimpleNamespace(get=lambda: snap)
+
+
+def test_holder_counts_doc_round_trips_to_the_map_ownership_reads(tables):
+    db = _FakeDb({})
+
+    write_firestore(db, tables, FUNDS, tables["periods"])
+
+    doc = db.written["meta/holder_counts"]
+    assert doc["period"] == tables["periods"][-1]
+    assert all(row["n"] >= 1 for row in doc["counts"]), "a symbol nobody holds is left out, not stored as 0"
+    assert read_holder_counts(_OneDocDb(doc)) == {row["symbol"]: row["n"] for row in doc["counts"]}
+
+
+def test_read_holder_counts_is_none_not_empty_when_ingest_has_never_run():
+    """{} would read as "held by nobody" downstream; the absent doc means "no answer yet"."""
+    assert read_holder_counts(_OneDocDb(None)) is None

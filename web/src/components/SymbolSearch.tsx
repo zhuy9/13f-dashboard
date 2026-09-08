@@ -1,11 +1,16 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Input } from '@/components/ui/input'
-import type { SymbolRef } from '@/types'
+import { getSymbols } from '@/data'
+import { useAsyncData } from '@/hooks/useAsyncData'
 
-export function SymbolSearch({ symbols }: { symbols: SymbolRef[] }) {
+export function SymbolSearch() {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
+  // ~2,300 symbols in their own doc, fetched on first focus. Nobody who never searches pays for it.
+  const [requested, setRequested] = useState(false)
+  const { data } = useAsyncData(() => (requested ? getSymbols() : Promise.resolve(null)), [requested])
+  const symbols = data?.symbols ?? []
   const navigate = useNavigate()
 
   const matches = useMemo(() => {
@@ -37,6 +42,7 @@ export function SymbolSearch({ symbols }: { symbols: SymbolRef[] }) {
         type="text"
         placeholder="Search symbol or name…"
         value={query}
+        onFocus={() => setRequested(true)}
         onChange={(e) => {
           setQuery(e.target.value)
           setOpen(true)

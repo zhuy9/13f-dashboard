@@ -1,6 +1,5 @@
 import { NavLink } from 'react-router-dom'
 import { SymbolSearch } from '@/components/SymbolSearch'
-import { useMeta } from '@/context/MetaContext'
 
 const NAV_LINKS = [
   { to: '/patterns', label: 'Patterns' },
@@ -9,8 +8,6 @@ const NAV_LINKS = [
 ]
 
 export function Header() {
-  const { meta } = useMeta()
-
   return (
     <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-4 border-b border-line bg-paper px-4 py-3">
       <div className="flex items-center gap-6">
@@ -29,7 +26,7 @@ export function Header() {
           ))}
         </nav>
       </div>
-      <SymbolSearch symbols={meta?.symbols ?? []} />
+      <SymbolSearch />
     </header>
   )
 }

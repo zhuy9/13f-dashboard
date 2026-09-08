@@ -3,7 +3,7 @@
 // is what the timeout race here used to exist to work around.
 import { doc, getDoc } from 'firebase/firestore/lite'
 import { db } from './firebase'
-import type { Manager, ManagerQuarter, Meta, Signals, Stock } from './types'
+import type { Manager, ManagerQuarter, Meta, Signals, Stock, SymbolIndex } from './types'
 import type { OwnershipFeed, OwnershipInvestor, OwnershipIssuer } from './ownershipTypes'
 
 async function fetchDoc<T>(path: string): Promise<T | null> {
@@ -13,6 +13,10 @@ async function fetchDoc<T>(path: string): Promise<T | null> {
 
 export function getMeta(): Promise<Meta | null> {
   return fetchDoc<Meta>('meta/latest')
+}
+
+export function getSymbols(): Promise<SymbolIndex | null> {
+  return fetchDoc<SymbolIndex>('meta/symbols')
 }
 
 export function getManager(cik: string): Promise<Manager | null> {

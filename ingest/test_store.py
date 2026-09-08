@@ -46,8 +46,20 @@ def test_build_meta_shape(tables):
     meta = _build_meta(tables, FUNDS, tables["periods"])
     assert meta["latestPeriod"] == tables["periods"][-1]
     assert len(meta["managers"]) == 3
-    assert {"symbol", "name", "sector"} <= meta["symbols"][0].keys()
+    assert "symbols" not in meta  # its own doc: every page reads meta/latest, only search needs symbols
     assert meta["clusters"][0]["commonHoldings"]  # camelCase, non-empty at latest period
+
+
+def test_symbols_doc_is_written_and_positions_carry_their_own_sector(tables):
+    """The treemap used to look sectors up in meta/latest's symbol list. Now each position row
+    has one, so nothing but the search box needs that list."""
+    db = _FakeDb({})
+
+    write_firestore(db, tables, FUNDS, tables["periods"])
+
+    assert {"symbol", "name", "sector"} <= db.written["meta/symbols"]["symbols"][0].keys()
+    position = db.written["manager_quarters/1111111111_2026-06-30"]["positions"][0]
+    assert position["sector"]
 
 
 def test_manager_quarter_doc_has_camelcase_and_sold_out_position(tables):
@@ -71,13 +83,13 @@ class _FakeDb:
     """Just enough Firestore for write_firestore: batched set/delete and id-only collection reads."""
 
     def __init__(self, existing: dict[str, list[str]]):
-        self.existing, self.deleted, self.read = existing, [], []
+        self.existing, self.written, self.deleted, self.read = existing, {}, [], []
 
     def document(self, path):
         return path
 
     def batch(self):
-        return SimpleNamespace(set=lambda *_: None, delete=self.deleted.append, commit=lambda: None)
+        return SimpleNamespace(set=self.written.__setitem__, delete=self.deleted.append, commit=lambda: None)
 
     def collection(self, name):
         self.read.append(name)

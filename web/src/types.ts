@@ -28,8 +28,12 @@ export interface Meta {
   periods: string[]
   managers: ManagerRef[]
   clusters: ClusterSummary[]
-  symbols: SymbolRef[]
   updatedAt: Timestamp
+}
+
+// meta/symbols -- its own doc so meta/latest stays small; only the search box reads it.
+export interface SymbolIndex {
+  symbols: SymbolRef[]
 }
 
 // managers/{cik}
@@ -46,6 +50,7 @@ export interface Position {
   symbol: string
   short: string
   name: string
+  sector: string
   value: number
   shares: number
   weight: number

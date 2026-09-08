@@ -117,6 +117,7 @@ value (int $), shares (int), put_call ("PUT"|"CALL"|null)
 
 ### A. `manager_quarter_summary` — per (cik, period, symbol), equity only
 ```
+sector
 value, shares, weight = value / total_value
 prev_value, prev_shares, prev_weight
 change = weight - prev_weight            (percentage points; null when prev unknown)
@@ -237,7 +238,8 @@ Config keys (`signals_config.json` → `ownership`): `start_date` (first filing 
 
 | Doc | Content | Read by |
 |---|---|---|
-| `meta/latest` | `latestPeriod, periods[], managers[{cik, short, name, cluster}], clusters[{label, members, commonHoldings, topSector}], symbols[{symbol, name, sector}], updatedAt` | every page, once |
+| `meta/latest` | `latestPeriod, periods[], managers[{cik, short, name, cluster}], clusters[{label, members, commonHoldings, topSector}], updatedAt` | every page, once |
+| `meta/symbols` | `symbols[{symbol, name, sector}]` | the search box, on first focus only |
 | `managers/{cik}` | `cik, name, short, cluster, periods[]` | manager page |
 | `manager_quarters/{cik}_{period}` | `filedAt, totalValue, count, counts{new,added,trimmed,unchanged,soldOut}, positions[A rows incl. SOLD_OUT], sectors[B rows], mostSimilar[{cik, short, score}]` | manager page |
 | `stocks/{symbol}` | `symbol, name, sector, trend[D rows], latest{C summary + holders + soldOut + options{calls[], puts[]}}` | stock page |
@@ -249,7 +251,7 @@ Config keys (`signals_config.json` → `ownership`): `start_date` (first filing 
 
 J event row (camelCase): `accession, form, isAmendment, amendmentNo, filedAt, eventDate, investorCik, investorName, short, isRoster, isActivist, issuerCik, issuerName, symbol, sector, shares, pct, prevPct, changePp, event, priority, purpose, url`. J stake row: `investorCik, investorName, short, isRoster, isActivist, issuerCik, issuerName, symbol, sector, form, pct, shares, changePp, event, filedAt, accession, url`. `ownership_issuers` ids use `quote(symbol, safe='')` / `encodeURIComponent`, like `stocks/`. Each run rewrites `ownership/feed` and **only** the issuer/investor docs touched by that run's new filings (Firestore free tier: 20K writes/day); `--rebuild` rewrites all.
 
-Every doc stays far under 1 MB (largest: `ownership/feed` ≈ 200 KB, `signals` ≈ 100 KB, `meta` ≈ 100 KB). Rules: public read, no client write.
+Every doc stays far under 1 MB (largest: `ownership/feed` ≈ 200 KB, `signals` ≈ 100 KB, `meta/symbols` ≈ 110 KB). `symbols` lives in its own doc because `meta/latest` is read by every page and the symbol list is ~95% of its bytes, while only the search box needs it; `manager_quarter_summary` carries `sector` per row so the treemap does not need the list either. Rules: public read, no client write.
 
 ### GCS layout (when `GCS_BUCKET` is set; required for the ownership pipeline)
 ```

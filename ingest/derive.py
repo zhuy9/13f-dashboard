@@ -43,18 +43,22 @@ def manager_quarter_summary(h: pd.DataFrame, periods: list[str]) -> pd.DataFrame
     filed = _filed_ciks(h)
 
     cur = equity.groupby(["cik", "period", "symbol"], as_index=False).agg(
-        short=("short", "first"), name=("name", "first"), value=("value", "sum"), shares=("shares", "sum")
+        short=("short", "first"),
+        name=("name", "first"),
+        sector=("sector", "first"),
+        value=("value", "sum"),
+        shares=("shares", "sum"),
     )
     cur["total_value"] = cur.apply(lambda r: tot[(r["cik"], r["period"])], axis=1)
     cur["weight"] = cur["value"] / cur["total_value"]
 
     rows = []
     for period, cik, symbol, cur_row, prev_row, manager_filed_prev in _period_pairs(cur, periods, filed, "symbol"):
+        row = cur_row if cur_row is not None else prev_row
+        short, name, sector = row["short"], row["name"], row["sector"]
         if cur_row is not None:
-            short, name = cur_row["short"], cur_row["name"]
             value, shares, weight = cur_row["value"], cur_row["shares"], cur_row["weight"]
         else:
-            short, name = prev_row["short"], prev_row["name"]
             value, shares, weight = 0, 0, 0.0
 
         if not manager_filed_prev:
@@ -87,6 +91,7 @@ def manager_quarter_summary(h: pd.DataFrame, periods: list[str]) -> pd.DataFrame
                 "symbol": symbol,
                 "short": short,
                 "name": name,
+                "sector": sector,
                 "value": value,
                 "shares": shares,
                 "weight": weight,

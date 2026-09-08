@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStates'
 import { ManagerLists } from '@/components/manager/ManagerLists'
@@ -10,7 +10,6 @@ import { SectorBars } from '@/components/SectorBars'
 import { StatTile } from '@/components/StatTile'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useMeta } from '@/context/MetaContext'
 import { getManager, getManagerQuarter } from '@/data'
 import { filedDate, money, quarterLabel } from '@/format'
 import { useAsyncData } from '@/hooks/useAsyncData'
@@ -22,7 +21,6 @@ const PositionsTreemap = lazy(() =>
 
 export function ManagerPage() {
   const { cik = '' } = useParams<{ cik: string }>()
-  const { meta } = useMeta()
   const [searchParams, setSearchParams] = useSearchParams()
 
   const managerState = useAsyncData(() => getManager(cik), [cik])
@@ -40,12 +38,6 @@ export function ManagerPage() {
     () => (cik && period ? getManagerQuarter(cik, period) : Promise.resolve(null)),
     [cik, period],
   )
-
-  const sectorBySymbol = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const s of meta?.symbols ?? []) map.set(s.symbol, s.sector)
-    return map
-  }, [meta])
 
   if (managerState.loading) return <LoadingState />
   if (managerState.error) return <ErrorState message={managerState.error} />
@@ -95,7 +87,7 @@ export function ManagerPage() {
           <section>
             <h2 className="mb-2 text-lg font-medium">Top 25 Positions by Weight</h2>
             <Suspense fallback={<LoadingState />}>
-              <PositionsTreemap positions={mqState.data.positions} sectorBySymbol={sectorBySymbol} />
+              <PositionsTreemap positions={mqState.data.positions} />
             </Suspense>
           </section>
 

@@ -95,7 +95,6 @@ def _build_meta(tables: dict, funds: list[dict], periods: list[str]) -> dict:
         "periods": periods,
         "managers": managers,
         "clusters": _clean(clusters_at_latest),
-        "symbols": _records(tables["symbols"][["symbol", "name", "sector"]]),
         "updatedAt": firestore.SERVER_TIMESTAMP,
     }
 
@@ -237,7 +236,12 @@ def write_firestore(db, tables: dict, funds: list[dict], periods: list[str], pru
         "stocks": {quote(symbol, safe=""): doc for symbol, doc in _build_stock_docs(tables, funds).items()},
         "signals": _build_signals_docs(tables, periods),
     }
-    writes: list[tuple[str, dict]] = [("meta/latest", _build_meta(tables, funds, periods))]
+    # symbols is its own doc: every page reads meta/latest, but only the search box needs the
+    # ~2,300-entry symbol list, which is most of what meta/latest would otherwise weigh.
+    writes: list[tuple[str, dict]] = [
+        ("meta/latest", _build_meta(tables, funds, periods)),
+        ("meta/symbols", {"symbols": _records(tables["symbols"][["symbol", "name", "sector"]])}),
+    ]
     for collection, docs in owned.items():
         writes += [(f"{collection}/{doc_id}", doc) for doc_id, doc in docs.items()]
     _commit_in_batches(db, writes)

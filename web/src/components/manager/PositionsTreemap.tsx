@@ -68,13 +68,7 @@ function Cell({ x = 0, y = 0, width = 0, height = 0, name = '', value = 0, depth
   )
 }
 
-export function PositionsTreemap({
-  positions,
-  sectorBySymbol,
-}: {
-  positions: Position[]
-  sectorBySymbol: Map<string, string>
-}) {
+export function PositionsTreemap({ positions }: { positions: Position[] }) {
   const top25 = positions
     .filter((p) => p.value > 0)
     .sort((a, b) => b.weight - a.weight)
@@ -82,7 +76,7 @@ export function PositionsTreemap({
 
   const bySector = new Map<string, StockNode[]>()
   for (const p of top25) {
-    const sector = sectorBySymbol.get(p.symbol) ?? 'Unknown'
+    const sector = p.sector || 'Unknown'
     const group = bySector.get(sector) ?? []
     group.push({ name: p.symbol, size: p.weight, sector })
     bySector.set(sector, group)

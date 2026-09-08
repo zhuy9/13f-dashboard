@@ -63,7 +63,9 @@ flowchart TB
   website and publishes it to Firebase Hosting.
 - **Firestore** holds small, pre-computed documents — one per page, roughly.
   The browser never asks Firestore to calculate anything; the numbers are
-  already there.
+  already there. The one deliberate extra is the list of every stock
+  symbol. It lives in its own document and is fetched only when someone
+  clicks into the search box, so the document every page loads stays small.
 - **Cloud Storage** is the archive: the raw filings as downloaded, plus every
   derived table as a file, in case anyone wants to reprocess the data later
   (with BigQuery, for example).
@@ -86,7 +88,7 @@ flowchart LR
 
     B -->|"derive.py\npure math, no network calls"| E["13 signal tables\npositions, sector exposure,\nconsensus buys/exits,\nsimilarity, and more"]
 
-    E -->|"store.py"| F[("Firestore\n5 document types")]
+    E -->|"store.py"| F[("Firestore\n6 document types")]
     E -->|"store.py"| G[("Cloud Storage\narchive")]
 
     F -->|"1 read per page,\nalready-computed numbers"| H["Website\nformats and displays only"]

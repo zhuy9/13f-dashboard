@@ -91,7 +91,11 @@ def test_dry_run_mutates_no_remote_state_and_writes_no_keepalive_marker(monkeypa
         {"period": ["2026-06-30"], "cusip": ["037833100"], "value": [100], "put_call": [None], "ticker": ["AAPL"]}
     )
     monkeypatch.setattr(
-        m, "fetch_manager", lambda fund, quarters: (holdings, {}, {("1336528", "2026-06-30", "0001-26-1"): b"<x/>"}, [])
+        m,
+        "fetch_manager",
+        lambda fund, quarters: m.ManagerFetch(
+            holdings, {}, {("1336528", "2026-06-30", "0001-26-1"): b"<x/>"}, pd.DataFrame(columns=m.FILING_COLUMNS), []
+        ),
     )
     monkeypatch.setattr(m, "attach", lambda base, securities: base)
     monkeypatch.setattr(

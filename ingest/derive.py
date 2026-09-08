@@ -1,6 +1,7 @@
 """All derived signal tables, computed once per ingest run. Pure functions: DataFrame in, DataFrame/dict out."""
 
 import re
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -176,6 +177,7 @@ def manager_quarter_summary(h: pd.DataFrame, periods: list[str], actions: list[d
         sector=("sector", "first"),
         kind=("kind", "first"),
         disclosed_by_amendment=("disclosed_by_amendment", "max"),
+        accession=("accession", lambda a: ",".join(sorted(set(a)))),
         value=("value", "sum"),
         shares=("shares", "sum"),
     )
@@ -187,6 +189,9 @@ def manager_quarter_summary(h: pd.DataFrame, periods: list[str], actions: list[d
         short, name, sector, kind = row["short"], row["name"], row["sector"], row["kind"]
         # Only meaningful for a row that exists now; a SOLD_OUT row is not "disclosed" at all.
         disclosed_by_amendment = bool(cur_row["disclosed_by_amendment"]) if cur_row is not None else False
+        # None for a SOLD_OUT row: no current filing reports it, and quoting the prior quarter's
+        # accession would point at a filing that does not mention the position at all.
+        accession = cur_row["accession"] if cur_row is not None else None
         # A SOLD_OUT row has no current side: it is emitted at zero off the prior quarter's row.
         value, shares, weight = (cur_row["value"], cur_row["shares"], cur_row["weight"]) if cur_row is not None else (0, 0, 0.0)
 
@@ -234,6 +239,7 @@ def manager_quarter_summary(h: pd.DataFrame, periods: list[str], actions: list[d
                 # How the holding came to light, never when it was bought: a position revealed
                 # by an amendment was usually confidential, not newly acquired.
                 "disclosed_by_amendment": disclosed_by_amendment,
+                "accession": accession,
                 "value": value,
                 "shares": shares,
                 "weight": weight,
@@ -345,7 +351,12 @@ def stock_trend(sqs: pd.DataFrame) -> pd.DataFrame:
 
 
 def conviction_score(sqs: pd.DataFrame, cfg: dict) -> pd.DataFrame:
-    """Adds avg_change, raw, and score (0-100, relative within each period) to sqs."""
+    """Adds avg_change, raw, score_peak, and score (0-100, relative within each period) to sqs.
+
+    `raw` and `score_peak` are kept rather than dropped so a displayed score can be traced:
+    score is round(100 * raw / score_peak), and score_peak is the highest raw score in that
+    quarter. Without the peak the 0-100 number is unfalsifiable from the published data.
+    """
     score_cfg = cfg["score"]
     out = sqs.copy()
 
@@ -374,7 +385,18 @@ def conviction_score(sqs: pd.DataFrame, cfg: dict) -> pd.DataFrame:
         return (100 * raw / peak).round().astype(int)
 
     out["score"] = out.groupby("period")["raw"].transform(score_within_period)
-    return out.drop(columns=["raw"])
+    out["score_peak"] = out.groupby("period")["raw"].transform("max")
+    return out
+
+
+def _shorts(holders: list[dict], statuses: Optional[set[str]] = None) -> list[str]:
+    """The managers behind a ranked row, by short name, so the row can show its own evidence.
+
+    Short names rather than full holder objects: `consensus_buys` and `consensus_exits` are not
+    capped to top_n, and inlining a full holder per manager per row is how a signals document
+    grows past Firestore's 1 MB limit. The stock page already carries the full holder rows.
+    """
+    return sorted({h["short"] for h in holders if statuses is None or h["status"] in statuses})
 
 
 def _status_change(holders: list[dict], statuses: set[str]) -> float:
@@ -403,14 +425,21 @@ def consensus_tables(sqs: pd.DataFrame, mqs: pd.DataFrame, trend: pd.DataFrame, 
     buys["new_buyers"] = buys["new_count"]
     buys["added"] = buys["added_count"]
     buys["avg_weight_increase"] = buys["holders"].apply(lambda hs: _status_change(hs, {"NEW", "ADDED"}))
+    buys["managers"] = buys["holders"].apply(lambda hs: _shorts(hs, {"NEW", "ADDED"}))
     tables["consensus_buys"] = _top_per_period(
-        buys[["period", "symbol", "name", "new_buyers", "added", "avg_weight", "avg_weight_increase", "score"]],
+        buys[["period", "symbol", "name", "new_buyers", "added", "avg_weight", "avg_weight_increase", "score", "managers"]],
         "score",
         False,
         None,
     )
 
     exits = sqs[(sqs["sold_out_count"] + sqs["trimmed_count"]) >= cfg["consensus_min_managers"]].copy()
+    # Before `sold_out` is overwritten with the count below: a manager that sold out is not in
+    # `holders` (current holders only), so an exit's qualifying set is the trimmers plus these.
+    exits["managers"] = [
+        sorted(set(_shorts(hs, {"TRIMMED"})) | {so["short"] for so in sos})
+        for hs, sos in zip(exits["holders"], exits["sold_out"])
+    ]
     exits["sold_out"] = exits["sold_out_count"]
     exits["trimmed"] = exits["trimmed_count"]
     exits["avg_reduction"] = (
@@ -421,7 +450,7 @@ def consensus_tables(sqs: pd.DataFrame, mqs: pd.DataFrame, trend: pd.DataFrame, 
         .values
     )
     exits = exits.sort_values(["period", "sold_out", "trimmed"], ascending=[True, False, False])
-    tables["consensus_exits"] = exits[["period", "symbol", "name", "sold_out", "trimmed", "avg_reduction"]]
+    tables["consensus_exits"] = exits[["period", "symbol", "name", "sold_out", "trimmed", "avg_reduction", "managers"]]
 
     min_w = cfg["high_conviction_min_weight"]
     hc = sqs.copy()
@@ -430,9 +459,12 @@ def consensus_tables(sqs: pd.DataFrame, mqs: pd.DataFrame, trend: pd.DataFrame, 
     hc = hc[hc["managers"] >= cfg["high_conviction_min_managers"]]
     hc["avg_weight"] = hc["qualifying"].apply(lambda qs: sum(q["weight"] for q in qs) / len(qs))
     hc["max_weight"] = hc["qualifying"].apply(lambda qs: max(q["weight"] for q in qs))
+    hc["manager_names"] = hc["qualifying"].apply(_shorts)
     hc = hc.rename(columns={"new_count": "new", "added_count": "added"})
     hc = hc.sort_values(["period", "managers", "avg_weight"], ascending=[True, False, False])
-    tables["high_conviction"] = hc[["period", "symbol", "name", "managers", "avg_weight", "max_weight", "new", "added"]]
+    tables["high_conviction"] = hc[
+        ["period", "symbol", "name", "managers", "avg_weight", "max_weight", "new", "added", "manager_names"]
+    ]
 
     tables["biggest_new"] = _top_per_period(
         mqs[mqs["status"] == "NEW"][["period", "cik", "short", "symbol", "name", "weight", "value"]], "weight", False, top_n
@@ -460,9 +492,25 @@ def consensus_tables(sqs: pd.DataFrame, mqs: pd.DataFrame, trend: pd.DataFrame, 
     fg = fg.rename(columns={"manager_count": "count"}).sort_values("net_change", ascending=False).head(top_n)
     tables["fastest_growing"] = fg[["symbol", "name", "prev_count", "count", "new_managers", "exited_managers", "net_change"]]
 
+    signals = sqs[sqs["manager_count"] >= cfg["consensus_min_managers"]].copy()
+    signals["managers"] = signals["holders"].apply(_shorts)
     tables["top_signals"] = _top_per_period(
-        sqs[sqs["manager_count"] >= cfg["consensus_min_managers"]][
-            ["period", "symbol", "name", "score", "manager_count", "avg_weight", "new_count", "added_count"]
+        signals[
+            [
+                "period",
+                "symbol",
+                "name",
+                "score",
+                # raw and score_peak are what make the 0-100 traceable: score = 100 * raw / peak.
+                "raw",
+                "score_peak",
+                "manager_count",
+                "avg_weight",
+                "avg_change",
+                "new_count",
+                "added_count",
+                "managers",
+            ]
         ],
         "score",
         False,
@@ -569,6 +617,25 @@ def clusters(mqs: pd.DataFrame, mse: pd.DataFrame, funds: list[dict]) -> dict:
     return result
 
 
+def coverage(h: pd.DataFrame, funds: list[dict], periods: list[str]) -> list[dict]:
+    """Per period: which roster managers have a filing and which do not.
+
+    Without this the site cannot tell "this manager reported nothing" from "we have no filing
+    for this manager", and a missing filer silently reads as a manager holding zero of
+    everything -- which drags down every average it is counted in.
+    """
+    filed = _filed_ciks(h)
+    roster = {f["cik"] for f in funds}
+    return [
+        {
+            "period": period,
+            "filed": sorted(roster & filed.get(period, set())),
+            "missing": sorted(roster - filed.get(period, set())),
+        }
+        for period in periods
+    ]
+
+
 def derive_all(h: pd.DataFrame, funds: list[dict], cfg: dict, actions: list[dict] = ()) -> dict:
     # The newest `quarters` periods -- a manager who stopped filing drags older ones into the
     # union, where they render as near-empty quarters holding that one stale filer.
@@ -600,4 +667,5 @@ def derive_all(h: pd.DataFrame, funds: list[dict], cfg: dict, actions: list[dict
         "manager_similarity": manager_similarity(eq_mqs),
         "options_exposure": options_exposure(h),
         "clusters": clusters(eq_mqs, mse, funds),
+        "coverage": coverage(h, funds, periods),
     }

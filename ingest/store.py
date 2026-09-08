@@ -111,6 +111,9 @@ def _build_meta(tables: dict, funds: list[dict], periods: list[str]) -> dict:
         "periods": periods,
         "managers": managers,
         "clusters": _clean(clusters_at_latest),
+        # Which roster managers have a filing per quarter, so the site can say "no filing"
+        # instead of rendering a missing filer as a manager holding zero of everything.
+        "coverage": _clean(tables["coverage"]),
         "methodologyVersion": tables["methodology_version"],
         "updatedAt": firestore.SERVER_TIMESTAMP,
     }
@@ -136,6 +139,7 @@ def _build_manager_quarter_docs(tables: dict, funds: list[dict]) -> dict[str, di
     mqs = tables["manager_quarter_summary"]
     mse = tables["manager_sector_exposure"]
     similarity = tables["manager_similarity"]
+    filings = tables.get("filings")
 
     docs = {}
     for (cik, period), grp in mqs.groupby(["cik", "period"]):
@@ -155,6 +159,9 @@ def _build_manager_quarter_docs(tables: dict, funds: list[dict]) -> dict[str, di
                 "unchanged": int(counts.get("UNCHANGED", 0)),
                 "soldOut": int(counts.get("SOLD_OUT", 0)),
             },
+            # Carried once per document, not per position: one filing usually reports every
+            # position, and a position's `accession` joins to this list.
+            "filings": _filing_records(filings, cik, period),
             "positions": _records(grp.drop(columns=["cik", "period"])),
             "sectors": _records(mse[(mse["cik"] == cik) & (mse["period"] == period)].drop(columns=["cik", "period"])),
             "mostSimilar": [
@@ -162,6 +169,18 @@ def _build_manager_quarter_docs(tables: dict, funds: list[dict]) -> dict[str, di
             ],
         }
     return docs
+
+
+def _filing_records(filings, cik: str, period: str) -> list[dict]:
+    """The filings behind one manager-quarter: accession, EDGAR link, and amendment status.
+
+    `filer_cik` differs from `cik` for a manager whose book is filed under an `aliases13f` CIK,
+    which is exactly the case where a reader cannot otherwise find the filing on EDGAR.
+    """
+    if filings is None or not len(filings):
+        return []
+    mine = filings[(filings["cik"] == cik) & (filings["period"] == period)]
+    return _records(mine.drop(columns=["cik", "period"]).sort_values("accession"))
 
 
 def _build_stock_docs(tables: dict, funds: list[dict]) -> dict[str, dict]:

@@ -522,3 +522,55 @@ def test_an_amendment_disclosed_holding_keeps_its_label_through_to_the_position_
 
     assert mqs.iloc[0]["disclosed_by_amendment"]
     assert not out["manager_quarter_summary"]["disclosed_by_amendment"].any()
+
+
+def test_coverage_names_the_managers_with_no_filing_for_a_quarter(out):
+    """A missing filer must be distinguishable from a manager reporting nothing. M3 has no
+    2026-03-31 filing in the fixture, so it belongs in `missing` for that quarter and in
+    `filed` for the next -- never counted as holding zero of everything."""
+    by_period = {c["period"]: c for c in out["coverage"]}
+
+    assert by_period[P1]["missing"] == ["3333333333"]
+    assert set(by_period[P1]["filed"]) == {"1111111111", "2222222222"}
+    assert by_period[P2]["missing"] == []
+    assert len(by_period[P2]["filed"]) == 3
+
+
+def test_a_published_score_can_be_recomputed_from_its_published_inputs(out):
+    """F3: the 0-100 score was unfalsifiable from the published data -- without the quarter's
+    peak there is nothing to divide by. score = round(100 * raw / score_peak)."""
+    signals = out["top_signals"]
+    assert {"raw", "score_peak", "avg_change", "manager_count", "avg_weight"} <= set(signals.columns)
+
+    for _, row in signals.iterrows():
+        assert row["score"] == round(100 * row["raw"] / row["score_peak"])
+    assert (signals.groupby("period")["score"].max() == 100).all()
+
+
+def test_every_ranked_row_names_the_managers_behind_it(out):
+    """A consensus row that cannot show its own evidence is just an assertion."""
+    buys = out["consensus_buys"]
+    row = buys[(buys["period"] == P2) & (buys["symbol"] == "FFF")].iloc[0]
+    # M2 only. M3 also shows FFF at P2, but M3 filed nothing at P1, so its position is
+    # status=null rather than NEW -- we cannot tell a new buy from a first-ever filing.
+    assert row["managers"] == ["M2"]
+
+    exits = out["consensus_exits"]
+    exit_row = exits[(exits["period"] == P2) & (exits["symbol"] == "FFF")].iloc[0]
+    assert "M1" in exit_row["managers"], "a manager that sold out is not in `holders`"
+
+    hc = out["high_conviction"]
+    hc_row = hc[(hc["period"] == P2) & (hc["symbol"] == "BBB")].iloc[0]
+    assert hc_row["manager_names"] == ["M2", "M3"]
+    assert hc_row["managers"] == len(hc_row["manager_names"])
+
+
+def test_a_position_carries_the_accession_that_reported_it(out):
+    mqs = out["manager_quarter_summary"]
+    aaa = _mqs_row(mqs, "1111111111", P2, "AAA")
+    assert aaa["accession"] == "1111-26-000006"
+
+    # A SOLD_OUT row has no current filing, so quoting one would point at a filing that does
+    # not mention the position.
+    fff = _mqs_row(mqs, "1111111111", P2, "FFF")
+    assert fff["status"] == "SOLD_OUT" and fff["accession"] is None

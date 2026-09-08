@@ -2,6 +2,7 @@
 
 import io
 import logging
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 from urllib.parse import quote
 
@@ -49,7 +50,36 @@ def write_state(bucket, filings: pd.DataFrame, raw_by_accession: dict[str, str])
     bucket.blob(STATE_BLOB).upload_from_string(buf.getvalue(), content_type="application/octet-stream")
 
 
-def build_feed(tables: dict, cfg: dict) -> dict:
+def headline_counts(events: pd.DataFrame, start_date: str, now: Optional[date] = None, days: int = 7) -> dict:
+    """The Ownership page's headline tiles, counted here rather than in the browser.
+
+    Two things were wrong with counting them from the feed. The feed is the newest
+    `recent_events` rows only, so any count over it silently means "among the last 300 events"
+    however it is labelled. And the seven-day window was measured back from the newest filing
+    in the feed rather than from today, so it could never report zero -- a pipeline stalled for
+    a month still showed a busy week.
+
+    Each count carries the window and scope it was computed over, because "New 13Ds" with no
+    date range attached is not an answer.
+    """
+    now = now or datetime.now(timezone.utc).date()
+    until = now.isoformat()
+    since = (now - timedelta(days=days)).isoformat()
+    # String comparison: filed_at is an ISO date, which sorts chronologically as text.
+    in_window = events[(events["filed_at"] > since) & (events["filed_at"] <= until)]
+    entries = events["is_activist"] & events["event"].isin(["NEW", "SWITCHED_TO_13D"])
+    return {
+        "asOf": until,
+        "windowDays": days,
+        "windowSince": since,
+        "filingsInWindow": int(in_window["accession"].nunique()),
+        "startDate": start_date,
+        "new13dSinceStart": int(((events["event"] == "NEW") & (events["form"] == "13D")).sum()),
+        "activistEntriesSinceStart": int(entries.sum()),
+    }
+
+
+def build_feed(tables: dict, cfg: dict, now: Optional[date] = None) -> dict:
     filings, events = tables["filings"], tables["events"]
     return {
         "updatedAt": firestore.SERVER_TIMESTAMP,
@@ -60,6 +90,8 @@ def build_feed(tables: dict, cfg: dict) -> dict:
             "investors": int(events["investor_cik"].nunique()),
             "issuers": int(events["symbol"].nunique()),
         },
+        # Over every event on file, not over the truncated `recent` feed below it.
+        "headline": headline_counts(events, cfg["start_date"], now),
         "events": _records(tables["recent"][EVENT_FIELDS]),
     }
 

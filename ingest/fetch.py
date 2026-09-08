@@ -46,6 +46,7 @@ class Filing(NamedTuple):
     positions only), or None when the filing is not an amendment or does not say."""
 
     accession: str
+    url: str
     period: str
     filed_at: str
     is_amendment: bool
@@ -64,6 +65,9 @@ def filing_rows(filing) -> Filing:
         _printed_columns = True
     return Filing(
         accession=str(obj.accession_number),
+        # The library's own accessor, not a URL we assemble: an accession's leading digits are
+        # the filing agent's id, not the manager's CIK, so this cannot be rebuilt from the row.
+        url=filing.homepage_url,
         period=str(obj.report_period),
         filed_at=str(filing.filing_date),
         is_amendment=bool(obj.is_amendment),

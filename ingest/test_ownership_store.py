@@ -1,4 +1,5 @@
 import json
+from datetime import date, timedelta
 from pathlib import Path
 from urllib.parse import quote
 
@@ -6,7 +7,7 @@ import pandas as pd
 import pytest
 
 from ownership_derive import derive_all
-from ownership_store import build_feed, build_investor_docs, build_issuer_docs
+from ownership_store import build_feed, build_investor_docs, build_issuer_docs, headline_counts
 
 FIXTURE = Path(__file__).parent / "fixtures" / "ownership_small.csv"
 
@@ -76,3 +77,50 @@ def test_docs_are_json_serializable(tables):
         json.dumps(doc)
     for doc in build_investor_docs(tables, FUNDS, CFG).values():
         json.dumps(doc)
+
+
+def test_the_seven_day_count_reads_zero_when_the_pipeline_has_been_quiet(tables):
+    """F6: the window was measured back from the newest filing in the feed, so it could never
+    report zero -- a pipeline stalled for a month still showed a busy week. With the clock
+    frozen well past the last filing, the honest answer is none."""
+    latest = tables["events"]["filed_at"].max()
+    long_after = date.fromisoformat(latest) + timedelta(days=30)
+
+    counts = headline_counts(tables["events"], CFG["start_date"], now=long_after)
+
+    assert counts["filingsInWindow"] == 0
+    assert counts["asOf"] == long_after.isoformat()
+    assert counts["windowSince"] == (long_after - timedelta(days=7)).isoformat()
+
+
+def test_the_seven_day_count_sees_filings_inside_the_window(tables):
+    latest = tables["events"]["filed_at"].max()
+    just_after = date.fromisoformat(latest) + timedelta(days=1)
+
+    counts = headline_counts(tables["events"], CFG["start_date"], now=just_after)
+
+    assert counts["filingsInWindow"] >= 1
+
+
+def test_headline_counts_cover_the_whole_population_not_the_truncated_feed(tables):
+    """F6: the tiles were counted in the browser over `recent_events` rows. Anything past that
+    cap was invisible, so a count labelled "New 13Ds" quietly meant "New 13Ds among the last
+    300 events". Here the cap is 1 and the totals must not move."""
+    tight = {**CFG, "recent_events": 1}
+    filings = pd.read_csv(FIXTURE, dtype=STR_COLS).assign(symbol=lambda d: "_" + d["cusip"], sector="Unknown")
+
+    feed = build_feed(derive_all(filings, FUNDS, tight), tight)
+    full = headline_counts(tables["events"], CFG["start_date"])
+
+    assert len(feed["events"]) == 1, "the visible feed really is truncated to one row"
+    assert feed["headline"]["new13dSinceStart"] == full["new13dSinceStart"] >= 1
+    assert feed["headline"]["activistEntriesSinceStart"] == full["activistEntriesSinceStart"]
+
+
+def test_every_headline_count_states_its_window_and_scope(tables):
+    """A count with no date range attached is not an answer."""
+    headline = build_feed(tables, CFG)["headline"]
+
+    assert headline["windowDays"] == 7
+    assert headline["windowSince"] < headline["asOf"]
+    assert headline["startDate"] == CFG["start_date"]

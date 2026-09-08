@@ -5,6 +5,7 @@ from fetch import BASE_COLUMNS, Filing, collapse, edgar_ticker_hints, normalize,
 
 def _filing(
     accession: str = "0001-26-000001",
+    url: str = "https://www.sec.gov/Archives/edgar/data/1234567/0001-26-000001-index.html",
     period: str = "2026-06-30",
     filed_at: str = "2026-08-14",
     is_amendment: bool = False,
@@ -12,7 +13,7 @@ def _filing(
     amendment_no: int = 0,
     holdings: pd.DataFrame = None,
 ) -> Filing:
-    return Filing(accession, period, filed_at, is_amendment, amendment_type, amendment_no, None, holdings)
+    return Filing(accession, url, period, filed_at, is_amendment, amendment_type, amendment_no, None, holdings)
 
 
 def _holdings(*cusips: str) -> pd.DataFrame:

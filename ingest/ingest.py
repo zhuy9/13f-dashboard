@@ -7,6 +7,7 @@ import sys
 from datetime import datetime, timezone
 from itertools import groupby
 from pathlib import Path
+from typing import NamedTuple
 
 import edgar
 import firebase_admin
@@ -45,7 +46,21 @@ def load_corporate_actions() -> list[dict]:
     return json.loads((HERE / "corporate_actions.json").read_text())
 
 
-def fetch_manager(fund: dict, quarters: int) -> tuple[pd.DataFrame, dict[str, str], dict[tuple, bytes], list[str]]:
+class ManagerFetch(NamedTuple):
+    """What one manager's fetch produced. A NamedTuple rather than a 5-tuple: the callers index
+    these by name, and provenance is the fifth thing a positional tuple would have hidden."""
+
+    base: pd.DataFrame
+    ticker_hints: dict[str, str]
+    raw_by_filing: dict[tuple, bytes]
+    filings: pd.DataFrame
+    notes: list[str]
+
+
+FILING_COLUMNS = ["cik", "period", "accession", "url", "filed_at", "is_amendment", "amendment_type", "filer_cik"]
+
+
+def fetch_manager(fund: dict, quarters: int) -> ManagerFetch:
     """One manager's filings over the last `quarters` report periods, across every CIK the firm
     files them under.
 
@@ -56,6 +71,7 @@ def fetch_manager(fund: dict, quarters: int) -> tuple[pd.DataFrame, dict[str, st
     frames = []
     ticker_hints: dict[str, str] = {}
     raw_by_filing: dict[tuple, bytes] = {}
+    provenance: list[dict] = []
     notes: list[str] = []
     for cik in [fund["cik"], *fund.get("aliases13f", [])]:
         parsed = [filing_rows(f) for f in fetch_filings(cik, quarters)]
@@ -65,11 +81,26 @@ def fetch_manager(fund: dict, quarters: int) -> tuple[pd.DataFrame, dict[str, st
             for filing, rows in kept:
                 frames.append(normalize(rows, fund["cik"], fund["short"], filing))
                 ticker_hints.update(edgar_ticker_hints(rows))
+                # `filer_cik` is the CIK that actually filed, which for an aliases13f manager is
+                # not the roster CIK the rows carry. Keeping it is what makes an alias's filing
+                # findable rather than looking like it went missing.
+                provenance.append(
+                    {
+                        "cik": fund["cik"],
+                        "period": period,
+                        "accession": filing.accession,
+                        "url": filing.url,
+                        "filed_at": filing.filed_at,
+                        "is_amendment": filing.is_amendment,
+                        "amendment_type": filing.amendment_type,
+                        "filer_cik": cik,
+                    }
+                )
                 if filing.raw_xml:
                     # Keyed by accession: an amended quarter archives every filing it had.
                     raw_by_filing[(cik, period, filing.accession)] = filing.raw_xml
     base = collapse(pd.concat(frames, ignore_index=True)) if frames else pd.DataFrame(columns=BASE_COLUMNS)
-    return base, ticker_hints, raw_by_filing, notes
+    return ManagerFetch(base, ticker_hints, raw_by_filing, pd.DataFrame(provenance, columns=FILING_COLUMNS), notes)
 
 
 def print_dry_run_summary(short: str, enriched: pd.DataFrame) -> None:
@@ -203,19 +234,21 @@ def main() -> int:
     base_by_fund: list[tuple[dict, pd.DataFrame]] = []
     ticker_hints: dict[str, str] = {}
     raw_by_filing: dict[tuple, bytes] = {}
+    filing_frames: list[pd.DataFrame] = []
     amendment_notes: list[str] = []
     failed: list[str] = []
     for fund in funds:
         try:
-            base, fund_hints, fund_raw, fund_notes = fetch_manager(fund, args.quarters)
+            fetched = fetch_manager(fund, args.quarters)
         except Exception as e:
             print(f"ERROR: {fund['short']} ({fund['cik']}) failed: {e}", file=sys.stderr)
             failed.append(fund["short"])
             continue
-        base_by_fund.append((fund, base))
-        ticker_hints.update(fund_hints)
-        raw_by_filing.update(fund_raw)
-        amendment_notes += fund_notes
+        base_by_fund.append((fund, fetched.base))
+        ticker_hints.update(fetched.ticker_hints)
+        raw_by_filing.update(fetched.raw_by_filing)
+        filing_frames.append(fetched.filings)
+        amendment_notes += fetched.notes
 
     all_cusips = sorted({c for _, base in base_by_fund for c in base["cusip"]})
     securities = (
@@ -240,7 +273,9 @@ def main() -> int:
         print(f"\nTotal rows: {len(holdings)}, unmapped tickers: {unmapped:.1%}")
 
     if len(holdings):
+        filings = pd.concat(filing_frames, ignore_index=True) if filing_frames else pd.DataFrame(columns=FILING_COLUMNS)
         tables = derive_all(holdings, funds, config, load_corporate_actions())
+        tables["filings"] = filings
 
         # A dry run must not touch remote state, and the GCS archive is remote state.
         bucket_name = None if args.dry_run else os.environ.get("GCS_BUCKET")

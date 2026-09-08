@@ -47,7 +47,7 @@ A 13F is a report. Large US investment managers must file it with the SEC every 
 - It does not show short positions. A short position is a bet that a stock will fall.
 - It does not show cash, bonds, or most foreign stocks.
 - It can be filed up to 45 days after the quarter ends. So the data is always a little old.
-- It includes options. A put option is not the same as a short. We label puts as "Reported Puts".
+- It includes options. A put option is not the same as a short, and can be a hedge. The site labels them "Reported Put Exposure" and keeps them out of every weight, because an option row reports the value of the underlying shares, not what was paid.
 - Values are in US dollars.
 - This site is not investment advice.
 
@@ -130,12 +130,12 @@ Each event also shows how many tracked managers already held the stock. That num
 
 The site computes these signals once per quarter.
 
-1. **Manager Conviction.** How big each stock is inside a manager's portfolio, and how that changed since last quarter.
+1. **Manager Conviction.** How big each stock is inside a manager's reported equity holdings, and how that changed since last quarter. Option, note and warrant rows are excluded from every weight.
 2. **Stock Consensus.** How many managers own a stock, and how much of their portfolio it is.
 3. **Consensus Buys.** Stocks that three or more managers bought or added in the same quarter.
 4. **Consensus Exits.** Stocks that three or more managers sold or trimmed in the same quarter.
-5. **High-Conviction Overlap.** Stocks that three or more managers hold at 3% or more of their portfolio.
-6. **Conviction Score.** A score from 0 to 100. It rewards stocks that a few managers hold in big size and just bought.
+5. **High-Conviction Overlap.** Stocks that three or more managers each hold at 3% or more of their reported equity holdings.
+6. **Conviction Score.** A score from 0 to 100. It rewards stocks that a few managers hold in big size and just bought. It is relative within one quarter — 100 is that quarter's top score, not a rating — so scores are not comparable across quarters.
 7. **Sector Exposure.** How much of each manager's portfolio is in each sector, and how that changed.
 8. **Sector Rotation.** Which sectors managers are moving into or out of, as a group.
 9. **Manager Similarity.** How alike two managers' portfolios are, from 0 to 1.
@@ -262,7 +262,7 @@ Edit `ingest/signals_config.json`. Then run the ingest workflow.
 
 - `quarters` — how many quarters to load. Default 12 (three years). Do not go past 12: filings for quarters before 2023 report dollar values in thousands, so they would read 1000 times too small.
 - `consensus_min_managers` — how many managers make a "consensus". Default 3. With 33 managers tracked, 2 matched most of the market and the tables stopped meaning anything.
-- `high_conviction_min_weight` — the portfolio weight that counts as high conviction. Default 0.03 (3%).
+- `high_conviction_min_weight` — the share of reported equity holdings that counts as high conviction. Default 0.03 (3%).
 - `high_conviction_min_managers` — how many managers make a high-conviction overlap. Default 3.
 - `sector_move_threshold` — the sector weight change that counts as a move. Default 0.005 (0.5 points).
 - `top_n` — how many rows each ranked table keeps. Default 25.

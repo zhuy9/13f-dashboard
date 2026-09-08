@@ -69,9 +69,9 @@ export interface Position {
   prevValue: number | null
   prevShares: number | null
   // prevShares as filed; adjPrevShares restated onto the current share basis across a split.
-  adjPrevShares: number | null
-  shareChange: number | null
-  splitUnverified: boolean | null
+  adjPrevShares?: number | null
+  shareChange?: number | null
+  splitUnverified?: boolean | null
   prevWeight: number | null
   change: number | null
   status: PositionStatus | null
@@ -137,6 +137,8 @@ export interface Holder {
   weight: number
   prevWeight: number | null
   change: number | null
+  // Optional: documents published before this field existed do not carry it.
+  shareChange?: number | null
   status: PositionStatus | null
 }
 

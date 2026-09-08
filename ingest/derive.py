@@ -293,7 +293,9 @@ def stock_quarter_summary(mqs: pd.DataFrame, managers_per_period: dict) -> pd.Da
         managers_total = managers_per_period[period]
 
         holders = holders_df.sort_values("weight", ascending=False)[
-            ["cik", "short", "value", "shares", "weight", "prev_weight", "change", "status"]
+            # share_change travels with the holder so the stock page can show the numeric share
+            # move beside a status badge, the same as the manager page does.
+            ["cik", "short", "value", "shares", "weight", "prev_weight", "change", "share_change", "status"]
         ].to_dict("records")
         sold_out = sold_out_df[["cik", "short", "prev_weight"]].to_dict("records")
 

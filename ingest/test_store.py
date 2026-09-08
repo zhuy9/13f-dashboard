@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from derive import derive_all
-from store import _build_manager_quarter_docs, _build_meta, _build_stock_docs, _camel, _clean, write_firestore
+from store import _build_manager_quarter_docs, _build_meta, _build_stock_docs, _camel, _clean, _commit_in_batches, write_firestore
 
 FIXTURE = Path(__file__).parent / "fixtures" / "holdings_small.csv"
 FUNDS = [
@@ -119,6 +119,34 @@ def test_write_firestore_skips_pruning_when_a_manager_failed(tables):
 
     assert write_firestore(db, tables, FUNDS, tables["periods"], prune=False) == 0
     assert db.deleted == []
+
+
+class _CountingDb:
+    """Records how many documents went into each commit."""
+
+    def __init__(self):
+        self.commits: list[int] = []
+
+    def document(self, path):
+        return path
+
+    def batch(self):
+        docs: list[str] = []
+        return SimpleNamespace(set=lambda ref, data: docs.append(ref), commit=lambda: self.commits.append(len(docs)))
+
+
+def test_commit_in_batches_splits_on_size_not_only_on_count():
+    """A Firestore commit is capped on total size as well as operation count, and at 12 quarters
+    the size ceiling is the one hit first -- 400 manager_quarters docs is tens of MB and the
+    server answers "400 Transaction too big"."""
+    db = _CountingDb()
+    one_mb = {"blob": "x" * 1_000_000}
+
+    _commit_in_batches(db, [(f"stocks/{i}", one_mb) for i in range(10)])
+
+    assert sum(db.commits) == 10, "every document is written exactly once"
+    assert len(db.commits) > 1, "10 MB cannot go in a single commit"
+    assert max(db.commits) <= 4, "a commit must stay under the 4 MB ceiling"
 
 
 def test_stock_doc_id_encodes_slash_matching_web_encodeuricomponent():

@@ -1,6 +1,7 @@
 """GCS raw/parquet archive and Firestore document writer."""
 
 import io
+import json
 import logging
 from urllib.parse import quote
 
@@ -31,6 +32,11 @@ _PARQUET_TABLES = [
 ]
 
 _FIRESTORE_BATCH_SIZE = 400
+# A commit is capped on total size as well as on operation count, and the size ceiling is the
+# one that bites: at 12 quarters a manager_quarters doc runs to ~200 KiB, so 400 of them is
+# tens of MB and Firestore answers "400 Transaction too big". 4 MB leaves generous headroom
+# under the ~10 MiB limit -- the estimate below is a proxy, not the wire size.
+_FIRESTORE_BATCH_BYTES = 4_000_000
 
 
 def write_gcs(bucket, raw_by_filing: dict, tables: dict) -> None:
@@ -79,10 +85,16 @@ def _records(df: pd.DataFrame) -> list[dict]:
 
 
 def _commit_in_batches(db, writes: list[tuple[str, dict]]) -> None:
-    for i in range(0, len(writes), _FIRESTORE_BATCH_SIZE):
-        batch = db.batch()
-        for path, data in writes[i : i + _FIRESTORE_BATCH_SIZE]:
-            batch.set(db.document(path), data)
+    """Flush on whichever ceiling comes first, operation count or total size."""
+    batch, count, size = db.batch(), 0, 0
+    for path, data in writes:
+        doc_size = len(json.dumps(data, default=str))
+        if count and (count >= _FIRESTORE_BATCH_SIZE or size + doc_size > _FIRESTORE_BATCH_BYTES):
+            batch.commit()
+            batch, count, size = db.batch(), 0, 0
+        batch.set(db.document(path), data)
+        count, size = count + 1, size + doc_size
+    if count:
         batch.commit()
 
 

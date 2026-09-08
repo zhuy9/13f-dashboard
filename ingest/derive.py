@@ -427,7 +427,22 @@ def consensus_tables(sqs: pd.DataFrame, mqs: pd.DataFrame, trend: pd.DataFrame, 
     buys["avg_weight_increase"] = buys["holders"].apply(lambda hs: _status_change(hs, {"NEW", "ADDED"}))
     buys["managers"] = buys["holders"].apply(lambda hs: _shorts(hs, {"NEW", "ADDED"}))
     tables["consensus_buys"] = _top_per_period(
-        buys[["period", "symbol", "name", "new_buyers", "added", "avg_weight", "avg_weight_increase", "score", "managers"]],
+        buys[
+            [
+                "period",
+                "symbol",
+                "name",
+                "new_buyers",
+                "added",
+                "avg_weight",
+                "avg_weight_increase",
+                "score",
+                # The score is displayed on this table, so its trace has to travel with it.
+                "raw",
+                "score_peak",
+                "managers",
+            ]
+        ],
         "score",
         False,
         None,

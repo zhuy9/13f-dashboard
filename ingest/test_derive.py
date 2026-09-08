@@ -574,3 +574,12 @@ def test_a_position_carries_the_accession_that_reported_it(out):
     # not mention the position.
     fff = _mqs_row(mqs, "1111111111", P2, "FFF")
     assert fff["status"] == "SOLD_OUT" and fff["accession"] is None
+
+
+def test_the_table_that_displays_a_score_also_carries_its_trace(out):
+    """Regression: the trace was added to top_signals but silently missed on consensus_buys,
+    which is the table the UI actually renders a score in. A score you cannot check is the
+    thing F3 was about, so every table carrying `score` must carry `raw` and `score_peak`."""
+    for name in ["consensus_buys", "top_signals"]:
+        columns = set(out[name].columns)
+        assert {"raw", "score_peak"} <= columns, f"{name} shows a score with no way to check it"

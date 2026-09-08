@@ -2,11 +2,13 @@ import { lazy, Suspense } from 'react'
 import { useParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStates'
 import { KindBadge } from '@/components/KindBadge'
+import { ManagerLink } from '@/components/ManagerLink'
 import { HoldersTable } from '@/components/stock/HoldersTable'
 import { MajorShareholders } from '@/components/stock/MajorShareholders'
 import { OptionsGroups } from '@/components/stock/OptionsGroups'
 import { StatTile } from '@/components/StatTile'
 import { getOwnershipIssuer, getStock } from '@/data'
+import { pct } from '@/format'
 import { useAsyncData } from '@/hooks/useAsyncData'
 import { isUnresolvedSymbol } from '@/ownership'
 
@@ -71,6 +73,24 @@ export function StockPage() {
               <h2 className="mb-2 text-lg font-medium">Holders</h2>
               <HoldersTable holders={latest.holders} />
             </section>
+
+            {latest.soldOut.length > 0 && (
+              <section>
+                <h2 className="mb-2 text-lg font-medium">
+                  Sold Out <span className="text-sm font-normal text-ink-muted">— weight held the quarter before</span>
+                </h2>
+                <ul className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
+                  {[...latest.soldOut]
+                    .sort((a, b) => b.prevWeight - a.prevWeight)
+                    .map((h) => (
+                      <li key={h.cik}>
+                        <ManagerLink cik={h.cik} label={h.short} />{' '}
+                        <span className="font-tabular text-ink-muted">{pct(h.prevWeight)}</span>
+                      </li>
+                    ))}
+                </ul>
+              </section>
+            )}
 
             {/* Only when options were actually reported. 13F options are filed under the
                 underlying equity's CUSIP, so a note or warrant page can never have any -- the

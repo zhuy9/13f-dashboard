@@ -75,4 +75,7 @@ jobs:
           fi
           period=$(python -c "import json; print(json.load(open('data/last_ingest.json'))['period'])")
           git commit -m "chore: ingest $period"
+          # Anything pushed to main while the run was in flight rejects this push and fails a
+          # job whose real work already succeeded. The marker only has to land eventually.
+          git pull --rebase
           git push

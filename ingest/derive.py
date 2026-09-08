@@ -74,7 +74,12 @@ def manager_quarter_summary(h: pd.DataFrame, periods: list[str]) -> pd.DataFrame
             else:
                 status = "UNCHANGED"
 
-        change = (weight - prev_weight) if prev_weight is not None else None
+        if prev_weight is not None:
+            change = weight - prev_weight
+        elif status == "NEW":
+            change = weight  # a new position came from zero, so its whole weight is the change
+        else:
+            change = None
         rows.append(
             {
                 "cik": cik,

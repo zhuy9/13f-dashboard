@@ -12,8 +12,8 @@ export function HoldersTable({ holders }: { holders: Holder[] }) {
         <TableRow>
           <TableHead>Manager</TableHead>
           <TableHead className="text-right">Weight</TableHead>
-          <TableHead className="text-right">Change</TableHead>
-          <TableHead>Status</TableHead>
+          <TableHead className="text-right">Weight Δ</TableHead>
+          <TableHead>Shares Δ</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>

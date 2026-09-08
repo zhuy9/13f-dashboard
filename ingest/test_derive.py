@@ -79,6 +79,10 @@ def test_change_sign_and_null_rules(out):
     bbb = _mqs_row(mqs, "2222222222", P2, "BBB")
     assert bbb["status"] == "ADDED"
     assert bbb["change"] < 0
+    # FFF: a new position's change is its full weight -- it came from zero.
+    fff = _mqs_row(mqs, "2222222222", P2, "FFF")
+    assert fff["status"] == "NEW"
+    assert fff["change"] == pytest.approx(fff["weight"])
     # Period[0] rows and a manager with no prior filing both get null change.
     p1_rows = mqs[mqs["period"] == P1]
     assert p1_rows["change"].isna().all()

@@ -14,8 +14,8 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
           <TableHead>Name</TableHead>
           <TableHead className="text-right">Weight</TableHead>
           <TableHead className="text-right">Prev</TableHead>
-          <TableHead className="text-right">Change</TableHead>
-          <TableHead>Status</TableHead>
+          <TableHead className="text-right">Weight Δ</TableHead>
+          <TableHead>Shares Δ</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>

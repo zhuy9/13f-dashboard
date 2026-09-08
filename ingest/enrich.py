@@ -12,8 +12,8 @@ from sectors import sic_to_sector
 
 def openfigi_map(cusips: list[str], api_key: Optional[str] = None) -> dict[str, dict]:
     """CUSIP -> its best OpenFIGI match ({} when unmapped). The whole match, not just `ticker`:
-    `securityType2` is how an ETF is recognised, and no SIC code can say that. Batches per
-    OpenFIGI's key/no-key limits."""
+    `securityType` is how an ETF is recognised ("ETP"), and no SIC code can say that. Batches
+    per OpenFIGI's key/no-key limits."""
     batch_size = 100 if api_key else 10
     headers = {"Content-Type": "application/json"}
     if api_key:
@@ -89,13 +89,15 @@ def ensure_securities(
     to_enrich = [c for c in cusips if c not in cached or stale(c)]
 
     if to_enrich:
-        need_openfigi = [c for c in to_enrich if not ticker_hints.get(c)]
-        matches = openfigi_map(need_openfigi, api_key) if need_openfigi else {}
+        # Every CUSIP, not just the unhinted ones: a hint carries a ticker but no security type,
+        # and edgartools hints ETFs too (SPY, IWM), so filtering here hid every fund from the
+        # ETP rule. The hint still wins for the ticker itself, where its coverage is better.
+        matches = openfigi_map(to_enrich, api_key) if to_enrich else {}
         ticker_to_cik = sec_ticker_to_cik(identity)
         for cusip in to_enrich:
             match = matches.get(cusip, {})
             ticker = ticker_hints.get(cusip) or match.get("ticker")
-            security_type = match.get("securityType2")
+            security_type = match.get("securityType")  # "ETP"; securityType2 says "Mutual Fund"
             sic, sic_description = (None, None)
             issuer_cik = ticker_to_cik.get(ticker) if ticker else None
             if issuer_cik:

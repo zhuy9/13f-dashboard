@@ -22,7 +22,7 @@ class _FakeDb:
 def test_refresh_all_rebuilds_a_cached_entry_that_refresh_unknown_would_skip(monkeypatch):
     """The ETP rule landed after these entries were cached. A fund already stored as Financials
     is not Unknown, so only refresh="all" revisits it."""
-    monkeypatch.setattr("enrich.openfigi_map", lambda cusips, key: {"046428715": {"ticker": "ITOT", "securityType2": "ETP"}})
+    monkeypatch.setattr("enrich.openfigi_map", lambda cusips, key: {"046428715": {"ticker": "ITOT", "securityType": "ETP"}})
     monkeypatch.setattr("enrich.sec_ticker_to_cik", lambda identity: {"ITOT": "0000000001"})
     monkeypatch.setattr("enrich.sec_sic", lambda cik, identity: (6726, "Investment Offices"))
     stale = {"cusip": "046428715", "ticker": "ITOT", "sector": "Financials"}
@@ -37,14 +37,14 @@ def test_refresh_all_rebuilds_a_cached_entry_that_refresh_unknown_would_skip(mon
 
 
 def _enrich_one(monkeypatch, cusip, ticker, security_type, sic) -> dict:
-    monkeypatch.setattr("enrich.openfigi_map", lambda cusips, key: {cusip: {"ticker": ticker, "securityType2": security_type}})
+    monkeypatch.setattr("enrich.openfigi_map", lambda cusips, key: {cusip: {"ticker": ticker, "securityType": security_type}})
     monkeypatch.setattr("enrich.sec_ticker_to_cik", lambda identity: {ticker: "0000000001"})
     monkeypatch.setattr("enrich.sec_sic", lambda cik, identity: (sic, "desc"))
     return ensure_securities(_FakeDb(), [cusip], "a@b.com")[cusip]
 
 
 def test_an_etf_is_sectored_from_openfigi_not_from_its_sic(monkeypatch):
-    """securityType2 is the only field that says "ETF". An ETF's SIC is 6726, investment
+    """securityType is the only field that says "ETF" -- securityType2 says "Mutual Fund". An ETF's SIC is 6726, investment
     offices, which the range table would otherwise file under Financials."""
     itot = _enrich_one(monkeypatch, "046428715", "ITOT", "ETP", 6726)
 

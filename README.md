@@ -215,6 +215,8 @@ Edit `ingest/signals_config.json`. Then run the ingest workflow.
 
 13F filings do not include a sector. We look up each stock's SEC industry code (SIC). Then we map that code to a sector with a short table in `ingest/sectors.py`. This is rough. Some stocks will land in the wrong sector. To improve it, replace the table with a real sector data source.
 
+ETFs and index funds are the exception. They are labelled "ETF / Fund" from OpenFIGI, not from the SIC. A fund's own industry code says "investment offices", which would put an S&P 500 fund in the Financials sector.
+
 ## License
 
 MIT. See `LICENSE`.

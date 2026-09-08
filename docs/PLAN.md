@@ -415,6 +415,8 @@ Tasks
    (8000,8099,"Health Care") (8100,8999,"Industrials")
    ```
    `# ponytail: SIC ranges are coarse; swap for a GICS source if sector accuracy matters.`
+   ETFs and other funds are sectored from OpenFIGI's `securityType2 == "ETP"`, which wins over the SIC:
+   a fund's own SIC is 6726 (investment offices), which the range table would read as Financials.
 3. `fetch.py`
    - `fetch_filings(cik, quarters) -> list[Filing]`: `Company(cik).get_filings(form="13F-HR")` sorted by report period desc, take `quarters`. Ignore `13F-HR/A`.
    - `filing_rows(filing) -> tuple[period, filed_at, raw_xml: bytes | None, DataFrame]`: `.obj()` → info table. **Print `df.columns` once and map explicitly; names vary by edgartools version.**

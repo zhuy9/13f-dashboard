@@ -10,14 +10,16 @@ from api_constants import OPENFIGI_URL, SEC_SUBMISSIONS_URL, SEC_TICKERS_URL
 from sectors import sic_to_sector
 
 
-def openfigi_map(cusips: list[str], api_key: Optional[str] = None) -> dict[str, Optional[str]]:
-    """CUSIP -> ticker, or None when unmapped. Batches per OpenFIGI's key/no-key limits."""
+def openfigi_map(cusips: list[str], api_key: Optional[str] = None) -> dict[str, dict]:
+    """CUSIP -> its best OpenFIGI match ({} when unmapped). The whole match, not just `ticker`:
+    `securityType2` is how an ETF is recognised, and no SIC code can say that. Batches per
+    OpenFIGI's key/no-key limits."""
     batch_size = 100 if api_key else 10
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["X-OPENFIGI-APIKEY"] = api_key
 
-    result: dict[str, Optional[str]] = {}
+    result: dict[str, dict] = {}
     for i in range(0, len(cusips), batch_size):
         batch = cusips[i : i + batch_size]
         body = [{"idType": "ID_CUSIP", "idValue": c} for c in batch]
@@ -28,11 +30,7 @@ def openfigi_map(cusips: list[str], api_key: Optional[str] = None) -> dict[str, 
         resp.raise_for_status()
         for cusip, item in zip(batch, resp.json()):
             data = item.get("data") or []
-            if not data:
-                result[cusip] = None
-                continue
-            match = next((d for d in data if d.get("exchCode") == "US"), data[0])
-            result[cusip] = match.get("ticker")
+            result[cusip] = next((d for d in data if d.get("exchCode") == "US"), data[0]) if data else {}
     return result
 
 
@@ -85,22 +83,24 @@ def ensure_securities(
 
     if to_enrich:
         need_openfigi = [c for c in to_enrich if not ticker_hints.get(c)]
-        tickers = openfigi_map(need_openfigi, api_key) if need_openfigi else {}
+        matches = openfigi_map(need_openfigi, api_key) if need_openfigi else {}
         ticker_to_cik = sec_ticker_to_cik(identity)
         for cusip in to_enrich:
-            ticker = ticker_hints.get(cusip) or tickers.get(cusip)
+            match = matches.get(cusip, {})
+            ticker = ticker_hints.get(cusip) or match.get("ticker")
+            security_type = match.get("securityType2")
             sic, sic_description = (None, None)
             issuer_cik = ticker_to_cik.get(ticker) if ticker else None
             if issuer_cik:
                 sic, sic_description = sec_sic(issuer_cik, identity)
-            sector = sic_to_sector(sic)
             cached[cusip] = {
                 "cusip": cusip,
                 "ticker": ticker,
                 "cik": issuer_cik,
                 "sic": sic,
                 "sicDescription": sic_description,
-                "sector": sector,
+                "securityType": security_type,
+                "sector": sic_to_sector(sic, security_type),
             }
 
         for i in range(0, len(to_enrich), 400):

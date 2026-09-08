@@ -1,82 +1,123 @@
-"""SIC code to sector mapping."""
+"""SIC code to sector mapping.
+
+SIC is what the SEC assigns; GICS is what the finance world means by "sector". They do not line
+up, and no free crosswalk exists, so this table is the bridge. `reconcile_sectors.py` scores it
+against GICS using the S&P 500 as the answer key -- run it after any edit here.
+
+The table follows SIC's own hierarchy, so it is read most-specific-first, like the code itself:
+
+    3571  industry       (4 digits)  Electronic Computers
+    357   industry group (3 digits)  Computer & Office Equipment
+    35    major group    (2 digits)  Industrial Machinery & Equipment
+
+Put an entry at the coarsest level that is right. A 4-digit exception should exist only because
+GICS says so and the measurement backs it -- each one below names the companies that justify it.
+
+Considered and rejected as the source: the SEC's own `ownerOrg` ("06 Technology"), which comes
+free in the same submissions response. It has 9 buckets for 11 GICS sectors and they are not
+clean -- "04 Manufacturing" is 30% Industrials, 27% Technology, 20% Consumer Staples. Measured
+over the same S&P 500 names it caps out near 51%, against 84.7% for this table.
+"""
 
 from typing import Optional
 
-# (low, high, sector) — inclusive range, first match wins.
-#
-# The single-SIC entries below come first because they override the broad ranges under them.
-# They are not hand-picked: each was measured against GICS using the S&P 500 as ground truth
-# (scripted, see the commit that added them). A code is carved out only when every S&P member
-# of it disagrees with the range's answer, or when the range is right for almost none of them.
-# SICs that are genuinely mixed -- 3823 holds Ametek, Keysight and Danaher; 7372 holds 15
-# software names plus a bank -- are deliberately left to their range.
-SIC_RANGES: list[tuple[int, int, str]] = [
-    (1400, 1400, "Materials"),  # nonmetallic mineral mining: MLM, VMC
-    (1520, 1531, "Consumer Discretionary"),  # homebuilders: DHI, NVR, PHM, LEN
-    (2860, 2870, "Materials"),  # organic and agricultural chemicals: IFF, LYB, CF, MOS
-    (3021, 3021, "Consumer Discretionary"),  # footwear: NKE, DECK
-    (3420, 3420, "Industrials"),  # handtools and hardware: SNA, SWK
-    (3663, 3663, "Technology"),  # broadcasting and comms equipment: QCOM, MSI
-    (3724, 3730, "Industrials"),  # aircraft engines, ships: HON, RTX, GD, HII
-    (4400, 4400, "Consumer Discretionary"),  # water transport is cruise lines: CCL, RCL, NCLH
-    (4700, 4700, "Consumer Discretionary"),  # transport services is online travel: BKNG, EXPE
-    (4922, 4922, "Energy & Mining"),  # gas transmission, not a utility: KMI, WMB, TRGP
-    (4953, 4953, "Industrials"),  # refuse systems: WM, RSG
-    (5122, 5122, "Health Care"),  # drug wholesale: MCK, CAH, COR
-    (5331, 5331, "Consumer Staples"),  # variety stores: WMT, COST, TGT, DG, DLTR
-    (6324, 6324, "Health Care"),  # hospital & medical service plans: UNH, ELV, CI, CNC, HUM
-    (6500, 6599, "Real Estate"),  # real estate operators and developers: CBRE, INVH
-    (6798, 6798, "Real Estate"),  # REITs -- 26 of the S&P's 29 real estate names sit here
-    (7320, 7320, "Financials"),  # credit reporting and ratings: SPGI, MCO
-    (7370, 7370, "Communication"),  # the range says Technology; every S&P name here is media
-    (7389, 7389, "Financials"),  # business services NEC, mostly payments: FIS, FISV, GPN, MSCI
-    (7900, 7900, "Communication"),  # amusement & recreation: LYV, TKO
-    (8731, 8731, "Health Care"),  # commercial biological research: IQV, CRL, INCY
-    (100, 999, "Other"),
-    (1000, 1499, "Energy & Mining"),
-    (1500, 1799, "Industrials"),
-    (2000, 2199, "Consumer Staples"),
-    (2200, 2599, "Consumer Discretionary"),
-    (2600, 2699, "Materials"),
-    (2700, 2799, "Communication"),
-    (2800, 2829, "Materials"),
-    (2830, 2836, "Health Care"),
-    (2840, 2899, "Consumer Staples"),
-    (2900, 2999, "Energy & Mining"),
-    (3000, 3499, "Materials"),
-    (3500, 3569, "Industrials"),
-    (3570, 3579, "Technology"),
-    (3580, 3669, "Industrials"),
-    (3670, 3699, "Technology"),
-    (3700, 3799, "Consumer Discretionary"),
-    # SIC 38xx is "instruments" in general, not medical devices, so it cannot map as one block:
-    # 3812 is defence electronics (L3Harris), 382x industrial controls (Ametek, Trane) and
-    # electrical test gear, 3827 optical (Coherent, KLA). Only 3826 and 384x-3851 are health care.
-    (3800, 3824, "Industrials"),
-    (3825, 3825, "Technology"),
-    (3826, 3826, "Health Care"),  # laboratory analytical instruments -- life-science tools
-    (3827, 3840, "Technology"),
-    (3841, 3851, "Health Care"),  # surgical, orthopedic, dental, x-ray, electromedical, ophthalmic
-    (3852, 3999, "Consumer Discretionary"),
-    (4000, 4799, "Industrials"),
-    (4800, 4899, "Communication"),
-    (4900, 4999, "Utilities"),
-    (5000, 5999, "Consumer Discretionary"),
-    (6000, 6799, "Financials"),
-    (7000, 7369, "Consumer Discretionary"),
-    (7370, 7379, "Technology"),
-    (7380, 7999, "Consumer Discretionary"),
-    (8000, 8099, "Health Care"),
-    (8100, 8999, "Industrials"),
-]
+# 4-digit industry. Exceptions to the group or major group above them, each measured.
+BY_INDUSTRY: dict[int, str] = {
+    1400: "Materials",  # nonmetallic mineral mining, not energy: MLM, VMC
+    3021: "Consumer Discretionary",  # rubber footwear: NKE, DECK
+    3420: "Industrials",  # handtools and hardware: SNA, SWK
+    3663: "Technology",  # broadcast and comms equipment: QCOM, MSI
+    3825: "Technology",  # electrical measuring and test: AEHR, FEIM
+    3826: "Health Care",  # laboratory analytical instruments -- life-science tools: A
+    3827: "Technology",  # optical instruments and lenses: COHR, KLAC
+    3829: "Technology",  # measuring and controlling devices NEC: ONTO
+    4400: "Consumer Discretionary",  # water transport is cruise lines: CCL, RCL, NCLH
+    4700: "Consumer Discretionary",  # transport services is online travel: BKNG, EXPE
+    4922: "Energy & Mining",  # gas transmission is a pipeline, not a utility: KMI, WMB, TRGP
+    4953: "Industrials",  # refuse systems: WM, RSG
+    5122: "Health Care",  # drug wholesale: MCK, CAH, COR
+    5331: "Consumer Staples",  # variety stores: WMT, COST, TGT, DG, DLTR
+    6324: "Health Care",  # hospital and medical service plans: UNH, ELV, CI, CNC, HUM
+    6798: "Real Estate",  # REITs -- 26 of the S&P's 29 real estate names sit here
+    7320: "Financials",  # credit reporting and ratings: SPGI, MCO
+    7370: "Communication",  # the group says Technology; every S&P name here is media: GOOG, META
+    7900: "Communication",  # amusement and recreation: LYV, TKO
+    8731: "Health Care",  # commercial biological research: IQV, CRL, INCY
+}
+
+# 3-digit industry group.
+BY_GROUP: dict[int, str] = {
+    152: "Consumer Discretionary",  # residential builders: LEN
+    153: "Consumer Discretionary",  # operative builders: DHI, NVR, PHM
+    283: "Health Care",  # drugs and biological products
+    284: "Consumer Staples",  # soap, detergents, cosmetics: PG, CL, KMB
+    286: "Materials",  # industrial organic chemicals: IFF, LYB
+    287: "Materials",  # agricultural chemicals: CF, MOS
+    357: "Technology",  # computer and office equipment
+    367: "Technology",  # electronic components and semiconductors
+    368: "Technology",
+    369: "Technology",
+    # 38 is "instruments" in general, not medical devices, so it splits three ways: 380-382 is
+    # industrial and defence (L3Harris, Ametek, Trane), 383 optical (Coherent, KLA), 384-385
+    # medical. The 4-digit table above carves 3825 and 3826 back out of the industrial block.
+    380: "Industrials",
+    381: "Industrials",
+    382: "Industrials",
+    383: "Technology",  # optical and photographic instruments
+    384: "Health Care",  # surgical, orthopedic, dental, x-ray, electromedical
+    385: "Health Care",  # ophthalmic goods: ALC, BLCO, COO
+    386: "Consumer Discretionary",  # photographic equipment: KODK, IMAX -- unmeasured, kept as it was
+    372: "Industrials",  # aircraft and parts: HON, RTX, TXT
+    373: "Industrials",  # ship and boat building: GD, HII
+    737: "Technology",  # computer programming and data processing
+    800: "Health Care",  # health services
+}
+
+# 2-digit major group -- the default for everything not named above.
+BY_MAJOR: dict[int, str] = {
+    1: "Other", 2: "Other", 7: "Other", 8: "Other", 9: "Other",  # agriculture, forestry, fishing
+    10: "Energy & Mining", 12: "Energy & Mining", 13: "Energy & Mining", 14: "Energy & Mining",
+    15: "Industrials", 16: "Industrials", 17: "Industrials",  # construction
+    20: "Consumer Staples", 21: "Consumer Staples",  # food, tobacco
+    22: "Consumer Discretionary", 23: "Consumer Discretionary", 24: "Consumer Discretionary",
+    25: "Consumer Discretionary",  # textiles, apparel, lumber, furniture
+    26: "Materials", 27: "Communication",  # paper; printing and publishing
+    28: "Materials",  # chemicals -- 283/286/287 carved out above
+    29: "Energy & Mining",  # petroleum refining
+    30: "Materials", 31: "Materials", 32: "Materials", 33: "Materials", 34: "Materials",
+    35: "Industrials", 36: "Industrials",  # machinery; electronics -- 357, 367-369 carved out
+    37: "Consumer Discretionary",  # transportation equipment -- 372/373 carved out
+    38: "Industrials",  # instruments -- see the 380-385 block above
+    39: "Consumer Discretionary",  # misc manufacturing
+    40: "Industrials", 41: "Industrials", 42: "Industrials", 43: "Industrials",
+    44: "Industrials", 45: "Industrials", 46: "Industrials", 47: "Industrials",  # transport
+    48: "Communication", 49: "Utilities",
+    50: "Consumer Discretionary", 51: "Consumer Discretionary", 52: "Consumer Discretionary",
+    53: "Consumer Discretionary", 54: "Consumer Discretionary", 55: "Consumer Discretionary",
+    56: "Consumer Discretionary", 57: "Consumer Discretionary", 58: "Consumer Discretionary",
+    59: "Consumer Discretionary",  # wholesale and retail trade
+    60: "Financials", 61: "Financials", 62: "Financials", 63: "Financials", 64: "Financials",  # 6324 carved out
+    65: "Real Estate",  # real estate operators and developers: CBRE, INVH
+    66: "Financials", 67: "Financials",
+    70: "Consumer Discretionary", 72: "Consumer Discretionary", 73: "Consumer Discretionary",
+    75: "Consumer Discretionary", 76: "Consumer Discretionary", 78: "Consumer Discretionary",
+    79: "Consumer Discretionary",  # services
+    80: "Health Care",
+    81: "Industrials", 82: "Industrials", 83: "Industrials", 84: "Industrials",
+    86: "Industrials", 87: "Industrials", 89: "Industrials",
+}  # fmt: skip
+
+# 7389 "Services-Business Services, NEC" is a catch-all the payment networks fall into: Visa,
+# Mastercard, PayPal, FIS, Fiserv, Global Payments, Corpay and MSCI are all GICS Financials, 8 of
+# the 16 S&P names carrying it. Accenture and Akamai land here too and stay wrong; the code is
+# genuinely mixed and a plurality is the best it supports.
+BY_INDUSTRY[7389] = "Financials"
 
 
 def sic_to_sector(sic: Optional[int], security_type: Optional[str] = None) -> str:
+    """Most specific match wins: industry, then industry group, then major group."""
     if security_type == "ETP":
         return "ETF / Fund"
     if sic is None:
         return "Unknown"
-    for low, high, sector in SIC_RANGES:
-        if low <= sic <= high:
-            return sector
-    return "Other"
+    return BY_INDUSTRY.get(sic) or BY_GROUP.get(sic // 10) or BY_MAJOR.get(sic // 100) or "Other"

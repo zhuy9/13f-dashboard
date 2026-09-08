@@ -1,4 +1,4 @@
-from sectors import sic_to_sector
+from sectors import BY_GROUP, BY_INDUSTRY, BY_MAJOR, sic_to_sector
 
 
 def test_etp_is_etf_fund():
@@ -48,3 +48,25 @@ def test_measured_carves_beat_their_enclosing_range():
     assert sic_to_sector(6324) == "Health Care"  # UNH, ELV -- range says Financials
     assert sic_to_sector(4922) == "Energy & Mining"  # KMI, WMB -- range says Utilities
     assert sic_to_sector(4923) == "Utilities"  # gas distribution still is one
+
+
+def test_the_three_levels_resolve_most_specific_first():
+    """SIC's own hierarchy: 4-digit industry beats 3-digit group beats 2-digit major group."""
+    assert sic_to_sector(3826) == "Health Care"  # industry: lab analytical, inside group 382
+    assert sic_to_sector(3821) == "Industrials"  # group 382 takes over where no industry is set
+    assert sic_to_sector(3910) == "Consumer Discretionary"  # major group 39, no group entry
+
+    assert sic_to_sector(7370) == "Communication"  # industry beats its own group...
+    assert sic_to_sector(7372) == "Technology"  # ...which still answers for everything else
+
+
+def test_no_key_collides_across_levels():
+    """A 3-digit key is a group, never a 4-digit industry -- easy to typo, silently wrong."""
+    assert all(1000 <= k <= 9999 for k in BY_INDUSTRY)
+    assert all(100 <= k <= 999 for k in BY_GROUP)
+    assert all(1 <= k <= 99 for k in BY_MAJOR)
+
+
+def test_an_unassigned_sic_is_other_not_a_guess():
+    assert sic_to_sector(1150) == "Other"  # major group 11 does not exist in SIC
+    assert sic_to_sector(9999) == "Other"

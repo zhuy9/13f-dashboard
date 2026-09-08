@@ -112,7 +112,7 @@ The site computes these signals once per quarter.
 ```
 GitHub Actions (once a month, or by hand)
   └─ ingest/ingest.py (Python)
-       ├─ fetch   : SEC EDGAR → last 4 quarters of 13F filings per manager
+       ├─ fetch   : SEC EDGAR → last 12 quarters of 13F filings per manager
        ├─ enrich  : CUSIP → ticker (OpenFIGI) → sector (SEC industry code)
        ├─ derive  : all 13 signals
        └─ store   : Google Cloud Storage (files) + Firestore (documents the site reads)
@@ -203,7 +203,7 @@ npm run dev
 
 Edit `ingest/signals_config.json`. Then run the ingest workflow.
 
-- `quarters` — how many quarters to load. Default 4.
+- `quarters` — how many quarters to load. Default 12 (three years). Do not go past 12: filings for quarters before 2023 report dollar values in thousands, so they would read 1000 times too small.
 - `consensus_min_managers` — how many managers make a "consensus". Default 2.
 - `high_conviction_min_weight` — the portfolio weight that counts as high conviction. Default 0.03 (3%).
 - `high_conviction_min_managers` — how many managers make a high-conviction overlap. Default 3.

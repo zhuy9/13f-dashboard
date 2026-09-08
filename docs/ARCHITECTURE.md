@@ -97,7 +97,7 @@ flowchart LR
 1. **Fetch** (`ingest/fetch.py`) — Every quarter, each tracked manager (see
    `ingest/funds.json`) files a 13F with the SEC. It lists every stock and
    option they hold, identified by a CUSIP code (not a ticker). `fetch.py`
-   downloads the last 4 filings per manager and turns each one into plain
+   downloads the last 12 filings per manager and turns each one into plain
    rows: manager, quarter, CUSIP, dollar value, share count, and whether
    it's a put, a call, or a normal holding.
 2. **Enrich** (`ingest/enrich.py`) — A CUSIP alone isn't useful to a reader.

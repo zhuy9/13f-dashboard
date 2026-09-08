@@ -14,7 +14,7 @@ manager → stocks, stock → managers, manager → sectors, quarter → quarter
 - Long-only, quarterly, filed up to 45 days after quarter end. No shorts, no cash.
 - Options ARE in the filing: each row has `putCall` (PUT / CALL / blank = shares). Options are listed under the **underlying's CUSIP**. Puts are never shown as "short"; they are "Reported Put Exposure".
 - Rows carry CUSIP + issuer name only. **No ticker, no sector.** We enrich: CUSIP → ticker (OpenFIGI) → CIK + SIC (SEC) → sector (static map). This cached lookup is the "tiny sec master".
-- Values are in **dollars** since 2023 (older: thousands). We load the last 4 quarters, all post-2023.
+- Values are in **dollars** since 2023 (older: thousands). We load the last 12 quarters, all post-2023 -- 12 is the ceiling: a 16th quarter back would reach 2022-09-30, filed in thousands.
 - Citadel and Millennium were **removed** by the user: their 13F is a market-making book and would poison every consensus signal.
 
 Data changes 4×/year. So: **all derived tables are computed once at ingest in Python** and written as read-optimized Firestore docs. The browser only renders. No backend API, no always-on server, no auth.
@@ -32,7 +32,7 @@ Data changes 4×/year. So: **all derived tables are computed once at ingest in P
 | Signals | All 13 signals computed in `ingest/derive.py`. Formulas and thresholds live in `ingest/signals_config.json`. The browser never computes a signal. |
 | Managers | Tracked list lives in `ingest/funds.json`, all in the signal set. Cluster labels are manual. See "Adding a manager" in `CLAUDE.md` for the (code-free) process. |
 | 13D/13G | Milestone 8: a sibling event pipeline (`ingest/ownership*.py`, daily cron). All `SCHEDULE 13D`/`13D/A` on EDGAR; `SCHEDULE 13G`/`13G/A` only from roster managers (CIK or `aliases`). Structured-XML filings only (from 2024-12-18). Contract in section J. |
-| History | Last **4 quarters** per manager. QoQ status on quarters that have a prior quarter in the window. |
+| History | Last **12 quarters** per manager, then trimmed to the newest 12 periods overall so one stale filer cannot add near-empty quarters. QoQ status on quarters that have a prior quarter in the window. |
 | Frontend | Vite + React + TS + **react-router-dom** + **Tailwind v4 + shadcn/ui** (5 components) + Recharts + Firebase JS. Pages: `/patterns`, `/managers`, `/manager/:cik`, `/stock/:symbol`; Milestone 8 adds `/ownership`, `/investor/:cik`. No auth. No per-user manager selection in MVP. |
 | Agent docs | `CLAUDE.md` = agent instructions. `AGENTS.md` = symlink to it, recorded in git (real on Linux/GitHub; pointer file on Windows without the symlink privilege). `docs/PLAN.md` = this plan. |
 
@@ -41,7 +41,7 @@ Data changes 4×/year. So: **all derived tables are computed once at ingest in P
 ```
 GitHub Actions (monthly cron + manual; commits data/last_ingest.json so GitHub keeps the schedule enabled)
   └─ ingest/ingest.py
-       ├─ fetch.py   : EDGAR ──► last 4 13F-HR per manager (edgartools) ──► normalized rows
+       ├─ fetch.py   : EDGAR ──► last 12 13F-HR per manager (edgartools) ──► normalized rows
        ├─ enrich.py  : CUSIP→ticker (OpenFIGI), ticker→CIK→SIC (SEC), SIC→sector (sectors.py); cached in Firestore securities/
        ├─ derive.py  : base table ──► manager_quarter_summary, manager_sector_exposure, stock_quarter_summary,
        │                            stock_trend, consensus tables, sector_rotation, similarity, options_exposure
@@ -181,7 +181,7 @@ Per cluster: members, `common_holdings` (symbols held by ≥ half the members, t
 
 `ingest/signals_config.json`:
 ```json
-{ "quarters": 4,
+{ "quarters": 12,
   "consensus_min_managers": 2,
   "high_conviction_min_weight": 0.03,
   "high_conviction_min_managers": 3,
@@ -975,7 +975,7 @@ The live site URL lives in the GitHub repo's own "website" field (repo Settings 
 
 ## Verification (end to end)
 1. `pytest ingest` and `npm run test` green.
-2. `python ingest/ingest.py --dry-run` → every tracked manager (`ingest/funds.json`) × 4 quarters with tickers, sectors, and printed signal previews.
+2. `python ingest/ingest.py --dry-run` → every tracked manager (`ingest/funds.json`) × 12 quarters with tickers, sectors, and printed signal previews.
 3. Full local run → Firestore docs and GCS objects as listed in Milestone 3 AC.
 4. `npm run dev` → `/patterns`, `/managers`, `/manager/:cik`, `/stock/:symbol` all render from one read each; links cross-navigate; search works; 375 px has no page-level horizontal scroll.
 5. Push to `main` → deploy green → site live → custom domain over HTTPS.
@@ -990,7 +990,7 @@ The live site URL lives in the GitHub repo's own "website" field (repo Settings 
 - **Citadel / Millennium** — removed by the user; re-add only as manager pages with an `excludeFromSignals` flag.
 - **Auto-clustering, Jaccard / sector similarity** — cosine + manual labels first.
 - **Auth, Cloud SQL, BigQuery** — public data; BigQuery is one command over the Parquet when SQL is wanted.
-- **More than 4 quarters** — `--quarters 8` already works; UI trend charts just get more points.
+- **More than 12 quarters** — the dollars/thousands boundary is the real limit; a 16th quarter back reaches 2022-09-30, which was filed in thousands and would need unit handling first.
 - **13F-HR/A amendments, split adjustment, GICS sectors** — when the inaccuracy actually bites.
 - **More shadcn components** — only when a listed view cannot be built with the 5.
 - **Legacy `SC 13D` / `SC 13G` text filings (pre 2024-12-18)** — need an HTML/text parser; structured XML only for now.

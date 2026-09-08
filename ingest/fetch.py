@@ -33,6 +33,14 @@ def filing_rows(filing) -> tuple[str, str, Optional[bytes], pd.DataFrame]:
     return period, filed_at, raw_xml, df
 
 
+def filed_notice(cik: str, period: str) -> bool:
+    """True when `cik` filed a 13F-NT for `period`: a notice that it holds positions but reported
+    none itself, because another manager filed them. That manager's name and CIK are on the
+    notice's cover page under "List of Other Managers Reporting for this Manager", and the CIK
+    belongs in the fund's `aliases13f`. Without this check the quarter just looks empty."""
+    return any(str(f.report_date) == period for f in Company(cik).get_filings(form="13F-NT", amendments=False))
+
+
 def collapse(rows: pd.DataFrame) -> pd.DataFrame:
     """Sum duplicates into the one row per (cik, period, cusip, put_call) the base table promises.
 

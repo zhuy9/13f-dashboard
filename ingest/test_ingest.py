@@ -1,6 +1,37 @@
 import pandas as pd
+import pytest
 
-from ingest import counts_line, step_summary
+from ingest import counts_line, stale_manager_lines, step_summary
+
+
+def _one_manager(periods: list[str]) -> list[tuple[dict, pd.DataFrame]]:
+    return [({"cik": "1336528", "short": "Pershing"}, pd.DataFrame({"period": periods}))]
+
+
+def _edgar_is_down(cik, period):
+    raise RuntimeError("EDGAR 503")
+
+
+@pytest.mark.parametrize(
+    "filed_notice, expected",
+    [
+        (lambda cik, period: True, "aliases13f"),  # fixable: another manager reported it
+        (lambda cik, period: False, "$100M"),  # genuinely stopped filing
+        (_edgar_is_down, "EDGAR 503"),  # the gap is still reported
+    ],
+)
+def test_stale_manager_lines_names_which_kind_of_missing(monkeypatch, filed_notice, expected):
+    monkeypatch.setattr("ingest.filed_notice", filed_notice)
+
+    (line,) = stale_manager_lines(_one_manager(["2026-03-31"]), "2026-06-30")
+
+    assert "Pershing" in line and expected in line
+
+
+def test_stale_manager_lines_says_nothing_and_asks_edgar_nothing_when_the_filing_is_there(monkeypatch):
+    monkeypatch.setattr("ingest.filed_notice", lambda cik, period: pytest.fail("must not query EDGAR"))
+
+    assert stale_manager_lines(_one_manager(["2026-03-31", "2026-06-30"]), "2026-06-30") == []
 
 
 def test_counts_line_lowercases_labels_and_names_the_null_bucket():

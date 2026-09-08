@@ -15,7 +15,7 @@ from firebase_admin import firestore
 
 from derive import derive_all
 from enrich import attach, ensure_securities
-from fetch import BASE_COLUMNS, collapse, edgar_ticker_hints, fetch_filings, filing_rows, normalize
+from fetch import BASE_COLUMNS, collapse, edgar_ticker_hints, fetch_filings, filed_notice, filing_rows, normalize
 from store import write_firestore, write_gcs
 
 HERE = Path(__file__).parent
@@ -90,6 +90,28 @@ def write_last_ingest(tables: dict, base_by_fund: list[tuple[dict, pd.DataFrame]
         "managers": [fund["short"] for fund, _ in base_by_fund],
     }
     path.write_text(json.dumps(payload, indent=2) + "\n")
+
+
+def stale_manager_lines(base_by_fund: list[tuple[dict, pd.DataFrame]], latest: str) -> list[str]:
+    """One line per manager missing the newest quarter, saying which kind of missing it is.
+
+    A 13F-NT means the manager did not stop filing -- another one reported its holdings -- and is
+    the only case that is fixable, by adding that manager's CIK to `aliases13f`.
+    """
+    lines = []
+    for fund, base in base_by_fund:
+        if latest in set(base["period"]):
+            continue
+        try:
+            reason = (
+                "filed a 13F-NT: another manager reported it, add that CIK to aliases13f"
+                if filed_notice(fund["cik"], latest)
+                else "no 13F-HR and no 13F-NT -- may have dropped below the $100M threshold"
+            )
+        except Exception as e:  # EDGAR hiccup: report the gap anyway, never fail the run over it
+            reason = f"no 13F-HR; the 13F-NT check failed ({e})"
+        lines.append(f"NO {latest} FILING: {fund['short']} -- {reason}")
+    return lines
 
 
 def counts_line(series: pd.Series) -> str:
@@ -205,6 +227,9 @@ def main() -> int:
 
         latest = tables["periods"][-1]
         mqs = tables["manager_quarter_summary"]
+        stale_lines = stale_manager_lines(base_by_fund, latest)
+        for line in stale_lines:
+            print(line)
         step_summary(
             f"Ingest {latest}" + (" (dry run)" if args.dry_run else ""),
             [
@@ -213,6 +238,7 @@ def main() -> int:
                 f"unmapped tickers: {holdings['ticker'].isna().mean():.1%}",
             ]
             + ([f"pruned {pruned} stale documents"] if pruned else [])
+            + stale_lines
             + fail_line,
         )
     else:

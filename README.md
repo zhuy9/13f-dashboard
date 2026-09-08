@@ -52,10 +52,11 @@ A 13F is a report. Large US investment managers must file it with the SEC every 
 | Akre Capital Management | Chuck Akre | Quality / Compounders |
 | Polen Capital | Dan Davidowitz | Quality / Compounders |
 | Harvard Management Co | — | Endowment |
-| Yale University | — | Endowment |
 | MIT | — | Endowment |
 
 13F filings from endowments only cover their sliver of US public equities. Most of an endowment's assets sit in private equity, hedge funds, and other holdings a 13F never reports, so these rows are a much smaller slice of the real portfolio than a fund like Berkshire's.
+
+Yale was tracked until September 2026 and has been dropped. A manager only has to file a 13F if it holds more than $100 million of US-listed stock. Yale's directly held stock is worth about $2 million, so it stopped filing after the third quarter of 2025 and there is nothing left to show.
 
 The style labels are set by hand. You can change them in `ingest/funds.json`.
 

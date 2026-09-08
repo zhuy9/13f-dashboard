@@ -15,7 +15,7 @@ from firebase_admin import firestore
 
 from derive import derive_all
 from enrich import attach, ensure_securities
-from fetch import BASE_COLUMNS, edgar_ticker_hints, fetch_filings, filing_rows, normalize
+from fetch import BASE_COLUMNS, collapse, edgar_ticker_hints, fetch_filings, filing_rows, normalize
 from store import write_firestore, write_gcs
 
 HERE = Path(__file__).parent
@@ -30,17 +30,23 @@ def load_config() -> dict:
 
 
 def fetch_manager(fund: dict, quarters: int) -> tuple[pd.DataFrame, dict[str, str], dict[tuple, bytes]]:
-    filings = fetch_filings(fund["cik"], quarters)
+    """One manager's last `quarters` 13F-HR filings, across every CIK the firm files them under.
+
+    A firm can move its 13F to a new filer or split one book across two (Pershing Square filed a
+    13F-NT for 2026-06-30 naming Pershing Square Inc as the manager reporting for it). Rows from
+    every `aliases13f` CIK carry the roster cik/short, so `collapse` sums the parts into one book.
+    """
     frames = []
     ticker_hints: dict[str, str] = {}
     raw_by_filing: dict[tuple, bytes] = {}
-    for f in filings:
-        period, filed_at, raw_xml, df = filing_rows(f)
-        frames.append(normalize(df, fund["cik"], fund["short"], period, filed_at))
-        ticker_hints.update(edgar_ticker_hints(df))
-        if raw_xml:
-            raw_by_filing[(fund["cik"], period)] = raw_xml
-    base = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=BASE_COLUMNS)
+    for cik in [fund["cik"], *fund.get("aliases13f", [])]:
+        for f in fetch_filings(cik, quarters):
+            period, filed_at, raw_xml, df = filing_rows(f)
+            frames.append(normalize(df, fund["cik"], fund["short"], period, filed_at))
+            ticker_hints.update(edgar_ticker_hints(df))
+            if raw_xml:
+                raw_by_filing[(cik, period)] = raw_xml  # the real filer, so two CIKs cannot collide
+    base = collapse(pd.concat(frames, ignore_index=True)) if frames else pd.DataFrame(columns=BASE_COLUMNS)
     return base, ticker_hints, raw_by_filing
 
 

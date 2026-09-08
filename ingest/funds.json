@@ -1,6 +1,6 @@
 [
   { "cik": "1067983", "name": "Berkshire Hathaway Inc", "short": "Berkshire", "cluster": "Value / Quality" },
-  { "cik": "1336528", "name": "Pershing Square Capital Management, L.P.", "short": "Pershing", "cluster": "Activist / Quality" },
+  { "cik": "1336528", "name": "Pershing Square Capital Management, L.P.", "short": "Pershing", "cluster": "Activist / Quality", "aliases13f": ["2026053"] },
   { "cik": "1647251", "name": "TCI Fund Management Ltd", "short": "TCI", "cluster": "Quality / Compounders" },
   { "cik": "1061768", "name": "Baupost Group LLC/MA", "short": "Baupost", "cluster": "Value / Event Driven" },
   { "cik": "1656456", "name": "Appaloosa LP", "short": "Appaloosa", "cluster": "Macro / Value" },
@@ -31,6 +31,5 @@
   { "cik": "1112520", "name": "AKRE CAPITAL MANAGEMENT LLC", "short": "Akre", "cluster": "Quality / Compounders" },
   { "cik": "1034524", "name": "POLEN CAPITAL MANAGEMENT LLC", "short": "Polen", "cluster": "Quality / Compounders" },
   { "cik": "1082621", "name": "HARVARD MANAGEMENT CO INC", "short": "Harvard", "cluster": "Endowment" },
-  { "cik": "938582", "name": "YALE UNIVERSITY", "short": "Yale", "cluster": "Endowment" },
   { "cik": "351051", "name": "MASSACHUSETTS INSTITUTE OF TECHNOLOGY", "short": "MIT", "cluster": "Endowment" }
 ]

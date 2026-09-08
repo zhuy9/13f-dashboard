@@ -87,8 +87,10 @@ This repository is PUBLIC.
 - `putCall` marks an option row: `PUT` or `CALL`. Blank means shares.
 - Options are reported under the underlying stock's CUSIP.
 - Puts are "Reported Put Exposure". Never label them "short".
-- Values are in dollars for filings since 2023. Older filings used thousands.
+- Values are in dollars for filings since 2023. Older filings used thousands. Some filers never switched: if `value / shares` is ~1000x the real share price, that filer is still reporting thousands (Yale did this through 2025-06-30, then corrected). It does not distort weights, which are relative, but it does distort every dollar figure.
 - Use form `13F-HR`. Ignore `13F-HR/A` (amendments) for now.
+- A **`13F-NT`** (notice) means the manager holds positions but reported none itself — another manager filed them. Its cover page lists that manager under "List of Other Managers Reporting for this Manager" (name + CIK). `fetch_filings` asks only for `13F-HR`, so an NT quarter looks exactly like a manager that stopped filing. Add the named CIK to `aliases13f`; do not swap the roster `cik`, which would orphan every `managers/`, `manager_quarters/` and `ownership_investors/` doc.
+- A manager can drop below the $100M threshold and stop filing legitimately. Check the last filing's real dollar value before assuming the pipeline broke.
 - Position status (NEW / ADDED / TRIMMED / UNCHANGED / SOLD_OUT) uses **shares**. Weight change uses **portfolio weight**.
 - A manager with no filing in the previous quarter gets `status = null`, not `NEW`.
 - edgartools column names vary between versions. Print `df.columns` once and map them explicitly.
@@ -113,6 +115,7 @@ No code changes — it's data-driven end to end.
 2. Add one entry to `ingest/funds.json`: `{ "cik": "...", "name": "Exact EDGAR filer name", "short": "ShortName", "cluster": "Some Label" }`.
    `cluster` is freeform — reuse an existing label or start a new one; `clusters()` in `derive.py` just groups by whatever's there.
    Optional `"aliases": ["cik", ...]` lists other CIKs the same firm files 13D/13G under (Elliott and Icahn each use several). To find them, run `python ownership.py --dry-run` and read its "unmatched filers that look like roster names" print.
+   Optional `"aliases13f": ["cik", ...]` is the 13F counterpart: other CIKs the same book is filed under. Rows from all of them carry the roster `cik`/`short` and `collapse()` sums them into one book, so **never** list a CIK whose filing duplicates the primary's — only one that reports a separate slice or takes over. The two alias fields are deliberately separate: Elliott's and Icahn's 13D/13G aliases also file 13F-HR, and reusing one field would double-count them.
 3. `python ingest.py --dry-run` first — check the new manager's top-10 holdings and PUT/CALL counts print sanely — then a real run.
 4. Nothing else to touch: every signal in `derive.py` iterates `funds` from `funds.json`, so consensus, similarity, sector rotation, etc. pick the new manager up automatically on the next ingest.
 

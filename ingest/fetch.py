@@ -33,6 +33,25 @@ def filing_rows(filing) -> tuple[str, str, Optional[bytes], pd.DataFrame]:
     return period, filed_at, raw_xml, df
 
 
+def collapse(rows: pd.DataFrame) -> pd.DataFrame:
+    """Sum duplicate rows into the one row per (cik, period, cusip, put_call) the base table promises.
+
+    Two sources of duplicates: a single filing listing the same security on several lines, and a
+    manager whose book is split across two filer CIKs (`aliases13f`) for the same quarter.
+    """
+    if rows.empty:
+        return rows[BASE_COLUMNS]
+    grouped = rows.groupby(["cik", "period", "cusip", "put_call"], dropna=False, as_index=False).agg(
+        short=("short", "first"),
+        filed_at=("filed_at", "first"),
+        name=("name", "first"),
+        cls=("cls", "first"),
+        value=("value", "sum"),
+        shares=("shares", "sum"),
+    )
+    return grouped[BASE_COLUMNS].reset_index(drop=True)
+
+
 def normalize(df: pd.DataFrame, cik: str, short: str, period: str, filed_at: str) -> pd.DataFrame:
     """Raw holdings DataFrame -> base-table rows for one (cik, period)."""
     raw_put_call = df["PutCall"].astype(str).str.strip().str.upper()
@@ -51,19 +70,7 @@ def normalize(df: pd.DataFrame, cik: str, short: str, period: str, filed_at: str
             "put_call": put_call,
         }
     )
-    rows = rows[rows["cusip"] != ""]
-    if rows.empty:
-        return rows[BASE_COLUMNS]
-
-    grouped = rows.groupby(["cik", "period", "cusip", "put_call"], dropna=False, as_index=False).agg(
-        short=("short", "first"),
-        filed_at=("filed_at", "first"),
-        name=("name", "first"),
-        cls=("cls", "first"),
-        value=("value", "sum"),
-        shares=("shares", "sum"),
-    )
-    return grouped[BASE_COLUMNS].reset_index(drop=True)
+    return collapse(rows[rows["cusip"] != ""])
 
 
 def edgar_ticker_hints(df: pd.DataFrame) -> dict[str, str]:

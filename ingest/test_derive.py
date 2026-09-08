@@ -15,6 +15,7 @@ FUNDS = [
 
 # Small, fixture-scaled thresholds -- not the production signals_config.json values.
 CFG = {
+    "quarters": 2,
     "consensus_min_managers": 1,
     "high_conviction_min_weight": 0.2,
     "high_conviction_min_managers": 2,
@@ -37,6 +38,18 @@ def h() -> pd.DataFrame:
 @pytest.fixture
 def out(h) -> dict:
     return derive_all(h, FUNDS, CFG)
+
+
+def test_derive_all_keeps_only_the_newest_quarters_periods(h):
+    """A manager who stopped filing drags older periods into the union; those render as
+    near-empty quarters holding one stale filer. Only the newest `quarters` survive."""
+    stale = h[h["cik"] == "1111111111"].copy()
+    stale["period"] = "2025-12-31"
+    out = derive_all(pd.concat([stale, h], ignore_index=True), FUNDS, CFG)
+
+    assert out["periods"] == [P1, P2]
+    assert "2025-12-31" not in set(out["manager_quarter_summary"]["period"])
+    assert "2025-12-31" not in set(out["stock_quarter_summary"]["period"])
 
 
 def _mqs_row(mqs: pd.DataFrame, cik: str, period: str, symbol: str) -> pd.Series:

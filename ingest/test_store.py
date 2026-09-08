@@ -14,6 +14,7 @@ FUNDS = [
     {"cik": "3333333333", "short": "M3", "name": "M3 Capital", "cluster": "Beta"},
 ]
 CFG = {
+    "quarters": 2,
     "consensus_min_managers": 1,
     "high_conviction_min_weight": 0.2,
     "high_conviction_min_managers": 2,

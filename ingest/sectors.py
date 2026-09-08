@@ -21,8 +21,15 @@ SIC_RANGES: list[tuple[int, int, str]] = [
     (3580, 3669, "Industrials"),
     (3670, 3699, "Technology"),
     (3700, 3799, "Consumer Discretionary"),
-    (3800, 3849, "Health Care"),
-    (3850, 3999, "Consumer Discretionary"),
+    # SIC 38xx is "instruments" in general, not medical devices, so it cannot map as one block:
+    # 3812 is defence electronics (L3Harris), 382x industrial controls (Ametek, Trane) and
+    # electrical test gear, 3827 optical (Coherent, KLA). Only 3826 and 384x-3851 are health care.
+    (3800, 3824, "Industrials"),
+    (3825, 3825, "Technology"),
+    (3826, 3826, "Health Care"),  # laboratory analytical instruments -- life-science tools
+    (3827, 3840, "Technology"),
+    (3841, 3851, "Health Care"),  # surgical, orthopedic, dental, x-ray, electromedical, ophthalmic
+    (3852, 3999, "Consumer Discretionary"),
     (4000, 4799, "Industrials"),
     (4800, 4899, "Communication"),
     (4900, 4999, "Utilities"),

@@ -1,7 +1,11 @@
 # Methodology
 
 What every number on the site means, and what it does not cover. This file is the stable
-reference. `docs/PLAN.md` is implementation history; read this one for definitions.
+reference for definitions and limits.
+
+- Using or self-hosting the site: [README.md](../README.md).
+- How it was built, and what is still outstanding: [PLAN.md](PLAN.md).
+- Diagrams of the system and the pipeline: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 Last reviewed: 2026-09-08. Methodology version: **2** (`methodology_version` in
 `ingest/signals_config.json`, published as `meta/latest.methodologyVersion` and shown in the

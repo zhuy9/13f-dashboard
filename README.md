@@ -1,8 +1,43 @@
 # Consensus Sheet
 
+**[13f.darren-zhu.com](https://13f.darren-zhu.com)** — what 33 well-known investment managers own, and what they changed last quarter, from their SEC filings.
+
+[![The Patterns page](docs/screenshots/patterns.png)](https://13f.darren-zhu.com/patterns)
+
+Questions it answers:
+
+- **Which stocks did several managers buy in the same quarter?** The [Patterns](https://13f.darren-zhu.com/patterns) page ranks them, and every row names the managers behind it.
+- **Who owns NVIDIA, and did they add or trim?** Any [stock page](https://13f.darren-zhu.com/stock/NVDA) lists its holders with each one's weight and share change.
+- **Has an activist just taken a stake in a company?** The [Ownership](https://13f.darren-zhu.com/ownership) page tracks Schedule 13D and 13G filings as they land.
+
+[![A stock page](docs/screenshots/stock.png)](https://13f.darren-zhu.com/stock/NVDA)
+
+Everything is derived from public filings and recomputed from scratch on every run. How each number is defined, and what it does not cover, is in **[docs/METHODOLOGY.md](docs/METHODOLOGY.md)** — read that before trusting a figure.
+
+This is not investment advice.
+
+## Finding your way around
+
+Four things the site is built to do:
+
+1. **Find a crowded stock.** [Patterns](https://13f.darren-zhu.com/patterns) → Consensus Buys. Open a row's *Buyers* to see which managers, and its *Score* to see the arithmetic behind the ranking.
+2. **Inspect who holds it.** Click the symbol. The stock page lists every tracked holder, its weight, and whether it added or trimmed.
+3. **Compare what changed.** A manager's page shows its whole reported book, quarter over quarter, with sector exposure and its most similar managers.
+4. **Verify a filing.** Every manager-quarter links its source filings on EDGAR by accession, so any number here can be traced back to the document it came from.
+
 ## What this is
 
 This site shows what big investors own. The data comes from SEC Form 13F filings. It also finds patterns across managers, like which stocks many of them are buying at the same time.
+
+## Coverage and limits
+
+- **33 managers**, listed below, chosen by hand for being well known and running concentrated books. Adding or removing one changes every count and average on the site. "Consensus" always means consensus among this list, not the market.
+- **12 quarters** of history. Older filings reported values in thousands rather than dollars, which would need separate handling.
+- **13F holdings** update monthly, on the 16th; a quarter's filings are not due until 45 days after it ends. **13D/13G ownership** updates daily, from 2024-12-18 onward, when the SEC's structured format became mandatory.
+- **Long US-listed equity positions only.** No shorts, cash, bonds, foreign listings, or private holdings. For an endowment, most of the real portfolio is invisible here.
+- A missing filing is shown as missing, never as a manager holding nothing.
+
+Full definitions and the current open limitations: **[docs/METHODOLOGY.md](docs/METHODOLOGY.md)**.
 
 ## What 13F data is (and is not)
 
@@ -131,6 +166,8 @@ GitHub Actions (on every push to main)
 
 A script runs once a month. It downloads the latest filings and computes every signal. It writes the results to Firestore. The website only reads and displays them. Nothing is computed live.
 
+Each page reads a small number of whole documents — never a query, never an aggregation. `meta/latest` on every page, plus one document for the page's own data: two reads for Patterns and Ownership, three for a stock, four for a manager (the manager, its quarter, and its 13D/13G filings). The search box loads its symbol list once, the first time you focus it.
+
 A second script runs once a day. It checks for new 13D and 13G filings and turns each one into an event. You can see them on the Ownership page. They also show up on a stock's own page. Every investor gets their own page too — a tracked manager's page, or `/investor/:cik` for everyone else.
 
 Each ingest run also saves a small file, `data/last_ingest.json`, into the repo. It shows when the data was last updated. It also keeps the schedule alive. GitHub turns off schedules in repos with no activity for 60 days.
@@ -153,49 +190,65 @@ You need a Google account and a GitHub account. Some values are **secret**. Neve
 
 ## Run locally
 
-PowerShell:
+Requires **Python 3.12** (3.10 works; avoid 3.11-only syntax) and **Node 22 or newer**. Every command below says which directory to run it in.
 
-```powershell
-cd ingest
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-Copy-Item .env.example .env
-# fill in .env, then:
-python ingest.py --dry-run
-```
+### 1. Preview the site against live data
 
-```powershell
-cd web
-npm install
-Copy-Item .env.example .env
-# fill in .env, then:
-npm run dev
-```
-
-bash:
-
-```bash
-cd ingest
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-# fill in .env, then:
-python ingest.py --dry-run
-```
+Only needs the three public `VITE_FIREBASE_*` values, so this is the quickest way to see the app.
 
 ```bash
 cd web
 npm install
-cp .env.example .env
+cp .env.example .env        # PowerShell: Copy-Item .env.example .env
 # fill in .env, then:
 npm run dev
 ```
 
-`--dry-run` downloads and computes everything, prints a summary, and writes nothing. No Firestore documents, no securities cache entries, no GCS files. Drop the flag to write for real.
+### 2. Run the 13F ingest
 
-How the numbers are defined, and what they do not cover, is in [docs/METHODOLOGY.md](docs/METHODOLOGY.md).
+Needs `EDGAR_IDENTITY`, `OPENFIGI_API_KEY`, and a service-account key **outside** the repo, pointed at by `GOOGLE_APPLICATION_CREDENTIALS`.
+
+```bash
+cd ingest
+python -m venv .venv
+source .venv/bin/activate   # PowerShell: .\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+cp .env.example .env        # PowerShell: Copy-Item .env.example .env
+# fill in .env, then:
+python ingest.py --dry-run
+```
+
+`--dry-run` downloads and computes everything, prints a summary, and writes nothing: no Firestore documents, no `securities/` cache entries, no GCS files. Drop the flag to write for real. A real run rewrites every quarter in the window, so it is safe to repeat.
+
+Useful flags: `--fund CIK` for one manager, `--quarters N` to shorten the window, `--refresh all` to rebuild the ticker and sector cache after changing a rule.
+
+### 3. Backfill 13D/13G ownership
+
+`GCS_BUCKET` is required here — this pipeline keeps its state in the bucket and has no local fallback. The first run has no state to resume from, so give it a start date.
+
+```bash
+cd ingest
+python ownership.py --dry-run --since 2024-12-18
+```
+
+Drop `--dry-run` to write. Backfill a long window in slices (a quarter at a time) rather than in one run, and use `--rebuild` only when you need every issuer and investor document rewritten.
+
+### 4. Validate before pushing
+
+```bash
+cd ingest && pytest && ruff format . && ruff check .
+cd web && npm run test && npm run build && npm run lint
+```
+
+### 5. Deploy
+
+Pushing to `main` builds the site and deploys it to Firebase Hosting. Firestore rules are separate and deploy from the repo root:
+
+```bash
+npx firebase-tools deploy --only firestore:rules
+```
+
+There is no sample-data preview: the app reads Firestore directly, so seeing it with data means pointing it at a project that has some. Step 1 against the live project is the closest thing.
 
 ## Add a manager
 
@@ -224,6 +277,15 @@ SIC is a filing code, not a finance one, so the two do not line up perfectly. We
 ETFs and index funds are the exception. They are labelled "ETF / Fund" from OpenFIGI, not from the SIC. A fund's own industry code says "investment offices", which would put an S&P 500 fund in the Financials sector.
 
 Sector lookups are cached per stock and never redone on their own. If you change how sectors are decided, run `python ingest.py --refresh all` once to rebuild the cache. `--refresh unknown` is the cheaper version: it only redoes the stocks whose sector came out "Unknown".
+
+## Where the docs live
+
+| Document | For |
+|---|---|
+| This README | using the site, and running your own copy |
+| [docs/METHODOLOGY.md](docs/METHODOLOGY.md) | what every number means, and what it does not cover |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | diagrams of the system and the data pipeline |
+| [docs/PLAN.md](docs/PLAN.md) | implementation history and outstanding work |
 
 ## License
 

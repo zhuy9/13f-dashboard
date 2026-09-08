@@ -5,7 +5,7 @@ import { Explain } from '@/components/Explain'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useMeta } from '@/context/MetaContext'
 import { getSignals } from '@/data'
-import { quarterLabel } from '@/format'
+import { pct, pp, quarterLabel } from '@/format'
 import { useActiveSection } from '@/hooks/useActiveSection'
 import { useAsyncData } from '@/hooks/useAsyncData'
 import { BiggestAdds } from '@/pages/patterns/BiggestAdds'
@@ -203,6 +203,61 @@ function buildSections(data: Signals, labelByCik: Map<string, string>): Section[
   ]
 }
 
+// Picks the top row of tables that Python already ranked -- selection and rendering, not a
+// signal computed in the browser. Each card is a way into the full table below it.
+function Notable({ data }: { data: Signals }) {
+  const cards: { href: string; label: string; symbol: string; detail: string }[] = []
+  const buy = data.consensusBuys[0]
+  if (buy) {
+    cards.push({
+      href: '#consensus-buys',
+      label: 'Most bought',
+      symbol: buy.symbol,
+      detail: `${buy.newBuyers} opened, ${buy.added} added`,
+    })
+  }
+  const exit = data.consensusExits[0]
+  if (exit) {
+    cards.push({
+      href: '#consensus-exits',
+      label: 'Most sold',
+      symbol: exit.symbol,
+      detail: `${exit.soldOut} sold out, ${exit.trimmed} trimmed`,
+    })
+  }
+  const crowded = data.highConviction[0]
+  if (crowded) {
+    cards.push({
+      href: '#high-conviction',
+      label: 'Most crowded',
+      symbol: crowded.symbol,
+      detail: `${crowded.managers} managers at ${pct(crowded.avgWeight)} average`,
+    })
+  }
+  const rotation = data.sectorRotation[0]
+  if (rotation) {
+    cards.push({
+      href: '#sector-rotation',
+      label: 'Sector moving in',
+      symbol: rotation.sector,
+      detail: `${pp(rotation.avgChange)} average weight`,
+    })
+  }
+  if (cards.length === 0) return null
+
+  return (
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {cards.map((c) => (
+        <a key={c.label} href={c.href} className="rounded border border-line px-4 py-3 hover:border-ink-muted">
+          <div className="text-xs text-ink-muted">{c.label}</div>
+          <div className="truncate font-tabular text-lg font-semibold">{c.symbol}</div>
+          <div className="truncate text-xs text-ink-muted">{c.detail}</div>
+        </a>
+      ))}
+    </div>
+  )
+}
+
 export function PatternsPage() {
   const { meta, loading: metaLoading, error: metaError } = useMeta()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -265,6 +320,15 @@ export function PatternsPage() {
             </a>
           ))}
         </nav>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <p className="max-w-3xl text-sm text-ink-muted">
+          Every signal on this page is computed across the {meta.managers.length} tracked managers for one quarter, from
+          their 13F filings. Each table explains what it counts, and ranked rows open to name the managers behind them.
+          Start with a card below, or jump to any table.
+        </p>
+        {signalsState.data && <Notable data={signalsState.data} />}
       </div>
 
       {coverage && (

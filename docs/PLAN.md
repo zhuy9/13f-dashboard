@@ -2,6 +2,11 @@
 
 > Planning + documentation: the planning model. Development: a cheaper model, one milestone at a time.
 > This file is the single source of truth for the dev model.
+>
+> **Three documents, three jobs.** [README.md](../README.md) is for people using or self-hosting the
+> site. [METHODOLOGY.md](METHODOLOGY.md) defines every number and lists what it does not cover.
+> This file is implementation history and outstanding work — it is not where a user should have
+> to look for a definition.
 > Every milestone has numbered tasks and a checkbox list of acceptance criteria (AC). A milestone is done only when every AC box is checked.
 > Definitions and standing limitations live in [METHODOLOGY.md](METHODOLOGY.md), not here. This file is implementation history.
 
@@ -26,7 +31,7 @@ Data changes 4×/year. So: **all derived tables are computed once at ingest in P
 |---|---|
 | Repo | One **public** GitHub repo, monorepo: `ingest/` + `web/` + `docs/`. Commits go **directly to `main`**. |
 | Hosting | **Firebase Hosting** + user's custom domain. Not Vercel. |
-| Serving data | **Firestore**: derived, read-optimized docs only (one read per page). Public-read rules. |
+| Serving data | **Firestore**: derived, read-optimized docs only — a handful of whole-document reads per page, never a query or an aggregation. Public-read rules. |
 | File data | **Google Cloud Storage**: raw 13F XML + Parquet of the base table and every derived table. Blaze plan (billing on, $0 within free tier). Gated by `GCS_BUCKET`. |
 | SQL | **No Cloud SQL.** BigQuery external tables over the Parquet later, if wanted. |
 | Ingest | Python (3.12 in CI, 3.10 locally — no 3.11+-only syntax), `edgartools` + `pandas`, run by **GitHub Actions** (cron + manual). |
@@ -1061,7 +1066,7 @@ Acceptance criteria
 - [ ] README opens with demo link, real screenshots, purpose, three questions.
 - [ ] Coverage/limits/methodology are findable without reading milestone history.
 - [ ] Self-hosting separates web preview, ingest, ownership backfill, and deploy.
-- [ ] The "one read per page" claim is corrected to match what the frontend actually does.
+- [x] The "one read per page" claim is corrected to match what the frontend actually does.
 - [ ] First Patterns viewport explains the product and routes into notable changes and full tables.
 - [ ] New entry view works at 375 px and is keyboard accessible.
 - [ ] Examples match the new denominator, dry-run behavior, and labels.

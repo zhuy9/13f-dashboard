@@ -979,7 +979,7 @@ Acceptance criteria
 - [x] `docs/METHODOLOGY.md` exists, is linked from README, and lists the open limitations as open.
 
 ### Milestone 10 — Equity-only weights and a documented score  (M1)
-Status: in progress
+Status: done f188918
 
 Tasks
 1. `totals()` returns `total_value` (the filing total, all rows, kept for reconciliation) **and** `equity_value` (sum of `put_call.isna()` and `kind == "EQUITY"` rows).

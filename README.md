@@ -95,8 +95,8 @@ The site computes these signals once per quarter.
 
 1. **Manager Conviction.** How big each stock is inside a manager's portfolio, and how that changed since last quarter.
 2. **Stock Consensus.** How many managers own a stock, and how much of their portfolio it is.
-3. **Consensus Buys.** Stocks that two or more managers bought or added in the same quarter.
-4. **Consensus Exits.** Stocks that two or more managers sold or trimmed in the same quarter.
+3. **Consensus Buys.** Stocks that three or more managers bought or added in the same quarter.
+4. **Consensus Exits.** Stocks that three or more managers sold or trimmed in the same quarter.
 5. **High-Conviction Overlap.** Stocks that three or more managers hold at 3% or more of their portfolio.
 6. **Conviction Score.** A score from 0 to 100. It rewards stocks that a few managers hold in big size and just bought.
 7. **Sector Exposure.** How much of each manager's portfolio is in each sector, and how that changed.
@@ -204,7 +204,7 @@ npm run dev
 Edit `ingest/signals_config.json`. Then run the ingest workflow.
 
 - `quarters` — how many quarters to load. Default 12 (three years). Do not go past 12: filings for quarters before 2023 report dollar values in thousands, so they would read 1000 times too small.
-- `consensus_min_managers` — how many managers make a "consensus". Default 2.
+- `consensus_min_managers` — how many managers make a "consensus". Default 3. With 33 managers tracked, 2 matched most of the market and the tables stopped meaning anything.
 - `high_conviction_min_weight` — the portfolio weight that counts as high conviction. Default 0.03 (3%).
 - `high_conviction_min_managers` — how many managers make a high-conviction overlap. Default 3.
 - `sector_move_threshold` — the sector weight change that counts as a move. Default 0.005 (0.5 points).

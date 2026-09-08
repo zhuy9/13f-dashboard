@@ -182,7 +182,7 @@ Per cluster: members, `common_holdings` (symbols held by ≥ half the members, t
 `ingest/signals_config.json`:
 ```json
 { "quarters": 12,
-  "consensus_min_managers": 2,
+  "consensus_min_managers": 3,
   "high_conviction_min_weight": 0.03,
   "high_conviction_min_managers": 3,
   "sector_move_threshold": 0.005,
@@ -945,7 +945,7 @@ Sections, in order:
 1. **What this is** — 3 sentences.
 2. **What 13F data is (and is not)** — bullets: quarterly; up to 45 days late; long positions only; no shorts; no cash; options are reported but puts are not shorts; values in dollars; **not investment advice**.
 3. **Managers tracked** — 11 names, one line each with the person behind it and the cluster label.
-4. **The signals** — one plain sentence per signal (13), e.g. "Consensus Buys: stocks that two or more managers bought or added in the same quarter."
+4. **The signals** — one plain sentence per signal (13), e.g. "Consensus Buys: stocks that three or more managers bought or added in the same quarter."
 5. **How it works** — the architecture block, then 4 short sentences. Say signals are computed once per quarter, not live.
 6. **Set up your own copy** — Manual setup 1–9 in plain words. Say which values are secret and which are public.
 7. **Run locally** — exact commands for `ingest/` and `web/`. PowerShell first, then bash.

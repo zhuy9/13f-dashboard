@@ -1,6 +1,6 @@
 {
   "quarters": 12,
-  "consensus_min_managers": 2,
+  "consensus_min_managers": 3,
   "high_conviction_min_weight": 0.03,
   "high_conviction_min_managers": 3,
   "sector_move_threshold": 0.005,

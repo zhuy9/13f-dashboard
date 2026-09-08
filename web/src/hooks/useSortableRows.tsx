@@ -3,18 +3,20 @@ import { SortableTableHead } from '@/components/SortableTableHead'
 
 export type SortDirection = 'asc' | 'desc'
 
+// Missing values last in both directions; flipping a blank column would bury the real rows.
+export function compare(av: unknown, bv: unknown, direction: SortDirection): number {
+  if (av == null || bv == null) return (av == null ? 1 : 0) - (bv == null ? 1 : 0)
+  const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv))
+  return direction === 'asc' ? cmp : -cmp
+}
+
 export function useSortableRows<T>(rows: T[], defaultKey: keyof T, defaultDirection: SortDirection = 'desc') {
   const [sortKey, setSortKey] = useState<keyof T>(defaultKey)
   const [direction, setDirection] = useState<SortDirection>(defaultDirection)
 
   const sorted = useMemo(() => {
     const copy = [...rows]
-    copy.sort((a, b) => {
-      const av = a[sortKey]
-      const bv = b[sortKey]
-      const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv))
-      return direction === 'asc' ? cmp : -cmp
-    })
+    copy.sort((a, b) => compare(a[sortKey], b[sortKey], direction))
     return copy
   }, [rows, sortKey, direction])
 

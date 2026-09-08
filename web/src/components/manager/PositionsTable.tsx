@@ -1,22 +1,23 @@
 import { KindBadge } from '@/components/KindBadge'
 import { StatusBadge } from '@/components/StatusBadge'
 import { StockLink } from '@/components/StockLink'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table'
 import { pct, pp } from '@/format'
+import { useSortableRows } from '@/hooks/useSortableRows'
 import type { Position } from '@/types'
 
 export function PositionsTable({ positions }: { positions: Position[] }) {
-  const sorted = [...positions].sort((a, b) => b.weight - a.weight)
+  const { sorted, SortHead } = useSortableRows(positions, 'weight')
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Symbol</TableHead>
-          <TableHead>Name</TableHead>
-          <TableHead className="text-right">Weight</TableHead>
-          <TableHead className="text-right">Prev</TableHead>
-          <TableHead className="text-right">Weight Δ</TableHead>
-          <TableHead>Shares Δ</TableHead>
+          {SortHead('Symbol', 'symbol')}
+          {SortHead('Name', 'name')}
+          {SortHead('Weight', 'weight', 'right')}
+          {SortHead('Prev', 'prevWeight', 'right')}
+          {SortHead('Weight Δ', 'change', 'right')}
+          {SortHead('Shares Δ', 'status')}
         </TableRow>
       </TableHeader>
       <TableBody>

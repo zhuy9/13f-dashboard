@@ -1,11 +1,12 @@
 from pathlib import Path
+from types import SimpleNamespace
 from urllib.parse import quote
 
 import pandas as pd
 import pytest
 
 from derive import derive_all
-from store import _build_manager_quarter_docs, _build_meta, _build_stock_docs, _camel, _clean
+from store import _build_manager_quarter_docs, _build_meta, _build_stock_docs, _camel, _clean, write_firestore
 
 FIXTURE = Path(__file__).parent / "fixtures" / "holdings_small.csv"
 FUNDS = [
@@ -64,6 +65,51 @@ def test_stock_doc_has_options_and_trend(tables):
     aaa = docs["AAA"]
     assert aaa["latest"]["options"]["calls"] == [{"cik": "1111111111", "short": "M1"}]
     assert len(aaa["trend"]) == 2
+
+
+class _FakeDb:
+    """Just enough Firestore for write_firestore: batched set/delete and id-only collection reads."""
+
+    def __init__(self, existing: dict[str, list[str]]):
+        self.existing, self.deleted, self.read = existing, [], []
+
+    def document(self, path):
+        return path
+
+    def batch(self):
+        return SimpleNamespace(set=lambda *_: None, delete=self.deleted.append, commit=lambda: None)
+
+    def collection(self, name):
+        self.read.append(name)
+        snaps = [SimpleNamespace(id=i, reference=i) for i in self.existing.get(name, [])]
+        return SimpleNamespace(select=lambda _fields: SimpleNamespace(stream=lambda: snaps))
+
+
+def test_write_firestore_prunes_stale_docs_in_the_collections_it_owns(tables):
+    db = _FakeDb(
+        {
+            "managers": ["1111111111", "938582"],  # 938582 left the roster
+            "manager_quarters": ["1111111111_2026-06-30", "1111111111_2024-12-31"],  # period fell out
+            "stocks": ["AAA", "GONE"],
+            "signals": ["2026-06-30", "2024-12-31"],
+            "securities": ["037833100"],  # an accumulating cache, not ours to prune
+            "ownership_issuers": ["AAA"],  # the other pipeline's
+        }
+    )
+
+    deleted = write_firestore(db, tables, FUNDS, tables["periods"])
+
+    assert set(db.deleted) == {"938582", "1111111111_2024-12-31", "GONE", "2024-12-31"}
+    assert deleted == 4
+    assert "securities" not in db.read and "ownership_issuers" not in db.read
+
+
+def test_write_firestore_skips_pruning_when_a_manager_failed(tables):
+    """A failed fetch leaves that manager with no rows -- pruning would delete quarters it has."""
+    db = _FakeDb({"managers": ["938582"], "stocks": ["GONE"]})
+
+    assert write_firestore(db, tables, FUNDS, tables["periods"], prune=False) == 0
+    assert db.deleted == []
 
 
 def test_stock_doc_id_encodes_slash_matching_web_encodeuricomponent():

@@ -195,10 +195,12 @@ def main() -> int:
             bucket = storage.Client().bucket(bucket_name)
             write_gcs(bucket, raw_by_filing, tables)
 
+        pruned = 0
         if args.dry_run:
             print_dry_run_signals(tables)
         else:
-            write_firestore(db, tables, funds, tables["periods"])
+            # A failed manager has no rows, so pruning would delete the quarters it already had.
+            pruned = write_firestore(db, tables, funds, tables["periods"], prune=not failed)
             write_last_ingest(tables, base_by_fund)
 
         latest = tables["periods"][-1]
@@ -210,6 +212,7 @@ def main() -> int:
                 f"positions: {counts_line(mqs[mqs['period'] == latest]['status'])}",
                 f"unmapped tickers: {holdings['ticker'].isna().mean():.1%}",
             ]
+            + ([f"pruned {pruned} stale documents"] if pruned else [])
             + fail_line,
         )
     else:

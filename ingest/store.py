@@ -209,19 +209,37 @@ def _build_signals_docs(tables: dict, periods: list[str]) -> dict[str, dict]:
     return docs
 
 
-def write_firestore(db, tables: dict, funds: list[dict], periods: list[str]) -> None:
-    """Build and write meta/latest, managers/*, manager_quarters/*, stocks/*, signals/* in batches of 400."""
-    writes: list[tuple[str, dict]] = [("meta/latest", _build_meta(tables, funds, periods))]
+def _prune(db, collection: str, keep: set[str]) -> int:
+    """Delete the docs this run did not write -- a manager dropped from the roster, or a period
+    that fell out of the `quarters` window (one does, every quarter). `select([])` reads ids only."""
+    stale = [snap.reference for snap in db.collection(collection).select([]).stream() if snap.id not in keep]
+    for i in range(0, len(stale), _FIRESTORE_BATCH_SIZE):
+        batch = db.batch()
+        for ref in stale[i : i + _FIRESTORE_BATCH_SIZE]:
+            batch.delete(ref)
+        batch.commit()
+    return len(stale)
 
-    for cik, doc in _build_manager_docs(tables, funds).items():
-        writes.append((f"managers/{cik}", doc))
-    for doc_id, doc in _build_manager_quarter_docs(tables, funds).items():
-        writes.append((f"manager_quarters/{doc_id}", doc))
-    for symbol, doc in _build_stock_docs(tables, funds).items():
+
+def write_firestore(db, tables: dict, funds: list[dict], periods: list[str], prune: bool = True) -> int:
+    """Write meta/latest and the four owned collections in batches of 400, then delete anything
+    this run did not write. Returns the number of stale docs deleted.
+
+    Only these four are pruned: `securities/` is an accumulating CUSIP cache, and the
+    `ownership_*` collections belong to the other pipeline. `prune=False` after a manager fetch
+    fails, so a transient EDGAR error cannot delete that manager's quarters.
+    """
+    owned = {
+        "managers": _build_manager_docs(tables, funds),
+        "manager_quarters": _build_manager_quarter_docs(tables, funds),
         # quote() so a ticker with a "/" (SPAC units/warrants: "ABC/U", "ABC/WS") can't
         # split into extra Firestore path segments. Ordinary tickers are untouched.
-        writes.append((f"stocks/{quote(symbol, safe='')}", doc))
-    for period, doc in _build_signals_docs(tables, periods).items():
-        writes.append((f"signals/{period}", doc))
-
+        "stocks": {quote(symbol, safe=""): doc for symbol, doc in _build_stock_docs(tables, funds).items()},
+        "signals": _build_signals_docs(tables, periods),
+    }
+    writes: list[tuple[str, dict]] = [("meta/latest", _build_meta(tables, funds, periods))]
+    for collection, docs in owned.items():
+        writes += [(f"{collection}/{doc_id}", doc) for doc_id, doc in docs.items()]
     _commit_in_batches(db, writes)
+
+    return sum(_prune(db, collection, set(docs)) for collection, docs in owned.items()) if prune else 0

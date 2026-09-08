@@ -246,10 +246,10 @@ function Notable({ data }: { data: Signals }) {
   if (cards.length === 0) return null
 
   return (
-    // One column at 375 px: two of these side by side leaves ~165 px for "15 managers at 7.9%
-    // average". min-w-0 is what lets `truncate` actually truncate -- a grid item defaults to
-    // min-width:auto, so without it long text widens the track and the whole page scrolls
-    // sideways instead of the text ellipsing.
+    // One column below 640 px: two of these side by side at 375 px leaves about 165 px for
+    // "15 managers at 7.9% average", which truncates to nothing useful. min-w-0 is what lets
+    // `truncate` truncate at all -- a grid item defaults to min-width:auto, so without it long
+    // text widens the track instead of ellipsing.
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {cards.map((c) => (
         <a

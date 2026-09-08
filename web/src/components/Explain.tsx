@@ -34,7 +34,11 @@ export function InfoPopover({ label, heading, children }: { label: ReactNode; he
       <div
         id={id}
         popover="auto"
-        className="max-w-xs rounded border border-line bg-paper p-3 text-left text-sm shadow-lg"
+        // whitespace-normal and text-left are resets, not decoration: the panel renders in the
+        // top layer but still inherits computed style from the cell it is declared in, and
+        // TableCell sets whitespace-nowrap -- so without this a long manager list runs off the
+        // panel in a single line, which is the bug this replaced.
+        className="max-w-xs rounded border border-line bg-paper p-3 text-left text-sm font-normal whitespace-normal shadow-lg"
       >
         <div className="mb-1 font-medium text-ink">{heading}</div>
         <div className="text-ink-muted">{children}</div>

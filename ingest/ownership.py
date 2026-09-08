@@ -11,7 +11,7 @@ import pandas as pd
 from dotenv import load_dotenv
 
 from enrich import attach, ensure_securities, sec_ticker_to_cik
-from ingest import init_firestore, load_config, load_funds
+from ingest import counts_line, init_firestore, load_config, load_funds, step_summary
 from ownership_derive import derive_all
 from ownership_fetch import FILING_COLUMNS, fetch_rows, list_filings
 from ownership_store import build_feed, build_investor_docs, build_issuer_docs, read_state, write_firestore, write_state
@@ -126,26 +126,34 @@ def main() -> int:
         filings = state if have_state else new_df
     if not len(filings):
         print("No filings in the window and no prior state; nothing to do.")
+        step_summary(f"Ownership {since} .. {until}", ["no filings in the window"])
         return 1 if failed else 0
 
     tables = derive_all(filings, funds, cfg)
     new_accessions = set(new_df["accession"]) if len(new_df) else set()
     touched = tables["events"][tables["events"]["accession"].isin(new_accessions)]
 
+    summary = [
+        f"{len(new_df)} new filings, {failed} failed",
+        f"events: {counts_line(touched['event'])}",
+        f"priority: {counts_line(touched['priority'])}",
+    ]
+
     if args.dry_run:
         _print_dry_run(new_df, touched, tables["recent"], funds)
-        return 1 if failed else 0
+    else:
+        only_symbols = None if args.rebuild else set(touched["symbol"].unique())
+        only_ciks = None if args.rebuild else set(touched["investor_cik"].unique())
+        feed = build_feed(tables, cfg)
+        issuer_docs = build_issuer_docs(tables, cfg, only_symbols)
+        investor_docs = build_investor_docs(tables, funds, cfg, only_ciks)
 
-    only_symbols = None if args.rebuild else set(touched["symbol"].unique())
-    only_ciks = None if args.rebuild else set(touched["investor_cik"].unique())
-    feed = build_feed(tables, cfg)
-    issuer_docs = build_issuer_docs(tables, cfg, only_symbols)
-    investor_docs = build_investor_docs(tables, funds, cfg, only_ciks)
+        write_state(bucket, filings, raw)
+        count = write_firestore(db, feed, issuer_docs, investor_docs)
+        print(f"wrote {count} Firestore documents")
+        summary.append(f"{count} Firestore documents written")
 
-    write_state(bucket, filings, raw)
-    count = write_firestore(db, feed, issuer_docs, investor_docs)
-    print(f"wrote {count} Firestore documents")
-
+    step_summary(f"Ownership {since} .. {until}" + (" (dry run)" if args.dry_run else ""), summary)
     return 1 if failed else 0
 
 

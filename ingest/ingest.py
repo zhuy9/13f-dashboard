@@ -88,6 +88,28 @@ def write_last_ingest(tables: dict, base_by_fund: list[tuple[dict, pd.DataFrame]
     path.write_text(json.dumps(payload, indent=2) + "\n")
 
 
+def counts_line(series: pd.Series) -> str:
+    """Render a value_counts as one readable line: 3 new / 8 added / 1 exited."""
+    parts = [
+        f"{n} {'unclassified' if pd.isna(k) else str(k).lower().replace('_', ' ')}"
+        for k, n in series.value_counts(dropna=False).items()
+    ]
+    return " · ".join(parts) or "none"
+
+
+def step_summary(title: str, lines: list[str]) -> None:
+    """Put the run's numbers on the GitHub Actions run page, so a green check is readable
+    without opening the log. No-op outside Actions."""
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not path:
+        return
+    with open(path, "a", encoding="utf-8") as f:
+        print("###", title, file=f)
+        for line in lines:
+            print("-", line, file=f)
+        print(file=f)
+
+
 def init_firestore():
     try:
         firebase_admin.get_app()
@@ -153,6 +175,7 @@ def main() -> int:
         if args.dry_run:
             print_dry_run_summary(fund["short"], enriched)
 
+    fail_line = [f"FAILED: {', '.join(failed)}"] if failed else []
     holdings = pd.concat(enriched_frames, ignore_index=True) if enriched_frames else pd.DataFrame()
     if args.dry_run and len(holdings):
         unmapped = holdings["ticker"].isna().mean()
@@ -173,6 +196,20 @@ def main() -> int:
         else:
             write_firestore(db, tables, funds, tables["periods"])
             write_last_ingest(tables, base_by_fund)
+
+        latest = tables["periods"][-1]
+        mqs = tables["manager_quarter_summary"]
+        step_summary(
+            f"Ingest {latest}" + (" (dry run)" if args.dry_run else ""),
+            [
+                f"{len(base_by_fund)} of {len(funds)} managers filed, {len(holdings):,} holding rows",
+                f"positions: {counts_line(mqs[mqs['period'] == latest]['status'])}",
+                f"unmapped tickers: {holdings['ticker'].isna().mean():.1%}",
+            ]
+            + fail_line,
+        )
+    else:
+        step_summary("Ingest", ["no holdings fetched"] + fail_line)
 
     return 1 if failed else 0
 

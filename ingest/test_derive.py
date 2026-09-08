@@ -51,7 +51,9 @@ def out(h) -> dict:
         ("SR NT 5% 2030", "NOTE"),
         ("*W EXP 01/01/202", "WARRANT"),
         ("WTS", "WARRANT"),
-        ("TR UNIT", "UNIT"),
+        ("TR UNIT", "EQUITY"),  # LP and trust units are equity: SPY is "TR UNIT"
+        ("DEPOSITARY UNIT", "EQUITY"),  # Icahn Enterprises LP
+        ("COM UNIT REP LTD", "EQUITY"),  # MPLX, an MLP
         (None, "EQUITY"),  # missing Class falls back to what the field means almost always
         ("", "EQUITY"),
     ],

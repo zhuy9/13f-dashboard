@@ -9,17 +9,21 @@ import pandas as pd
 _KIND_PATTERNS = [
     ("NOTE", re.compile(r"^\s*(NOTE|BOND|DBCV|DEB|CONV|SR NT|NT\b)")),
     ("WARRANT", re.compile(r"(^\s*\*?W\b|W EXP|\bWTS?\b|WARRANT)")),
-    ("UNIT", re.compile(r"\bUNITS?\b")),
 ]
 
 
 def security_kind(cls) -> str:
     """The kind of instrument a 13F row describes, from the filer's own free-text Class field.
 
-    A 13F carries convertible notes, warrants and units next to common stock, and they are not
-    the same thing: a warrant's reported value is not equity exposure, and a note is debt. The
+    A 13F carries convertible notes and warrants next to common stock, and they are not the same
+    thing: a warrant's reported value is not equity exposure, and a note is debt. The
     filer's own words are the honest source -- OpenFIGI calls every corporate "US DOMESTIC",
     convertible or not, and only the SEC's eligibility rules imply these notes are convertible.
+
+    Deliberately no UNIT kind: "unit" in a 13F is nearly always limited-partnership or trust
+    units, which are equity -- Icahn Enterprises files "DEPOSITARY UNIT", SPY "TR UNIT", KKR
+    "COM UNITS". A SPAC unit is the only real composite and the string cannot separate it from
+    those, so they all read EQUITY, which is right for everything except the SPACs.
 
     `# ponytail:` Class is free text truncated to 16 chars by the form ("NOTE  0.500% 6/0"), so
     this is a prefix heuristic that falls back to EQUITY -- what the field means in the large

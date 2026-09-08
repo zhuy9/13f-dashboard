@@ -4,7 +4,7 @@ export type PositionStatus = 'NEW' | 'ADDED' | 'TRIMMED' | 'UNCHANGED' | 'SOLD_O
 
 // What the filing's own Class field says the row is. A 13F carries convertible notes,
 // warrants and units beside common stock; their reported value is not equity exposure.
-export type SecurityKind = 'EQUITY' | 'NOTE' | 'WARRANT' | 'UNIT'
+export type SecurityKind = 'EQUITY' | 'NOTE' | 'WARRANT'
 
 // meta/latest
 export interface ManagerRef {

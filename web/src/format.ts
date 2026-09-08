@@ -69,7 +69,6 @@ export const STATUS_COLORS: Record<PositionStatus, string> = {
 export const KIND_COLORS: Record<Exclude<SecurityKind, 'EQUITY'>, string> = {
   NOTE: '#7209b7',
   WARRANT: '#9a6700',
-  UNIT: '#6b6759',
 }
 
 export const PUT_COLOR = '#cf222e'

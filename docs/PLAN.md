@@ -128,7 +128,7 @@ status: NEW        prev absent, current present
         SOLD_OUT   prev present, current absent  (emit a row: value 0, weight 0, change = -prev_weight)
         null       no prior quarter for this manager in the window
 ```
-`kind` is EQUITY / NOTE / WARRANT / UNIT, from `security_kind()` over the filing's own free-text `Class` field. A 13F carries convertible notes, warrants and units beside common stock and they are not equivalent -- a warrant's reported value is not equity exposure. Sector stays the *issuer's* (a Coinbase convertible reads Technology), so exposure stays economic and `kind` says what the instrument is.
+`kind` is EQUITY / NOTE / WARRANT, from `security_kind()` over the filing's own free-text `Class` field. No UNIT: "unit" in a 13F is nearly always LP or trust units (Icahn `DEPOSITARY UNIT`, SPY `TR UNIT`, KKR `COM UNITS`), which are equity. A 13F carries convertible notes, warrants and units beside common stock and they are not equivalent -- a warrant's reported value is not equity exposure. Sector stays the *issuer's* (a Coinbase convertible reads Technology), so exposure stays economic and `kind` says what the instrument is.
 
 Status uses **shares** (price moves change weight without a trade). `# ponytail: stock splits look like ADDED; split-adjust if it matters.`
 

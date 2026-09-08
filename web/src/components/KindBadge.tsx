@@ -5,7 +5,6 @@ import type { SecurityKind } from '@/types'
 const LABELS: Record<Exclude<SecurityKind, 'EQUITY'>, string> = {
   NOTE: 'Note',
   WARRANT: 'Warrant',
-  UNIT: 'Unit',
 }
 
 // EQUITY renders nothing: it is the overwhelming majority, and a badge on every row would be

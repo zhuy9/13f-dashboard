@@ -1,0 +1,23 @@
+accession,form,is_amendment,filed_at,transaction_date,issuer_cik,issuer_name,symbol,owner_cik,owner_name,is_director,is_officer,is_ten_pct_owner,officer_title,is_derivative,security,code,shares,price,value,acquired_disposed,shares_after,aff10b5_one,footnotes,url
+ACC001,4,False,2026-06-02,2026-06-01,1000001,Test Co A,TSTA,2000001,Owner One,False,True,False,CEO,False,Common Stock,P,1000,200,200000,A,50000,,,https://example.com/ACC001
+ACC002,4,False,2025-11-02,2025-11-01,1000001,Test Co A,TSTA,2000002,Owner Two,True,False,False,,False,Common Stock,P,50,100,5000,A,500,,,https://example.com/ACC002
+ACC003,4,False,2025-12-02,2025-12-01,1000001,Test Co A,TSTA,2000002,Owner Two,True,False,False,,False,Common Stock,P,10,50,500,A,510,,,https://example.com/ACC003
+ACC004,4,False,2026-01-16,2026-01-15,1000001,Test Co A,TSTA,2000003,Owner Three,True,False,False,,False,Common Stock,S,100,300,30000,D,900,True,Rule 10b5-1 plan,https://example.com/ACC004
+ACC005,4,False,2026-01-21,2026-01-20,1000001,Test Co A,TSTA,2000004,Owner Four,True,False,False,,False,Common Stock,S,1000,150,150000,D,2000,False,,https://example.com/ACC005
+ACC006,4,False,2025-10-06,2025-10-05,1000001,Test Co A,TSTA,2000005,Owner Five,False,True,False,SVP,False,Common Stock,A,500,0,,A,5500,,Annual equity award,https://example.com/ACC006
+ACC007,4,False,2025-10-06,2025-10-05,1000001,Test Co A,TSTA,2000005,Owner Five,False,True,False,SVP,False,Common Stock,F,100,50,5000,D,5400,,Shares withheld for taxes,https://example.com/ACC007
+ACC008,4,False,2025-10-11,2025-10-10,1000001,Test Co A,TSTA,2000006,Owner Six,False,False,True,,False,Common Stock,G,20,0,,D,980,,Gift to family trust,https://example.com/ACC008
+ACC009,4,False,2025-10-16,2025-10-15,1000001,Test Co A,TSTA,2000007,Owner Seven,False,False,True,,False,Common Stock,M,200,10,2000,A,1200,,Option exercise,https://example.com/ACC009
+ACC010,4,False,2025-10-21,2025-10-20,1000001,Test Co A,TSTA,2000014,Owner Fourteen,True,False,False,,False,Common Stock,C,50,0,,A,550,,Conversion of derivative,https://example.com/ACC010
+ACC011,4,False,2025-10-26,2025-10-25,1000001,Test Co A,TSTA,2000015,Owner Fifteen,True,False,False,,False,Common Stock,D,20,10,200,D,480,,Disposition to issuer,https://example.com/ACC011
+ACC012,4,False,2025-10-31,2025-10-30,1000001,Test Co A,TSTA,2000016,Owner Sixteen,True,False,False,,False,Common Stock,J,30,0,,A,330,,Other transaction,https://example.com/ACC012
+ACC013,4,False,2026-05-11,2026-05-10,1000002,Cluster Co One,CLUS1,2000008,Owner Eight,True,False,False,,False,Common Stock,P,100,50,5000,A,1100,,,https://example.com/ACC013
+ACC014,4,False,2026-05-16,2026-05-15,1000002,Cluster Co One,CLUS1,2000009,Owner Nine,True,False,False,,False,Common Stock,P,200,60,12000,A,1200,,,https://example.com/ACC014
+ACC015,4,False,2026-05-21,2026-05-20,1000002,Cluster Co One,CLUS1,2000010,Owner Ten,True,False,False,,False,Common Stock,P,150,55,8250,A,1150,,,https://example.com/ACC015
+ACC016,4,False,2025-12-02,2025-12-01,1000002,Cluster Co One,CLUS1,2000019,Owner Nineteen,True,False,False,,False,Common Stock,P,90,40,3600,A,900,,,https://example.com/ACC016
+ACC017,4,False,2026-05-11,2026-05-10,1000003,Cluster Co Two,CLUS2,2000011,Owner Eleven,True,False,False,,False,Common Stock,P,100,50,5000,A,1100,,,https://example.com/ACC017
+ACC018,4,False,2026-05-13,2026-05-12,1000003,Cluster Co Two,CLUS2,2000012,Owner Twelve,True,False,False,,False,Common Stock,P,120,45,5400,A,1200,,,https://example.com/ACC018
+ACC019,4,False,2025-10-02,2025-10-01,1000001,Test Co A,TSTA,2000013,Owner Thirteen,True,False,False,,False,Common Stock,P,10,20,200,A,300,,,https://example.com/ACC019
+ACC020,4,False,2026-05-02,2026-05-01,1000004,Other Co,OTHR1,2000020,Owner Twenty,True,False,False,,False,Common Stock,P,500,300,150000,A,2500,,,https://example.com/ACC020
+ACC021,4,False,2026-02-02,2026-02-01,1000001,Test Co A,TSTA,2000017,Owner Seventeen,True,False,False,,False,Common Stock,S,10,5,50,D,90,False,,https://example.com/ACC021
+ACC022,4,False,2026-03-02,2026-03-01,1000001,Test Co A,TSTA,2000018,Owner Eighteen,True,False,False,,False,Common Stock,P,5,20,100,A,105,,,https://example.com/ACC022

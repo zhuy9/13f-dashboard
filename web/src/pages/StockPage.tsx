@@ -10,6 +10,7 @@ import { useMeta } from '@/context/MetaContext'
 import { KindBadge } from '@/components/KindBadge'
 import { ManagerLink } from '@/components/ManagerLink'
 import { HoldersTable } from '@/components/stock/HoldersTable'
+import { InsiderActivity } from '@/components/stock/InsiderActivity'
 import { MajorShareholders } from '@/components/stock/MajorShareholders'
 import { OptionsGroups } from '@/components/stock/OptionsGroups'
 import { StatTile } from '@/components/StatTile'
@@ -158,6 +159,8 @@ export function StockPage() {
       )}
 
       {issuer && <MajorShareholders issuer={issuer} />}
+
+      <InsiderActivity symbol={symbol} />
 
       {stock && (
         <section>

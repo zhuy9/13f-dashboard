@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { getManagerQuarter, getStock, getStockQuarter } from '@/data'
+import { getManagerQuarter, getStockQuarter } from '@/data'
 import { reconcile, type Watched, type WatchKind, type WatchState } from '@/watchlist'
 import type { Meta } from '@/types'
 
@@ -8,14 +8,11 @@ let current: WatchState = { version: 1, items: [], events: [] }
 try {
   const saved: WatchState | null = JSON.parse(localStorage.getItem(key) ?? 'null')
   if (saved) {
+    // version gates the shape; the https check gates what WatchlistPage renders as an href.
     if (saved.version !== 1 || !Array.isArray(saved.items) || !Array.isArray(saved.events) ||
-      ![...saved.items, ...saved.events].every(i => ['stock', 'manager'].includes(i.kind) && typeof i.id === 'string' &&
-        typeof i.label === 'string' && typeof i.report?.fingerprint === 'string' && typeof i.report.period === 'string' &&
-        typeof i.report.summary === 'string' && Number.isInteger(i.report.methodologyVersion) &&
-        Array.isArray(i.report.sources) && i.report.sources.every(s => typeof s === 'string' && s.startsWith('https://')))) {
+      ![...saved.items, ...saved.events].every(i => i.report?.sources?.every?.(s => s.startsWith?.('https://')))) {
       throw new Error('Invalid saved watchlist')
     }
-    if (!saved.events.every(e => typeof e.eventId === 'string' && ['New quarterly report', 'Revised quarterly report', 'Methodology recalculation'].includes(e.change))) throw new Error('Invalid saved digest')
     current = { version: 1, items: saved.items, events: saved.events }
   }
 } catch {
@@ -34,9 +31,8 @@ function update(next: WatchState) {
 
 async function readReport(kind: WatchKind, id: string, label: string, meta: Meta): Promise<Watched> {
   const period = meta.latestPeriod
-  const data = kind === 'manager' ? await getManagerQuarter(id, period)
-    : await getStockQuarter(id, period) ?? (await getStock(id))?.latest
-  if (!data || ('period' in data && data.period !== period)) throw new Error(`No current report for ${label}.`)
+  const data = kind === 'manager' ? await getManagerQuarter(id, period) : await getStockQuarter(id, period)
+  if (!data) throw new Error(`No current report for ${label}.`)
   const sources = [...new Set(data.filings?.map(f => f.url) ?? [])].sort()
   const rows = 'positions' in data ? data.positions : data.holders
   const counts = 'counts' in data ? data.counts : { new: data.newCount, added: data.addedCount, trimmed: data.trimmedCount, soldOut: data.soldOutCount }

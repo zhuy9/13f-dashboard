@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Input } from '@/components/ui/input'
 import { getSymbols } from '@/data'
+import { usePeriodSearch } from '@/hooks/useSearchParam'
 import type { SymbolIndex } from '@/types'
 
 export function SymbolSearch() {
@@ -10,7 +11,7 @@ export function SymbolSearch() {
   // ~2,300 symbols in their own doc. Nobody who never opens the search box pays for it.
   const [symbols, setSymbols] = useState<SymbolIndex['symbols']>([])
   const navigate = useNavigate()
-  const [params] = useSearchParams()
+  const search = usePeriodSearch()
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -23,7 +24,7 @@ export function SymbolSearch() {
   function goToSymbol(symbol: string) {
     setQuery('')
     setOpen(false)
-    navigate(`/stock/${encodeURIComponent(symbol)}${params.has('period') ? `?${new URLSearchParams({ period: params.get('period')! })}` : ''}`)
+    navigate(`/stock/${encodeURIComponent(symbol)}${search}`)
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {

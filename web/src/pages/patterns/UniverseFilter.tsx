@@ -1,13 +1,11 @@
 import { useSearchParams } from 'react-router-dom'
+import { useSetSearchParam } from '@/hooks/useSearchParam'
 import type { ManagerRef } from '@/types'
 
 export function UniverseFilter({ managers, selected, minimum }: { managers: ManagerRef[]; selected: string[]; minimum: number }) {
   const [params, setParams] = useSearchParams()
-  function select(ciks: string[]) {
-    const next = new URLSearchParams(params)
-    next.set('managers', [...new Set(ciks)].sort().join(','))
-    setParams(next)
-  }
+  const setParam = useSetSearchParam()
+  const select = (ciks: string[]) => setParam('managers', [...new Set(ciks)].sort().join(','))
   return <details className="rounded border border-line p-3">
     <summary className="cursor-pointer font-medium">Research universe: {selected.length} managers · minimum {minimum}</summary>
     <p className="my-2 text-sm text-ink-muted">All tables below use this universe. Stock and manager links open their full reported holdings.</p>
@@ -20,9 +18,8 @@ export function UniverseFilter({ managers, selected, minimum }: { managers: Mana
         <option value="" disabled>Select a style</option>
         {[...new Set(managers.map(m => m.cluster))].sort().map(c => <option key={c}>{c}</option>)}
       </select></label>
-      <label>Minimum managers <input aria-label="Minimum managers" className="w-16 border border-line p-1" type="number" min="1" value={minimum} onChange={e => {
-        const next = new URLSearchParams(params); next.set('min', e.target.value); setParams(next)
-      }} /></label>
+      <label>Minimum managers <input aria-label="Minimum managers" className="w-16 border border-line p-1" type="number" min="1" value={minimum}
+        onChange={e => setParam('min', e.target.value)} /></label>
     </div>
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
       {managers.map(m => <label key={m.cik} className="flex items-center gap-2 text-sm">

@@ -80,11 +80,11 @@ def test_manager_quarter_doc_has_camelcase_and_sold_out_position(tables):
     assert "prevWeight" in sold_out_positions[0]
 
 
-def test_stock_doc_has_options_and_trend(tables):
-    docs = _build_stock_docs(tables, FUNDS)
-    aaa = docs["AAA"]
-    assert aaa["latest"]["options"]["calls"] == [{"cik": "1111111111", "short": "M1"}]
+def test_stock_doc_is_identity_and_trend_only(tables):
+    """Holder tables live in stock_quarters/ alone -- the stock doc must not carry a second copy."""
+    aaa = _build_stock_docs(tables)["AAA"]
     assert len(aaa["trend"]) == 2
+    assert "latest" not in aaa
 
 
 def test_stock_quarters_keep_historical_holders_and_do_not_fill_missing_periods(tables):
@@ -93,7 +93,7 @@ def test_stock_quarters_keep_historical_holders_and_do_not_fill_missing_periods(
     assert before["period"] == "2026-03-31"
     assert before["holders"] != after["holders"]
     assert "AAA_2025-12-31" not in docs
-    assert after == {**_build_stock_docs(tables, FUNDS)["AAA"]["latest"], "filings": []}
+    assert after["options"]["calls"] == [{"cik": "1111111111", "short": "M1"}]
 
 
 def published(db, path):

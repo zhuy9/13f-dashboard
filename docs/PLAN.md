@@ -260,7 +260,7 @@ Config keys (`signals_config.json` → `ownership`): `start_date` (first filing 
 | `meta/symbols` | `symbols[{symbol, name, sector}]` | the search box, on first focus only |
 | `managers/{cik}` | `cik, name, short, cluster, periods[]` | manager page |
 | `manager_quarters/{cik}_{period}` | `filedAt, totalValue, equityValue, filings[{accession, url, filedAt, isAmendment, amendmentType, filerCik}], count, counts{new,added,trimmed,unchanged,soldOut}, positions[A rows incl. SOLD_OUT], sectors[B rows], mostSimilar[{cik, short, score}]` | manager page |
-| `stocks/{symbol}` | `symbol, name, sector, kind, trend[D rows], latest{C summary + holders + soldOut + options{calls[], puts[]}}` | stock page |
+| `stocks/{symbol}` | `symbol, name, sector, kind, trend[D rows]` — identity and trend only; every quarter's holder table, newest included, lives in `stock_quarters/` | stock page |
 | `stock_quarters/{symbol}_{period}` | C summary + holders (including accession), soldOut, options, filings[SourceFiling] | selected stock quarter; absent means unavailable |
 | `signals/{period}` | all E tables, F, G (`ciks[]`, `matrix[][]`), H (symbols with options only) | patterns page |
 | `securities/{cusip}` | enrichment cache (ingest only) | — |
@@ -1095,7 +1095,8 @@ Ownership publishes issuer/investor documents, then the feed, then advances its 
 Status: done d1d99e3
 
 Stock, manager, and pattern links preserve `period`. Stock history uses one document per
-stock-quarter; the existing `latest` field is only a fallback when its period matches exactly.
+stock-quarter, and `stocks/{symbol}` keeps no `latest` copy — one publisher of the holder table,
+so the two can never disagree.
 `signals/{period}.filings` lists that quarter's source filings for export provenance.
 CSV exports cover all rows of each displayed research table (ranked tables keep their published
 top-N scope), with period, source accessions, tracked coverage, and methodology version on every row.

@@ -7,19 +7,21 @@ interface AsyncState<T> {
 }
 
 export function useAsyncData<T>(fetcher: () => Promise<T | null>, deps: unknown[]): AsyncState<T> {
-  const [state, setState] = useState<AsyncState<T> & { deps: unknown[] }>({ data: null, loading: true, error: null, deps })
+  // Deps are primitives; String keeps NaN, null and undefined distinct where JSON would not.
+  const scope = deps.map(String).join('|')
+  const [state, setState] = useState<AsyncState<T> & { scope: string }>({ data: null, loading: true, error: null, scope })
 
   useEffect(() => {
     let cancelled = false
-    setState({ data: null, loading: true, error: null, deps })
+    setState({ data: null, loading: true, error: null, scope })
     fetcher()
       .then((data) => {
-        if (!cancelled) setState({ data, loading: false, error: null, deps })
+        if (!cancelled) setState({ data, loading: false, error: null, scope })
       })
       .catch((err: unknown) => {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : 'Failed to load data.'
-          setState({ data: null, loading: false, error: message, deps })
+          setState({ data: null, loading: false, error: message, scope })
         }
       })
     return () => {
@@ -30,6 +32,5 @@ export function useAsyncData<T>(fetcher: () => Promise<T | null>, deps: unknown[
   }, deps)
 
   // Hide the previous scope immediately, before the new effect runs.
-  return deps.length !== state.deps.length || deps.some((d, i) => !Object.is(d, state.deps[i]))
-    ? { data: null, loading: true, error: null } : state
+  return scope === state.scope ? state : { data: null, loading: true, error: null }
 }

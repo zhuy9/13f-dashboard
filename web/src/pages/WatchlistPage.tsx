@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMeta } from '@/context/MetaContext'
 import { useWatchlist } from '@/hooks/useWatchlist'
+import { eventId } from '@/watchlist'
 import { quarterLabel } from '@/format'
 
 export function WatchlistPage() {
@@ -25,7 +26,7 @@ export function WatchlistPage() {
     </li>)}</ul>
     <h2 className="text-lg font-medium">Changes since saving</h2>
     {!state.events.length && <p>No changed reports since your saved baseline.</p>}
-    {state.events.map(e => <article key={e.eventId} className="border-t border-line py-3">
+    {state.events.map(e => <article key={eventId(e)} className="border-t border-line py-3">
       <p><Link className="text-call underline" to={`/${e.kind}/${encodeURIComponent(e.id)}?period=${e.report.period}`}>{e.label}</Link> · {e.change} · {quarterLabel(e.report.period)}</p>
       <p className="text-sm">{e.report.summary}</p>
       <p className="text-sm">{e.report.sources.length ? e.report.sources.map((url, i) => <a key={url} href={url} className="mr-3 text-call underline" target="_blank" rel="noreferrer">Source filing {i + 1}</a>) : 'Source links unavailable in this dataset.'}</p>

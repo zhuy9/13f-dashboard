@@ -185,7 +185,6 @@ export interface Stock {
   sector: string
   kind: SecurityKind
   trend: StockTrendPoint[]
-  latest: StockLatest | null
 }
 
 // signals/{period}

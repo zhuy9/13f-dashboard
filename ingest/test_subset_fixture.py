@@ -15,7 +15,9 @@ def build_fixture() -> dict:
     tables = derive_all(holdings, FUNDS, CFG)
     period = tables["periods"][-1]
     cases = []
-    for funds in [FUNDS, FUNDS[:2], FUNDS[1:], FUNDS[2:]]:
+    # The whole roster proves filtering is a no-op; dropping M1 proves it recomputes. Two more
+    # subsets of the same three managers exercised the same branches at 25 KB each.
+    for funds in [FUNDS, FUNDS[1:]]:
         ciks = [f["cik"] for f in funds]
         selected = derive_all(holdings[holdings["cik"].isin(ciks)], funds, CFG)
         cases.append({"ciks": ciks, "expected": _build_signals_docs(selected, selected["periods"])[period]})

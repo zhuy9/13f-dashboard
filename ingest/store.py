@@ -190,35 +190,20 @@ def _filing_records(filings, cik: str, period: str) -> list[dict]:
     return _records(mine.drop(columns=["cik", "period"]).sort_values("accession"))
 
 
-def _build_stock_docs(tables: dict, funds: list[dict]) -> dict[str, dict]:
-    short_by_cik = {f["cik"]: f["short"] for f in funds}
-    symbols = tables["symbols"].set_index("symbol")
+def _build_stock_docs(tables: dict) -> dict[str, dict]:
+    """Identity and trend only. The holder table for every quarter, newest included, lives in
+    stock_quarters/ -- one publisher, so the two can never disagree."""
     trend = tables["stock_trend"]
-    sqs = tables["stock_quarter_summary"]
-    options = tables["options_exposure"]
-    latest_period = sqs["period"].max()
-
-    docs = {}
-    for symbol, meta in symbols.iterrows():
-        latest_row = sqs[(sqs["symbol"] == symbol) & (sqs["period"] == latest_period)]
-        latest = None
-        if len(latest_row):
-            r = latest_row.iloc[0].drop(labels=["symbol", "name"])
-            opt = options[(options["symbol"] == symbol) & (options["period"] == latest_period)]
-            calls = [{"cik": c, "short": short_by_cik.get(c, c)} for c in opt["call_holders"].iloc[0]] if len(opt) else []
-            puts = [{"cik": c, "short": short_by_cik.get(c, c)} for c in opt["put_holders"].iloc[0]] if len(opt) else []
-            latest = _clean(r.to_dict())
-            latest["options"] = {"calls": calls, "puts": puts}
-
-        docs[symbol] = {
+    return {
+        symbol: {
             "symbol": symbol,
             "name": meta["name"],
             "sector": meta["sector"],
             "kind": meta["kind"],
             "trend": _records(trend[trend["symbol"] == symbol].drop(columns=["symbol"])),
-            "latest": latest,
         }
-    return docs
+        for symbol, meta in tables["symbols"].set_index("symbol").iterrows()
+    }
 
 
 def _build_stock_quarter_docs(tables: dict, funds: list[dict]) -> dict[str, dict]:
@@ -306,7 +291,7 @@ def write_firestore(db, tables: dict, funds: list[dict], periods: list[str]) -> 
         "manager_quarters": _build_manager_quarter_docs(tables, funds),
         # quote() so a ticker with a "/" (SPAC units/warrants: "ABC/U", "ABC/WS") can't
         # split into extra Firestore path segments. Ordinary tickers are untouched.
-        "stocks": {quote(symbol, safe=""): doc for symbol, doc in _build_stock_docs(tables, funds).items()},
+        "stocks": {quote(symbol, safe=""): doc for symbol, doc in _build_stock_docs(tables).items()},
         "signals": _build_signals_docs(tables, periods),
         "stock_quarters": {quote(key, safe=""): doc for key, doc in _build_stock_quarter_docs(tables, funds).items()},
     }

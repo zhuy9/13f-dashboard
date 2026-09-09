@@ -1,9 +1,8 @@
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
+import { usePeriodSearch } from '@/hooks/useSearchParam'
 
 export function StockLink({ symbol, className }: { symbol: string; className?: string }) {
-  const [params] = useSearchParams()
-  const period = params.get('period')
-  const search = period ? `?${new URLSearchParams({ period })}` : ''
+  const search = usePeriodSearch()
   return (
     <Link to={`/stock/${encodeURIComponent(symbol)}${search}`} className={className ?? 'font-tabular text-call hover:underline'}>
       {symbol}

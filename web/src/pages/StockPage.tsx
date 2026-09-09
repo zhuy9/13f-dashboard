@@ -44,7 +44,7 @@ export function StockPage() {
     return message ? <ErrorState message={message} /> : <EmptyState message="Stock not found." />
   }
 
-  const latest = quarterState.data ?? (stock?.latest?.period === period ? stock.latest : null)
+  const latest = quarterState.data
   const name = stock?.name ?? issuer?.issuerName ?? symbol
   const sector = stock?.sector ?? issuer?.sector ?? 'Unknown'
   const unresolved = !stock && isUnresolvedSymbol(symbol)

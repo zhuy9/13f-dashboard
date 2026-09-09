@@ -8,6 +8,7 @@ import { useMeta } from '@/context/MetaContext'
 import { quarterLabel } from '@/format'
 import { useActiveSection } from '@/hooks/useActiveSection'
 import { useAsyncData } from '@/hooks/useAsyncData'
+import { useSetSearchParam } from '@/hooks/useSearchParam'
 import { getSubsetSignals } from '@/subsetData'
 import { buildSections } from './patterns/sections'
 import { Notable } from './patterns/Notable'
@@ -15,7 +16,8 @@ import { UniverseFilter } from './patterns/UniverseFilter'
 
 export function PatternsPage() {
   const { meta, loading: metaLoading, error: metaError } = useMeta()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
+  const setParam = useSetSearchParam()
   const urlPeriod = searchParams.get('period')
   const period = urlPeriod ?? meta?.latestPeriod ?? null
   const universe = searchParams.get('managers')
@@ -24,10 +26,8 @@ export function PatternsPage() {
   const minimum = minimumParam == null ? undefined : Number(minimumParam)
 
   useEffect(() => {
-    if (meta && !urlPeriod) {
-      setSearchParams(prev => { const next = new URLSearchParams(prev); next.set('period', meta.latestPeriod); return next }, { replace: true })
-    }
-  }, [meta, urlPeriod, setSearchParams])
+    if (meta && !urlPeriod) setParam('period', meta.latestPeriod, true)
+  }, [meta, urlPeriod, setParam])
 
   const signalsState = useAsyncData(() => (period ? getSubsetSignals(period, universe == null ? null : selected, minimum) : Promise.resolve(null)), [period, universe, minimum])
 
@@ -43,7 +43,8 @@ export function PatternsPage() {
   )
   const fullCoverage = meta?.coverage?.find((c) => c.period === period)
   const coverage = fullCoverage && { period, filed: fullCoverage.filed.filter(c => selected.includes(c)), missing: fullCoverage.missing.filter(c => selected.includes(c)) }
-  const threshold = (minimum != null && Number.isFinite(minimum) ? minimum : undefined) ?? signalsState.data?.config?.consensusMinManagers ?? 3
+  // A junk ?min= still reaches getSubsetSignals, which reports it; the label must stay a number.
+  const threshold = minimum != null && Number.isFinite(minimum) ? minimum : signalsState.data?.config?.consensusMinManagers ?? 3
   const sectionIds = useMemo(() => sections.map((s) => s.id), [sections])
   const activeId = useActiveSection(sectionIds)
 
@@ -56,7 +57,7 @@ export function PatternsPage() {
       <div className="sticky top-14 z-10 -mx-4 flex flex-col gap-3 border-b border-line bg-paper px-4 py-3">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-2xl font-semibold">Patterns</h1>
-          <Select value={period ?? undefined} onValueChange={(value) => setSearchParams(prev => { const next = new URLSearchParams(prev); next.set('period', value); return next })}>
+          <Select value={period ?? undefined} onValueChange={(value) => setParam('period', value)}>
             <SelectTrigger>
               <SelectValue placeholder="Period" />
             </SelectTrigger>

@@ -7,7 +7,7 @@ reference for definitions and limits.
 - How it was built, and what is still outstanding: [PLAN.md](PLAN.md).
 - Diagrams of the system and the pipeline: [ARCHITECTURE.md](ARCHITECTURE.md).
 
-Last reviewed: 2026-09-08. Methodology version: **2** (`methodology_version` in
+Last reviewed: 2026-09-09. Methodology version: **2** (`methodology_version` in
 `ingest/signals_config.json`, published as `meta/latest.methodologyVersion` and shown in the
 site footer). Version 1 divided portfolio weights by the filing total including option rows.
 
@@ -17,6 +17,7 @@ site footer). Version 1 divided portfolio weights by the filing total including 
 |---|---|---|---|
 | Holdings | 13F-HR | Quarterly | Up to 45 days after quarter end |
 | Ownership stakes | Schedule 13D / 13G and their amendments | Event-driven | 2 to 5 business days for 13D; 13G varies by filer category |
+| Insider transactions | Form 4 / 4-A | Event-driven | 2 business days |
 
 Both come from SEC EDGAR. Nothing here is real time. A 13F tells you what a manager held on
 the last day of a quarter, not what it holds today, and not when during the quarter it traded.
@@ -29,6 +30,12 @@ manager changes every count and average on the site.
 
 13D filings are collected from every filer on EDGAR. 13G filings are collected only from the
 tracked roster, because the universe-wide 13G stream is dominated by index funds.
+
+Insider transactions are collected only for issuers held by at least one tracked manager at the
+most recent 13F quarter. Universe-wide Form 4 is not fetchable on this budget (roughly 500
+filings a day, against 30-50 for the whole 13D/13G family combined). This universe **moves** each
+quarter: a stock every manager sold drops out of new fetching, but transactions already on file
+for it are kept and still shown.
 
 ## Custom manager/style subsets
 
@@ -160,6 +167,47 @@ Headline counts are computed in the pipeline over every event on file, not in th
 the visible feed, and each one carries the window and scope it was counted over. The feed below
 them is still the newest 300 events; the counts are not limited to it.
 
+## Insider transactions (Form 4)
+
+Every transaction line on a Form 4 or 4/A carries an SEC transaction code. The code, not
+edgartools' own "Transaction Type" label (which mislabels code `A` as a purchase), decides how a
+line is classified:
+
+| Code | Shown as | Notes |
+|---|---|---|
+| `P` | Bought | The only real open-market purchase. |
+| `S` | Sold | Split into Planned and Discretionary below. |
+| `A` | Awarded | A grant. **Never a purchase** — the insider paid nothing for it. |
+| `M`, `X` | Exercised | An option exercise. **Never a purchase.** |
+| `F` | Tax Withholding | Shares withheld to pay tax on a vesting event. **Never a sale.** |
+| `G` | Gift | **Never a sale.** |
+| `C` | Conversion | Converting one security into another. |
+| `D` | Disposed to Issuer | An open-market-style disposition back to the issuer. |
+| Anything else | Other | `J K L U V W Z I E H O` — none of these have their own meaning here. |
+
+**A sale splits three ways, and the three are never summed into one "insider selling" number:**
+- **Planned** — the filing's Rule 10b5-1 checkbox is checked. The trade was scheduled in advance,
+  often months earlier, and says little about the insider's view today.
+- **Discretionary** — the checkbox is explicitly unchecked.
+- **Not stated** — the filing predates or omits the checkbox. This is not the same as
+  discretionary; it means the filing simply does not say.
+
+**First buy in window** flags an owner's first open-market purchase of an issuer within the
+lookback period. It reads `null`, not `false`, when the data on file does not reach back far
+enough to know for certain — the same rule as a `null` position status in the 13F table: absence
+of evidence is not evidence.
+
+**Cluster buying**: three or more distinct insiders buying the same stock within the same
+window. A single insider buying is noise more often than not; this is the one insider signal
+with real published support, which is why it is called out separately.
+
+**Insiders buying a tracked name**: symbols with recent open-market buying that are also held by
+at least one tracked 13F manager — a statement neither pipeline can make alone.
+
+The 13F holder count shown beside an insider trade works exactly like the one beside an
+ownership event: from the most recent 13F quarter, always older than the transaction next to it,
+and a dash means the 13F pipeline has not run yet.
+
 ## Dollar values
 
 Values are dollars for filings from 2023 onward. Older filings reported thousands, and a few
@@ -179,6 +227,9 @@ other is current.
 - Conviction Score is relative within a quarter only.
 - The ownership event feed shows the newest 300 events. Headline counts cover every event, but
   paging back through older ones is not built yet (Milestone 16B).
+- Form 4 covers only Section 16 insiders (officers, directors, 10% owners) of issuers currently
+  in the insider universe, not every employee and not every issuer. It is not a complete picture
+  of who at a company is trading, and a stock that no tracked manager holds is never fetched.
 - Sectors come from SEC SIC codes, not GICS. SIC 7389 ("Services-Business Services, NEC") is a
   catch-all mapped to Financials because the payment networks dominate it among S&P 500 names;
   that is wrong for other issuers in the same code, such as Uber, Alibaba, Etsy and Trip.com.

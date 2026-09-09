@@ -15,11 +15,12 @@ flowchart TB
     subgraph GHA["GitHub Actions (free compute, runs the code)"]
         ING["Ingest workflow\nruns monthly, or by hand"]
         OWN["Ownership workflow\nruns daily, or by hand"]
+        INS["Insider workflow\nruns daily, or by hand"]
         DEP["Deploy workflow\nruns on every push to main"]
     end
 
     subgraph EXT["Outside data sources"]
-        EDGAR["SEC EDGAR\n13F + 13D/13G filings"]
+        EDGAR["SEC EDGAR\n13F + 13D/13G + Form 4 filings"]
         FIGI["OpenFIGI\nCUSIP to ticker"]
     end
 
@@ -42,6 +43,10 @@ flowchart TB
     OWN -->|writes events| FS
     OWN -->|writes archive| GCS
 
+    INS -->|"downloads new Form 4 filings\n(issuers a tracked manager holds)"| EDGAR
+    INS -->|writes trades| FS
+    INS -->|writes archive| GCS
+
     DEP -->|builds web/ and publishes it| HOST
 
     VISITOR -->|opens the site| HOST
@@ -51,7 +56,7 @@ flowchart TB
 **In plain words:**
 
 - **GitHub Actions** is the only compute. Nothing runs on a server around the
-  clock. Three jobs live there: two fetch and process data, the third
+  clock. Four jobs live there: three fetch and process data, the fourth
   builds and publishes the website.
 - The **ingest job** runs once a month (or whenever someone triggers it by
   hand). It talks to SEC EDGAR and OpenFIGI, then writes its results to
@@ -59,6 +64,11 @@ flowchart TB
 - The **ownership job** runs once a day. It checks SEC EDGAR for new
   Schedule 13D/13G filings and writes the events it finds to Firestore and
   Cloud Storage, the same way the ingest job does.
+- The **insider job** runs once a day, on its own schedule so it never
+  contends with the ownership job. It checks SEC EDGAR for new Form 4
+  filings, but only for issuers a tracked manager currently holds — Form 4
+  volume (~500 filings a day, universe-wide) is too large to fetch in full
+  on this budget.
 - The **deploy job** runs every time code is pushed to `main`. It builds the
   website and publishes it to Firebase Hosting.
 - **Firestore** holds small, pre-computed documents — one per page, roughly.
@@ -143,14 +153,45 @@ flowchart LR
     E -->|"1 read per page"| G["Website\nOwnership page, stock page,\nmanager/investor page"]
 ```
 
-The website never mixes the two pipelines' data at read time — a stock page
-does two separate one-document reads, one for its 13F holders and one for
-its 13D/13G shareholders, and renders whichever ones exist.
+The insider pipeline (`ingest/insider*.py`) runs the same shape again, daily,
+scoped to a universe that moves with the 13F quarter instead of covering
+every filer:
 
-The two do meet once, and it happens in the pipeline, not the browser: the 13F
-run writes `meta/holder_counts` (how many tracked managers hold each stock),
-and the daily ownership run reads that one document, so every event can say
-what it landed on top of — "a 13D on a stock 5 tracked managers already own".
+```mermaid
+flowchart LR
+    A["SEC EDGAR\nForm 4/4-A filing (structured XML)\none per insider transaction report"]
+
+    H2[("Firestore\nmeta/holder_counts\nwritten by the 13F pipeline")] -->|"read once per run,\nscopes which issuers get fetched"| B
+
+    A -->|"insider_fetch.py\ndownload + parse"| B["New transaction rows\none per (transaction line, reporting owner)"]
+
+    B -->|"merge with GCS state\n(every transaction ever seen)"| C["Full transaction history"]
+
+    C -->|"insider_derive.py\npure math, no network calls"| D["Trades: kind, role, priority,\nclusters, vs-13F overlap"]
+
+    D -->|"insider_store.py"| E[("Firestore\nfeed, per-issuer, per-person docs")]
+    D -->|"insider_store.py"| F[("Cloud Storage\narchive")]
+
+    E -->|"1 read per page"| G["Website\nInsiders page, stock page,\ninsider person page"]
+```
+
+Unlike the ownership pipeline, the join with `meta/holder_counts` happens
+**before** the fetch, not after: it decides which issuers' Form 4 filings get
+downloaded at all, since fetching every issuer's insider filings is not
+fetchable on this budget. If that document is missing, the insider pipeline
+stops with an error rather than guessing at a universe-wide fetch.
+
+The website never mixes the three pipelines' data at read time — a stock page
+does up to three separate one-document reads (13F holders, 13D/13G
+shareholders, Form 4 insiders) and renders whichever ones exist.
+
+All three meet at one join, and it happens in the pipeline, not the browser:
+the 13F run writes `meta/holder_counts` (how many tracked managers hold each
+stock). The daily ownership run reads it once per run so every event can say
+what it landed on top of — "a 13D on a stock 5 tracked managers already
+own". The daily insider run reads the same document once per run too, but
+uses it twice: first to decide which issuers' Form 4 filings to fetch at
+all, then to stamp that same `holders13f` count onto every trade.
 
 ## Publication and recovery
 

@@ -9,6 +9,7 @@ Questions it answers:
 - **Which stocks did several managers buy in the same quarter?** The [Patterns](https://13f.darren-zhu.com/patterns) page ranks them, and every row names the managers behind it.
 - **Who owns NVIDIA, and did they add or trim?** Any [stock page](https://13f.darren-zhu.com/stock/NVDA) lists its holders with each one's weight and share change.
 - **Has an activist just taken a stake in a company?** The [Ownership](https://13f.darren-zhu.com/ownership) page tracks Schedule 13D and 13G filings as they land.
+- **Are officers or directors buying their own stock?** The [Insiders](https://13f.darren-zhu.com/insiders) page tracks Form 4 transactions for issuers a tracked manager holds.
 
 [![A stock page](docs/screenshots/stock.png)](https://13f.darren-zhu.com/stock/NVDA)
 
@@ -137,6 +138,10 @@ Each new filing becomes one of these events:
 
 Each event also shows how many tracked managers already held the stock. That number comes from the last 13F quarter, so it is always older than the filing next to it. Zero means none of them held it. A dash means the 13F side has not run yet.
 
+## Insider transactions (Form 4)
+
+The [Insiders](https://13f.darren-zhu.com/insiders) page tracks Form 4 filings — the SEC form officers, directors, and 10%+ owners file when they buy or sell their own company's stock. It only covers issuers a tracked manager holds, since the SEC gets around 500 of these a day and fetching every one of them for every public company is not something this site's budget covers. Every transaction is classified by its SEC code, never by edgartools' own label: a stock award or option exercise is never shown as a purchase, and tax withholding or a gift is never shown as a sale. Sales split into Planned (a pre-scheduled Rule 10b5-1 trade) and Discretionary, with "not stated" kept as its own honest answer when a filing does not say. See [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for the full code table.
+
 ## The signals
 
 The site computes these signals once per quarter.
@@ -171,6 +176,12 @@ GitHub Actions (once a day, or by hand)
        ├─ derive  : new / increased / decreased / exited / switched / updated events
        └─ store   : Google Cloud Storage (archive) + Firestore (documents the site reads)
 
+GitHub Actions (once a day, or by hand)
+  └─ ingest/insider.py (Python)
+       ├─ fetch   : SEC EDGAR → new Form 4/4-A filings, issuers a tracked manager holds
+       ├─ derive  : buy / sell / award / exercise / tax / gift / conversion, priority, clusters
+       └─ store   : Google Cloud Storage (archive) + Firestore (documents the site reads)
+
 GitHub Actions (on every push to main)
   └─ build the site → Firebase Hosting → your domain
 ```
@@ -180,6 +191,8 @@ A script runs once a month. It downloads the latest filings and computes every s
 Each page reads a small number of whole documents — never a query, never an aggregation. `meta/latest` on every page, plus one document for the page's own data: two reads for Patterns and Ownership, three for a stock, four for a manager (the manager, its quarter, and its 13D/13G filings). The search box loads its symbol list once, the first time you focus it.
 
 A second script runs once a day. It checks for new 13D and 13G filings and turns each one into an event. You can see them on the Ownership page. They also show up on a stock's own page. Every investor gets their own page too — a tracked manager's page, or `/investor/:cik` for everyone else.
+
+A third script also runs once a day. It checks for new Form 4 filings on issuers a tracked manager holds and classifies each transaction line. You can see them on the Insiders page, on a stock's own page, and every insider gets their own page at `/insider/:cik`.
 
 Each ingest run also saves a small file, `data/last_ingest.json`, into the repo. It shows when the data was last updated. It also keeps the schedule alive. GitHub turns off schedules in repos with no activity for 60 days.
 

@@ -1092,7 +1092,7 @@ Ownership publishes issuer/investor documents, then the feed, then advances its 
 - [x] Readers resolve all 13F documents and ownership holder counts through the published dataset.
 
 ### Milestone 14 — Historical stock views and CSV export  (M5)
-Status: in progress
+Status: done d1d99e3
 
 Stock, manager, and pattern links preserve `period`. Stock history uses one document per
 stock-quarter; the existing `latest` field is only a fallback when its period matches exactly.
@@ -1101,11 +1101,11 @@ CSV exports cover all rows of each displayed research table (ranked tables keep 
 top-N scope), with period, source accessions, tracked coverage, and methodology version on every row.
 Nested details are JSON cells; spreadsheet formula prefixes are escaped. No export dependency.
 
-- [ ] Quarter selector on stock pages, quarter in the URL, restored on reload.
-- [ ] Missing quarter → explicit unavailable state, never current-quarter substitution.
-- [ ] The 13D/13G section stays separately dated.
-- [ ] CSV export of visible research tables, carrying period, accessions, coverage scope, methodology version.
-- [ ] Export scope stated; all matching rows by default; correct quoting and formula-prefix escaping.
+- [x] Quarter selector on stock pages, quarter in the URL, restored on reload.
+- [x] Missing quarter → explicit unavailable state, never current-quarter substitution.
+- [x] The 13D/13G section stays separately dated.
+- [x] CSV export of visible research tables, carrying period, accessions, coverage scope, methodology version.
+- [x] Export scope stated; all matching rows by default; correct quoting and formula-prefix escaping.
 
 ### Milestone 15 — Watchlists and change digest  (M6)
 Status: not started

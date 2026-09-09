@@ -1578,7 +1578,56 @@ milestones' ingest runs, and deleting it there to exercise this path live would 
 data the site currently serves from, for no benefit over the two checks above.
 
 #### Milestone 17.5 — Workflow, backfill, measured volume
-Status: not started
+Status: done f5c3a9c
+
+**Implementation note (deviation from spec):** task 2 says the backfill runs "via
+`workflow_dispatch`"; it was run locally instead, in the same one-month windows, after checking
+with the user given the scale this milestone discovered (below) — a full year across 1,565 issuers
+writing real production data was worth a deliberate go-ahead rather than an autonomous
+`workflow_dispatch` chain. Same code path either way: `insider.py --since <window-start> --until
+<window-end>`, no `--dry-run`.
+
+**Two real bugs found only by running for real** (fixtures alone would never have caught either):
+1. A handful of real filers' `transactionDate` values carry a trailing UTC offset ("-05:00") on
+   what is otherwise always a bare calendar date. Fixed in `insider_derive.trades()` (Milestone
+   17.4's commit) by keeping only the `YYYY-MM-DD` prefix before parsing.
+2. When a fetch window's `until` touches today, `edgartools` prints a Unicode warning ("For
+   today's filings: get_current_filings()") that crashes on the legacy Windows console's cp1252
+   encoding -- hit only by the real daily-cron code path (`insider.py` with no `--since`/`--until`,
+   which defaults `until` to today), never by a `--since`/`--until` backfill window. Fixed with a
+   `sys.stdout.reconfigure(errors="replace")` guarded to `sys.platform == "win32"`; a no-op on the
+   Linux runner `insider.yml` actually runs on.
+
+**Measured numbers:**
+- Universe at `universe_min_holders: 1`: **1,565 issuer CIKs** (of 1,633 symbols in
+  `meta/holder_counts`) -- well above the plan's "~600" estimate, because `universe_min_holders: 1`
+  includes every symbol any of the 11 tracked managers has ever held, not just consensus names.
+- Single-day Firestore write volume, measured directly (not estimated from a multi-day window,
+  which double-counts symbols/owners touched more than once): **305-610 writes/day** across three
+  sample days (2026-09-02, -04, -08). Comfortably under the 2,000/day gate -- **no cut to
+  `max_trades_per_doc` or the universe was needed.**
+- Full backfill, `2025-09-01` .. `2026-09-09`, 13 monthly windows: **242,029 transaction rows,
+  79,157 distinct filings, 1,548 issuers, 20,765 people** on file at the end.
+  `parquet/insider_transactions.parquet` exists in GCS (16.6 MB) and `read_state` loads it; 79,335
+  objects under `raw_insider/`.
+- Per-window write counts (one-time backfill cost, not the daily steady state):
+  4,366 / 4,184 / 4,589 / 5,421 / 5,743 / 7,939 / 8,285 / 5,383 / 8,431 / 6,919 / 4,789 / 5,243 /
+  2,014 documents for Sep 2025 through the final Sep 1-9 2026 window, respectively.
+- Per-window wall-clock time ranged from ~15 minutes (quieter months) to ~110 minutes (Feb, Mar,
+  May, Jun 2026) -- driven by `Form4.parse_xml`'s own per-reporting-owner network call (see
+  Milestone 17.2's notes), not by anything in this pipeline's own code. `insider.yml`'s
+  `timeout-minutes: 120` covers every month observed, with the busiest month close to it -- worth
+  watching if a future busier month runs long via `workflow_dispatch`.
+- Transient failures during the backfill: a few dozen filings per busier month hit "the read
+  operation timed out"; two runs hit a transient SEC `503` on `ticker.txt` before any filing was
+  fetched. Neither needed a code change -- `insider.py`'s already-in-state accession dedup meant
+  simply re-running the same window only re-fetched what had failed (confirmed: re-running a window
+  after a partial failure fetched exactly the missing accessions and nothing already on file).
+- **One real daily-cron-style run** (`python insider.py`, no `--since`/`--until`, run after the
+  full backfill): window auto-derived from state as `2026-09-05 .. 2026-09-09`; EDGAR's own index
+  had data only through `2026-09-08` (today's filings are not yet indexed -- the built-in
+  `refetch_overlap_days: 3` window is what lets a later day's run pick them up); 0 new transaction
+  rows (everything already on file), 1 Firestore document written (the feed, refreshed). Green.
 
 Tasks
 1. `.github/workflows/insider.yml`, copied from `ownership.yml`: daily cron (offset from the
@@ -1591,13 +1640,13 @@ Tasks
    and for one backfill window.
 
 Acceptance criteria
-- [ ] `insider.yml` exists, its cron differs from `ownership.yml`'s, and `permissions` is
+- [x] `insider.yml` exists, its cron differs from `ownership.yml`'s, and `permissions` is
       `contents: read`.
-- [ ] One real daily run is green and its measured numbers are written into this file.
-- [ ] Measured daily Firestore writes are < 2,000 (against the 20K/day free tier shared with the
+- [x] One real daily run is green and its measured numbers are written into this file.
+- [x] Measured daily Firestore writes are < 2,000 (against the 20K/day free tier shared with the
       other two pipelines); if not, `max_trades_per_doc` or the universe is cut before the cron is
       left enabled.
-- [ ] Backfill from `start_date` complete; `parquet/insider_transactions.parquet` exists in GCS and
+- [x] Backfill from `start_date` complete; `parquet/insider_transactions.parquet` exists in GCS and
       `read_state` loads it.
 
 #### Milestone 17.6 — Web: types, reads, `/insiders`

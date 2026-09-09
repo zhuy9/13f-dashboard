@@ -31,7 +31,7 @@ interface Section {
 
 // Every average needs to name the population it averages over, or the number is unreadable.
 // "Avg Weight 3%" means nothing until you know whether the denominator is holders, buyers, or
-// all 33 tracked managers -- and on this page the three tables genuinely differ.
+// all 34 tracked managers -- and on this page the three tables genuinely differ.
 
 function buildSections(data: Signals, labelByCik: Map<string, string>): Section[] {
   return [

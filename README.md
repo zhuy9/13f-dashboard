@@ -1,6 +1,6 @@
 # Consensus Sheet
 
-**[13f.darren-zhu.com](https://13f.darren-zhu.com)** — what 33 well-known investment managers own, and what they changed last quarter, from their SEC filings.
+**[13f.darren-zhu.com](https://13f.darren-zhu.com)** — what 34 well-known investment managers own, and what they changed last quarter, from their SEC filings.
 
 [![The Patterns page](docs/screenshots/patterns.png)](https://13f.darren-zhu.com/patterns)
 
@@ -31,7 +31,7 @@ This site shows what big investors own. The data comes from SEC Form 13F filings
 
 ## Coverage and limits
 
-- **33 managers**, listed below, chosen by hand for being well known and running concentrated books. Adding or removing one changes every count and average on the site. "Consensus" always means consensus among this list, not the market.
+- **34 managers**, listed below, chosen by hand for being well known and running concentrated books. Adding or removing one changes every count and average on the site. "Consensus" always means consensus among this list, not the market.
 - **12 quarters** of history. Older filings reported values in thousands rather than dollars, which would need separate handling.
 - **13F holdings** update monthly, on the 16th; a quarter's filings are not due until 45 days after it ends. **13D/13G ownership** updates daily, from 2024-12-18 onward, when the SEC's structured format became mandatory.
 - **Long US-listed equity positions only.** No shorts, cash, bonds, foreign listings, or private holdings. For an endowment, most of the real portfolio is invisible here.
@@ -81,6 +81,7 @@ A 13F is a report. Large US investment managers must file it with the SEC every 
 | Altimeter Capital | Brad Gerstner | Tech / Growth |
 | Whale Rock Capital | Alex Sacerdote | Tech / Growth |
 | D1 Capital Partners | Dan Sundheim | Tech / Growth |
+| Situational Awareness | Leopold Aschenbrenner | Tech / Growth |
 | Paulson & Co | John Paulson | Event Driven |
 | Farallon Capital | — | Event Driven |
 | Davidson Kempner | — | Event Driven |
@@ -261,7 +262,7 @@ There is no sample-data preview: the app reads Firestore directly, so seeing it 
 Edit `ingest/signals_config.json`. Then run the ingest workflow.
 
 - `quarters` — how many quarters to load. Default 12 (three years). Do not go past 12: filings for quarters before 2023 report dollar values in thousands, so they would read 1000 times too small.
-- `consensus_min_managers` — how many managers make a "consensus". Default 3. With 33 managers tracked, 2 matched most of the market and the tables stopped meaning anything.
+- `consensus_min_managers` — how many managers make a "consensus". Default 3. With 34 managers tracked, 2 matched most of the market and the tables stopped meaning anything.
 - `high_conviction_min_weight` — the share of reported equity holdings that counts as high conviction. Default 0.03 (3%).
 - `high_conviction_min_managers` — how many managers make a high-conviction overlap. Default 3.
 - `sector_move_threshold` — the sector weight change that counts as a move. Default 0.005 (0.5 points).

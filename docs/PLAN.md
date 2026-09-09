@@ -1052,7 +1052,7 @@ Acceptance criteria
 - [x] A load failure shows an error, never "no holdings".
 
 ### Milestone 13 — README, user guide, first-run experience  (M4)
-Status: done (one criterion partially verified; see below)
+Status: done (375 px browser verification completed 2026-09-08)
 
 Tasks
 1. Top of README: live demo link, two screenshots, purpose in one sentence, three concrete questions the site answers.
@@ -1068,7 +1068,7 @@ Acceptance criteria
 - [x] Self-hosting separates web preview, ingest, ownership backfill, and deploy.
 - [x] The "one read per page" claim is corrected to match what the frontend actually does.
 - [x] First Patterns viewport explains the product and routes into notable changes and full tables.
-- [~] New entry view works at 375 px and is keyboard accessible. **Partially verified.** Keyboard access holds by construction: the disclosures are native `<details>`/`<summary>` and the cards are `<a>`, all focusable and operable without JavaScript. At a true 375 px (the deployed page inside a 375 px iframe) the header, nav, search and footer wrap with nothing clipped. The data-dependent parts — the cards and the tables — are **not** verified at 375 px: headless Chrome on macOS clamps its viewport to a 500 px minimum, and Firestore does not load inside a `file://` iframe, so no available tool renders the loaded page below 500 px. Needs a real device or a browser-driving tool.
+- [x] Loaded Patterns verified at 375 px with Chrome/Playwright and deterministic filing fixtures: cards and tables render, no page overflow, native disclosure opens from the keyboard. Verified 2026-09-08.
 - [x] Examples match the new denominator, dry-run behavior, and labels.
 
 ### Publication recovery — prerequisite to Milestone 14
@@ -1083,9 +1083,9 @@ snapshots are retained; garbage collection is deferred until storage volume warr
 No publication on a failed manager fetch; `--fund` is preview-only (`--dry-run`).
 Ownership publishes issuer/investor documents, then the feed, then advances its GCS checkpoint.
 
-- [ ] A failed 13F write leaves the published pointer unchanged; retry matches an uninterrupted run.
-- [ ] Ownership retry republishes affected pages after a failure and advances state only on success.
-- [ ] Readers resolve all 13F documents and ownership holder counts through the published dataset.
+- [x] A failed 13F write leaves the published pointer unchanged; retry matches an uninterrupted run.
+- [x] Ownership retry republishes affected pages after a failure and advances state only on success.
+- [x] Readers resolve all 13F documents and ownership holder counts through the published dataset.
 
 ### Milestone 14 — Historical stock views and CSV export  (M5)
 Status: not started

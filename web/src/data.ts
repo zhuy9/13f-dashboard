@@ -5,6 +5,7 @@ import { doc, getDoc } from 'firebase/firestore/lite'
 import { db } from './firebase'
 import type { Manager, ManagerQuarter, Meta, Signals, Stock, StockLatest, SymbolIndex } from './types'
 import type { OwnershipFeed, OwnershipInvestor, OwnershipIssuer } from './ownershipTypes'
+import type { InsiderFeed, InsiderIssuer, InsiderPerson } from './insiderTypes'
 
 async function fetchDoc<T>(path: string): Promise<T | null> {
   const snap = await getDoc(doc(db, path))
@@ -75,4 +76,18 @@ export function getOwnershipInvestor(cik: string): Promise<OwnershipInvestor | n
 
 export function getStockQuarter(symbol: string, period: string): Promise<StockLatest | null> {
   return fetchDatasetDoc<StockLatest>(`stock_quarters/${encodeURIComponent(symbol)}_${period}`)
+}
+
+// Rewritten in place by its own pipeline, like ownership/* above -- never through
+// fetchDatasetDoc, which would pin a stale dataset-relative snapshot for the session.
+export function getInsiderFeed(): Promise<InsiderFeed | null> {
+  return fetchDoc<InsiderFeed>('insider/feed')
+}
+
+export function getInsiderIssuer(symbol: string): Promise<InsiderIssuer | null> {
+  return fetchDoc<InsiderIssuer>(`insider_issuers/${encodeURIComponent(symbol)}`)
+}
+
+export function getInsiderPerson(cik: string): Promise<InsiderPerson | null> {
+  return fetchDoc<InsiderPerson>(`insider_people/${cik}`)
 }

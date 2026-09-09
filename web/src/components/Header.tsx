@@ -5,6 +5,7 @@ const NAV_LINKS = [
   { to: '/patterns', label: 'Patterns' },
   { to: '/managers', label: 'Managers' },
   { to: '/ownership', label: 'Ownership' },
+  { to: '/insiders', label: 'Insiders' },
   { to: '/watchlist', label: 'Watchlist' },
 ]
 

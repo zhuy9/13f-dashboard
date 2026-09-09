@@ -3,6 +3,7 @@ import { FilingLag } from '@/components/FilingLag'
 import { Footer } from '@/components/Footer'
 import { Header } from '@/components/Header'
 import { MetaProvider } from '@/context/MetaContext'
+import { InsiderPage } from '@/pages/InsiderPage'
 import { InvestorPage } from '@/pages/InvestorPage'
 import { ManagerPage } from '@/pages/ManagerPage'
 import { ManagersPage } from '@/pages/ManagersPage'
@@ -26,6 +27,7 @@ export function App() {
           <Route path="/stock/:symbol" element={<StockPage />} />
           <Route path="/ownership" element={<OwnershipPage />} />
           <Route path="/investor/:cik" element={<InvestorPage />} />
+          <Route path="/insiders" element={<InsiderPage />} />
         </Routes>
       </main>
       <Footer />

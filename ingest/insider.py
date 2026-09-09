@@ -20,6 +20,12 @@ from store import read_holder_counts
 
 HERE = Path(__file__).parent
 
+if sys.platform == "win32":
+    # edgartools prints a Unicode warning (e.g. a today's-filings notice) that crashes on the
+    # legacy Windows console's cp1252 encoding. Never hits the Linux CI runner; local-dev only.
+    sys.stdout.reconfigure(errors="replace")
+    sys.stderr.reconfigure(errors="replace")
+
 
 def _since(args_since: str | None, state: pd.DataFrame | None, cfg: dict) -> str:
     if args_since:

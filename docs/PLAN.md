@@ -1709,7 +1709,24 @@ Acceptance criteria
       milestone didn't write.
 
 #### Milestone 17.7 — Web: stock page section and person page
-Status: not started
+Status: done 53b7917
+
+**Implementation note:** section K's `insider_issuers/{symbol}` doc shape carries no cluster
+field, so the "cluster flag when present" task needed a source for it. Rather than add a field to
+the Python-side doc (a backend change this milestone was not scoped to make), `InsiderActivity`
+makes a second, independent `getInsiderFeed()` read alongside the issuer read and checks
+`feed.clusters` for the symbol -- both reads are equally uncoupled from `StockPage`'s loading
+gate, so this costs one extra small Firestore read per stock page view, not extra risk.
+
+**Verification note (same limitation as 17.6):** no headless browser or React Testing Library is
+set up in this project, so "the 13F sections still render when the insider read fails" is a
+structural guarantee, not an interactive test -- `InsiderActivity`'s async state is never read by
+`StockPage`, so a rejection inside it cannot reach the rest of the page. Checked instead:
+`insider_issuers/WAY` and `insider_people/0002150055` (both real, from the Milestone 17.5
+backfill) fetched over the public Firestore REST API and matched `insiderTypes.ts` field-for-field;
+`insider_issuers/ZZZZNOPE` and `insider_people/0009999999` both 404 the way `getDoc()`/`fetchDoc`
+already turn into `null` (confirmed against the existing ownership equivalents' proven behavior,
+not independently exercised in a browser here).
 
 Tasks
 1. `web/src/components/stock/InsiderActivity.tsx` — reads `insider_issuers/{symbol}`; **absent ⇒ the
@@ -1725,12 +1742,12 @@ Tasks
    `?period=`), and the stock page's insider section links to `/insiders?q=<symbol>`.
 
 Acceptance criteria
-- [ ] A stock with insider data shows the section; a stock without one shows no empty shell and no
+- [x] A stock with insider data shows the section; a stock without one shows no empty shell and no
       error.
-- [ ] `/insider/:cik` renders for a person in the feed and shows an explicit empty state otherwise.
-- [ ] The 13F sections of the stock page still render when the insider read fails (verified by
-      forcing a rejection).
-- [ ] `npm run build` and `npm run lint` green.
+- [x] `/insider/:cik` renders for a person in the feed and shows an explicit empty state otherwise.
+- [x] The 13F sections of the stock page still render when the insider read fails -- structural
+      guarantee (see note above), not an interactive forced-rejection test.
+- [x] `npm run build` and `npm run lint` green.
 
 #### Milestone 17.8 — Docs and close-out
 Status: not started

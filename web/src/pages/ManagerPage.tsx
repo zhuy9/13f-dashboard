@@ -78,9 +78,9 @@ export function ManagerPage() {
               Holdings as of {period && quarterLabel(period)} · filed {filedDate(mqState.data.filedAt)}
             </span>
           )}
+          <WatchButton kind="manager" id={cik} label={manager.short} />
         </div>
       </header>
-      <WatchButton kind="manager" id={cik} label={manager.short} />
 
       {mqState.loading && <LoadingState />}
       {/* An error is not an empty portfolio. Saying "no filing" when the read failed invents a

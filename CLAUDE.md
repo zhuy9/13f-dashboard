@@ -9,7 +9,7 @@ A public dashboard of SEC 13F holdings for a tracked list of hedge fund managers
 ## Stack
 
 - Ingest: Python 3.12, edgartools, pandas, firebase-admin, google-cloud-storage.
-- Web: Vite, React, TypeScript, react-router-dom, Tailwind v4, shadcn/ui (table, tabs, badge, input, select — nothing else), Recharts, Firebase JS SDK.
+- Web: Vite, React, TypeScript, react-router-dom, Tailwind v4, shadcn/ui (table, tabs, badge, input, select, button, checkbox — nothing else), Recharts, Firebase JS SDK.
 - Data: Firestore (derived documents the site reads), Google Cloud Storage (raw XML + Parquet), Firebase Hosting.
 - CI: GitHub Actions — monthly ingest cron (idempotent; catches late filers) and deploy on push to `main`.
 
@@ -69,7 +69,7 @@ This repository is PUBLIC.
 - Files under ~300 lines. Split before they grow past that. Exception: `ingest/derive.py` — "Where logic lives" above requires all signal math in one file so it stays auditable as a single unit; it runs longer (11 focused functions, one per table) instead of being fragmented across a package.
 - Python: typed functions. `derive.py` functions are pure (DataFrame in, DataFrame out). No network calls in tests.
 - TypeScript: strict mode. No `any`.
-- shadcn components are added only with `npx shadcn@latest add <name>`, and only the 5 listed. Never hand-copy component code.
+- shadcn components are added only with `npx shadcn@latest add <name>`, and only the 7 listed. Never hand-copy component code. The CLI currently resolves `cn` to an npm package of that name rather than `@/lib/utils`; fix that one import after adding and check `package.json` gained nothing.
 - No new dependency without adding it to `docs/PLAN.md` first.
 - No `console.log`, `print()` debugging, or commented-out code in commits. (`ingest.py` and `ownership.py` print their dry-run summaries on purpose; that is output, not debugging.)
 - Match the naming in `docs/PLAN.md` exactly: function names, document ids, field names.

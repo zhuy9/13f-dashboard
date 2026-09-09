@@ -1,4 +1,7 @@
+import { useEffect, useState } from 'react'
+import { Check, Download } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
 import { useMeta } from '@/context/MetaContext'
 import { csv } from '@/csv'
 
@@ -7,8 +10,18 @@ export function CsvExport({ rows, name, accessions = [], period: explicitPeriod,
 }) {
   const { meta } = useMeta()
   const [params] = useSearchParams()
+  const [done, setDone] = useState(false)
   const period = explicitPeriod ?? params.get('period') ?? meta?.latestPeriod
+
+  // A download leaves no trace in the page, so the button is the only place that can confirm it.
+  useEffect(() => {
+    if (!done) return
+    const timer = setTimeout(() => setDone(false), 2500)
+    return () => clearTimeout(timer)
+  }, [done])
+
   if (!rows.length || !meta) return null
+
   function download() {
     const text = csv(rows, { period, sourceAccessions: accessions, coverage: meta?.coverage?.filter(c => c.period === period).map(c => ({ ...c, filed: c.filed.filter(id => !universe || universe.includes(id)), missing: c.missing.filter(id => !universe || universe.includes(id)) })),
       trackedManagers: universe ?? meta?.managers.map(m => m.cik), minimumManagers: minimum, methodologyVersion: meta?.methodologyVersion })
@@ -18,6 +31,22 @@ export function CsvExport({ rows, name, accessions = [], period: explicitPeriod,
     link.download = `${name}-${period}.csv`
     link.click()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
+    setDone(true)
   }
-  return <button className="my-2 text-sm text-call underline" onClick={download}>Export all {rows.length} rows in this table (CSV)</button>
+
+  // No trailing caption: this sits above every table on Patterns, and the same sentence repeated
+  // ten times down one page is noise. The count is the scope, and the title carries the rest.
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="my-1 -ml-2.5 text-ink-muted hover:text-ink"
+      onClick={download}
+      title="Includes period, source filing accessions, tracked coverage and methodology version on every row"
+      aria-label={`Export all ${rows.length} rows of this table as CSV`}
+    >
+      {done ? <Check className="text-status-new" /> : <Download />}
+      {done ? 'Downloaded' : <>Export {rows.length.toLocaleString()} rows (CSV)</>}
+    </Button>
+  )
 }

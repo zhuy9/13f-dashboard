@@ -53,31 +53,38 @@ export function StockPage() {
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 p-4">
-      <header>
-        <h1 className="text-2xl font-semibold">
-          {unresolved ? (
-            name
-          ) : (
-            <>
-              {symbol} <span className="font-normal text-ink-muted">{name}</span>{' '}
-              <KindBadge kind={stock?.kind ?? null} />
-            </>
+      <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold">
+            {unresolved ? (
+              name
+            ) : (
+              <>
+                {symbol} <span className="font-normal text-ink-muted">{name}</span>{' '}
+                <KindBadge kind={stock?.kind ?? null} />
+              </>
+            )}
+          </h1>
+          {sector !== 'Unknown' && <p className="text-sm text-ink-muted">{sector}</p>}
+          {unresolved && (
+            <p className="mt-1 text-sm text-ink-muted">
+              No ticker matched this filing ({symbol}). The company is usually delisted or acquired.
+            </p>
           )}
-        </h1>
-        {sector !== 'Unknown' && <p className="text-sm text-ink-muted">{sector}</p>}
-        {unresolved && (
-          <p className="mt-1 text-sm text-ink-muted">
-            No ticker matched this filing ({symbol}). The company is usually delisted or acquired.
-          </p>
-        )}
-        {period && meta && (
-          <Select value={period} onValueChange={p => setParams({ period: p })}>
-            <SelectTrigger aria-label="Stock quarter"><SelectValue /></SelectTrigger>
-            <SelectContent>{meta.periods.map(p => <SelectItem key={p} value={p}>{quarterLabel(p)}</SelectItem>)}</SelectContent>
-          </Select>
-        )}
-        {period && <p className="mt-2 text-sm text-ink-muted">13F holdings as of {quarterLabel(period)}.</p>}
-        {stock && <WatchButton kind="stock" id={symbol} label={symbol} />}
+        </div>
+        {/* Controls grouped in their own column, matching the manager page: the quarter picker
+            and the watch control are the two things you act on here. */}
+        <div className="flex flex-col items-end gap-1">
+          {period && meta && (
+            <Select value={period} onValueChange={p => setParams({ period: p })}>
+              <SelectTrigger aria-label="Stock quarter"><SelectValue /></SelectTrigger>
+              <SelectContent>{meta.periods.map(p => <SelectItem key={p} value={p}>{quarterLabel(p)}</SelectItem>)}</SelectContent>
+            </Select>
+          )}
+          {/* The 13D/G section below carries its own filing dates; this says what the quarter scopes. */}
+          {period && <span className="text-xs text-ink-muted">13F holdings as of {quarterLabel(period)}</span>}
+          {stock && <WatchButton kind="stock" id={symbol} label={symbol} />}
+        </div>
       </header>
       {quarterState.error && <ErrorState message={quarterState.error} />}
       {stockState.error && <ErrorState message={stockState.error} />}

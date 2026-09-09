@@ -23,24 +23,31 @@
 
 :root {
   color-scheme: light;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  /* shadcn's primitives are written against these neutral tokens, so they are pointed at the
+     site's paper/ink palette rather than the stock greys. Without this a shadcn button or select
+     renders a cold #e5e5e5 hairline against warm #faf9f6 paper, half a step off everything the
+     site draws itself. One mapping here keeps button, input, select, table and badge in the same
+     palette as StatTile and Explain, instead of each call site patching colours back on. */
+  --background: var(--color-paper);
+  --foreground: var(--color-ink);
+  --card: var(--color-paper);
+  --card-foreground: var(--color-ink);
+  --popover: var(--color-paper);
+  --popover-foreground: var(--color-ink);
+  --primary: var(--color-ink);
+  --primary-foreground: var(--color-paper);
+  /* Warm tints of the paper, for the surfaces that sit on top of it: secondary fills and hovers. */
+  --secondary: #f1eee4;
+  --secondary-foreground: var(--color-ink);
+  --muted: #f1eee4;
+  --muted-foreground: var(--color-ink-muted);
+  --accent: #ebe7db;
+  --accent-foreground: var(--color-ink);
+  --destructive: var(--color-put);
+  --border: var(--color-line);
+  --input: var(--color-line);
+  /* Matches the global *:focus-visible outline, so a shadcn ring and a native outline agree. */
+  --ring: var(--color-call);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);

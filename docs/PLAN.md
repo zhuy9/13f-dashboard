@@ -39,7 +39,7 @@ Data changes 4×/year. So: **all derived tables are computed once at ingest in P
 | Managers | Tracked list lives in `ingest/funds.json`, all in the signal set. Cluster labels are manual. See "Adding a manager" in `CLAUDE.md` for the (code-free) process. |
 | 13D/13G | Milestone 8: a sibling event pipeline (`ingest/ownership*.py`, daily cron). All `SCHEDULE 13D`/`13D/A` on EDGAR; `SCHEDULE 13G`/`13G/A` only from roster managers (CIK or `aliases`). Structured-XML filings only (from 2024-12-18). Contract in section J. |
 | History | Last **12 quarters** per manager, then trimmed to the newest 12 periods overall so one stale filer cannot add near-empty quarters. QoQ status on quarters that have a prior quarter in the window. |
-| Frontend | Vite + React + TS + **react-router-dom** + **Tailwind v4 + shadcn/ui** (5 components) + Recharts + Firebase JS. Pages: `/patterns`, `/managers`, `/manager/:cik`, `/stock/:symbol`; Milestone 8 adds `/ownership`, `/investor/:cik`. No auth. No per-user manager selection in MVP. |
+| Frontend | Vite + React + TS + **react-router-dom** + **Tailwind v4 + shadcn/ui** (7 components) + Recharts + Firebase JS. Pages: `/patterns`, `/managers`, `/manager/:cik`, `/stock/:symbol`; Milestone 8 adds `/ownership`, `/investor/:cik`. No auth. No per-user manager selection in MVP. |
 | Agent docs | `CLAUDE.md` = agent instructions. `AGENTS.md` = symlink to it, recorded in git (real on Linux/GitHub; pointer file on Windows without the symlink privilege). `docs/PLAN.md` = this plan. |
 
 ## Architecture
@@ -99,7 +99,7 @@ Browser: one Firestore read per page (signals/{period}, manager_quarters/{cik}_{
       lib/utils.ts                  # shadcn cn()
       hooks/                        # useAsyncData, useSortableRows, useActiveSection
       context/MetaContext.tsx       # meta/latest fetched once, shared across pages
-      components/ui/*               # shadcn-generated only: table, tabs, badge, input, select
+      components/ui/*               # shadcn-generated only: table, tabs, badge, input, select, button, checkbox
       components/*                  # Header, Footer, SymbolSearch, StatusBadge, SideBadge, SectorBars,
                                      # Heatmap, StatTile, StockLink, ManagerLink, SortableTableHead, ...
       components/manager/*  components/stock/*  components/ownership/*   # page-specific sub-components
@@ -526,8 +526,9 @@ Status: done 09c2b68
   design "preset" (`nova`, `vega`, `maia`, ...; no more literal "neutral" choice, though
   `components.json`'s `baseColor` is still `"neutral"` under the hood). Ran
   `npx shadcn@latest init -t vite -b radix -p nova -y`. `init` also auto-creates a `button.tsx`
-  component; deleted it immediately since it's not one of the 5 listed and nothing in `table`,
-  `tabs`, `badge`, `input`, `select` depends on it — `src/components/ui/` holds exactly the 5.
+  component; deleted it at the time since nothing in `table`, `tabs`, `badge`, `input`, `select`
+  depends on it. Milestone 16C added it back deliberately (see below), with `checkbox` —
+  `src/components/ui/` now holds exactly those 7.
 - `meta/latest.symbols` gained a `sector` field (`{symbol, name, sector}`, was `{symbol, name}`).
   The Positions treemap needs to color 25 cells by sector, and neither `manager_quarters.positions`
   nor the old `meta.symbols` carried that — the only place sector lived was `stocks/{symbol}`,
@@ -1131,8 +1132,9 @@ latest published dataset. Storage failure leaves the watchlist usable for the cu
 ### Milestone 16 — Consensus filtering and ownership research  (M7)
 Status: 16A in progress; 16B deferred by user
 
-16A uses native manager checkboxes/style selection and a minimum-manager threshold, encoded in
-the URL. Custom subsets load the selected `manager_quarters` documents and recompute all
+16A uses manager checkboxes/style selection and a minimum-manager threshold, encoded in
+the URL (Milestone 16C restyled these controls; the URL contract is unchanged). Custom subsets
+load the selected `manager_quarters` documents and recompute all
 Patterns tables using `web/src/subsetSignals.ts`; positions/statuses remain pipeline-derived.
 Published `signals/{period}.config` supplies `consensusMinManagers`, `highConvictionMinWeight`,
 `highConvictionMinManagers`, `sectorMoveThreshold`, `topN`, and `score` constants (camelCase).
@@ -1156,6 +1158,38 @@ show an explicit unavailable message. The browser-only-rendering rule has this o
 - [ ] Purpose summaries cite accessions and supporting text.
 - [ ] Missing prior text → "comparison unavailable", never "purpose unchanged".
 - [ ] Summary failure leaves deterministic ownership data usable.
+
+### Milestone 16C — Control layer for the research surface  (M8)
+Status: in progress
+
+Milestones 14-16A added actions — watch a name, export a table, check for updates, drop a name —
+and rendered every one of them as an underlined text link, because the 5 allowed shadcn
+components contained no action primitive. Underlined text is the site's convention for
+*navigation*, so the research surface offered no visual difference between "go to this stock" and
+"write to your browser storage".
+
+`button` and `checkbox` are added as the 6th and 7th shadcn components, via
+`npx shadcn@latest add`. Neither brings a new npm dependency: `radix-ui`,
+`class-variance-authority` and `lucide-react` are already installed. (The CLI writes
+`import { cn } from "cn"` and installs an unrelated `cn` package; repoint that import at
+`@/lib/utils` and uninstall it — it does this on every add.)
+
+The shadcn neutral tokens in `index.css` (`--background`, `--foreground`, `--border`, `--input`,
+`--muted`, `--primary`, `--ring`, …) are mapped onto the site's own paper/ink palette, so every
+shadcn primitive — including the existing table, input and select — draws the warm `--color-line`
+hairline instead of a cold grey one. Semantic colour is unchanged: `--destructive` is `--color-put`
+and `--ring` is `--color-call`, matching the global `*:focus-visible` outline.
+
+- [ ] Watch, export, refresh and remove read as controls, not as links.
+- [ ] A saved watch states what clicking will do, and its accessible name states the action.
+- [ ] Export confirms in place, since a download leaves no trace in the page.
+- [ ] Watchlist items and digest entries carry kind and change-type badges.
+- [ ] Empty states are composed, not a bare sentence.
+- [ ] The research universe panel states its scope, and its style control reflects the selection
+      rather than resetting to a placeholder after every pick.
+- [ ] The 34 manager checkboxes are sorted by style and carry it as a per-row label, flowing in
+      CSS columns so uneven style sizes leave no gaps.
+- [ ] No new npm dependency; `package.json` and `package-lock.json` unchanged.
 
 ### Legacy stock latest
 
@@ -1217,11 +1251,11 @@ The live site URL lives in the GitHub repo's own "website" field (repo Settings 
 
 ### CLAUDE.md (dev agent; AGENTS.md is a symlink to it)
 1. **Project** — 2 lines. "Read `docs/PLAN.md` first. Work one milestone at a time, in order. Do not start the next milestone until every AC box is checked."
-2. **Stack** — Python 3.12 + edgartools + pandas + firebase-admin; Vite + React + TS + react-router + Tailwind v4 + shadcn/ui (5 components) + Recharts + Firebase JS; Firestore + GCS + Firebase Hosting; GitHub Actions.
+2. **Stack** — Python 3.12 + edgartools + pandas + firebase-admin; Vite + React + TS + react-router + Tailwind v4 + shadcn/ui (7 components) + Recharts + Firebase JS; Firestore + GCS + Firebase Hosting; GitHub Actions.
 3. **Commands** — ingest: venv, `pip install -r requirements.txt`, `pytest`, `python ingest.py --dry-run`; web: `npm i`, `npm run dev`, `npm run test`, `npm run build`; firebase: `npx firebase-tools deploy --only firestore:rules`. Dev machine is Windows / PowerShell.
 4. **Public repo rules** — the secrets table; never commit `.env` or key files; never print secrets; key file lives outside the repo.
 5. **Where logic lives** — all signal math in `ingest/derive.py`, thresholds in `ingest/signals_config.json`; the browser only formats and renders; the Firestore doc shapes in `docs/PLAN.md` are the contract between the two.
-6. **Conventions** — files under ~300 lines; Python: typed pure functions in `derive.py`, no network in tests; TS strict; shadcn components only via `npx shadcn add` and only the 5 listed; no new dependency without adding it to `docs/PLAN.md` first; no `console.log` / debug prints in committed code.
+6. **Conventions** — files under ~300 lines; Python: typed pure functions in `derive.py`, no network in tests; TS strict; shadcn components only via `npx shadcn add` and only the 7 listed; no new dependency without adding it to `docs/PLAN.md` first; no `console.log` / debug prints in committed code.
 7. **Git** — commit directly to `main`; conventional messages; run the milestone checks before committing; update the milestone `Status:` line in `docs/PLAN.md`.
 8. **13F gotchas** — `putCall` is the option side; options use the underlying's CUSIP; puts are "Reported Put Exposure", never "short"; values are dollars since 2023; use `13F-HR` not `13F-HR/A`; status uses shares, change uses weight; edgartools column names vary — print and map.
 9. **Stop and ask the user when** — a CIK name does not match; edgartools columns differ from the plan; any GCP permission error; a new dependency seems needed; any step needs the Firebase/GCP console; a signal definition in the plan is ambiguous.
@@ -1230,7 +1264,7 @@ The live site URL lives in the GitHub repo's own "website" field (repo Settings 
 - 13F fetching/parsing: `edgartools`. Aggregation: `pandas`. Cosine: `numpy` (comes with pandas).
 - 13D/13G listing and parsing: `edgartools` (`get_filings`, `edgar.beneficial_ownership.Schedule13D` / `Schedule13G`). XML header fields: stdlib `xml.etree`. No new dependency.
 - Firestore + GCS: `firebase-admin` (Python), `firebase` (JS). Hosting deploy: `FirebaseExtended/action-hosting-deploy`.
-- UI: shadcn/ui (table, tabs, badge, input, select). Charts: `recharts`. Heatmap: CSS grid, no library.
+- UI: shadcn/ui (table, tabs, badge, input, select, button, checkbox). Charts: `recharts`. Heatmap: CSS grid, no library.
 
 ## Verification (end to end)
 1. `pytest ingest` and `npm run test` green.
@@ -1251,7 +1285,7 @@ The live site URL lives in the GitHub repo's own "website" field (repo Settings 
 - **Auth, Cloud SQL, BigQuery** — public data; BigQuery is one command over the Parquet when SQL is wanted.
 - **More than 12 quarters** — the dollars/thousands boundary is the real limit; a 16th quarter back reaches 2022-09-30, which was filed in thousands and would need unit handling first.
 - **GICS sectors** — SIC codes from the SEC are free and close enough; GICS needs a licence.
-- **More shadcn components** — only when a listed view cannot be built with the 5.
+- **More shadcn components** — only when a listed view cannot be built with the 7.
 - **Legacy `SC 13D` / `SC 13G` text filings (pre 2024-12-18)** — need an HTML/text parser; structured XML only for now.
 - **Universe-wide 13G** — drop the roster filter in `ownership_fetch.list_filings` and add a passive-giant exclusion list (Vanguard, BlackRock, State Street, …) when wanted.
 - **Item 4 purpose classification, feed pagination** — the purpose text is shown verbatim (truncated); the feed is one doc of `recent_events` rows.

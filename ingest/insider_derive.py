@@ -60,7 +60,9 @@ def _first_buy_in_window(trades: pd.DataFrame, cfg: dict) -> pd.Series:
 
 def trades(transactions: pd.DataFrame, cfg: dict, holder_counts: Optional[dict[str, int]]) -> pd.DataFrame:
     out = transactions.copy()
-    out["transaction_date"] = pd.to_datetime(out["transaction_date"])
+    # A few real filers' transactionDate values carry a trailing UTC offset (e.g. "-05:00") on
+    # what is otherwise always a bare calendar date -- keep only the YYYY-MM-DD prefix.
+    out["transaction_date"] = pd.to_datetime(out["transaction_date"].astype(str).str[:10], format="%Y-%m-%d")
 
     out["kind"] = out["code"].map(kind)
     out["role"] = out.apply(_role, axis=1)
@@ -71,12 +73,9 @@ def trades(transactions: pd.DataFrame, cfg: dict, holder_counts: Optional[dict[s
     out["holders13f"] = out["symbol"].map(holder_counts).fillna(0).astype(int) if holder_counts is not None else None
 
     threshold = cfg["min_open_market_value"]
-    high = (
-        out["kind"].eq("BUY")
-        & out["is_open_market"]
-        & ((out["value"].fillna(0) >= threshold) | out["first_buy_in_window"].eq(True))
-    )
-    medium = out["kind"].eq("BUY") | (out["is_discretionary_sale"] & (out["value"].fillna(0) >= threshold))
+    meets_value = out["value"].fillna(0) >= threshold
+    high = out["kind"].eq("BUY") & out["is_open_market"] & (meets_value | out["first_buy_in_window"].eq(True))
+    medium = out["kind"].eq("BUY") | (out["is_discretionary_sale"] & meets_value)
     out["priority"] = "LOW"
     out.loc[medium, "priority"] = "MEDIUM"
     out.loc[high, "priority"] = "HIGH"
@@ -176,14 +175,14 @@ def vs_13f(trades: pd.DataFrame, clusters: pd.DataFrame, cfg: dict) -> pd.DataFr
 
 
 def people(trades: pd.DataFrame) -> pd.DataFrame:
-    """One row per (owner, issuer): role, net open-market shares, and last trade date -- the
-    source `insider_people/{cik}` docs group by `owner_cik`."""
+    """One row per (owner, issuer): role, buy/sell counts and net shares -- projected/grouped
+    into `insider_issuers`/`insider_people` docs at the store layer."""
     rows = []
     for (owner_cik, issuer_cik), group in trades.groupby(["owner_cik", "issuer_cik"]):
         meta = group.iloc[-1]
         market = group[group["is_open_market"]]
-        bought = market[market["code"] == "P"]["shares"].sum()
-        sold = market[market["code"] == "S"]["shares"].sum()
+        buys = market[market["code"] == "P"]
+        sells = market[market["code"] == "S"]
         rows.append(
             {
                 "owner_cik": owner_cik,
@@ -192,7 +191,9 @@ def people(trades: pd.DataFrame) -> pd.DataFrame:
                 "issuer_name": meta["issuer_name"],
                 "symbol": meta["symbol"],
                 "role": meta["role"],
-                "net_shares": bought - sold,
+                "buys": len(buys),
+                "sells": len(sells),
+                "net_shares": buys["shares"].sum() - sells["shares"].sum(),
                 "last_trade_at": group["transaction_date"].max(),
             }
         )

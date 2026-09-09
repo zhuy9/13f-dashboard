@@ -1108,7 +1108,7 @@ Nested details are JSON cells; spreadsheet formula prefixes are escaped. No expo
 - [x] Export scope stated; all matching rows by default; correct quoting and formula-prefix escaping.
 
 ### Milestone 15 — Watchlists and change digest  (M6)
-Status: in progress
+Status: done 9385b40
 
 `/watchlist` stores stocks/managers and their latest report baseline in localStorage. Saving a
 name establishes its baseline; opening the watchlist on a later visit compares report snapshots.
@@ -1118,12 +1118,12 @@ new quarterly report; methodology-version changes are labeled recalculations. St
 fingerprints ignore refresh timestamps so reruns cannot duplicate entries. Reload checks the
 latest published dataset. Storage failure leaves the watchlist usable for the current session.
 
-- [ ] `localStorage` watchlists for stocks and managers, no auth, persist across reload.
-- [ ] First use sets a baseline instead of flagging all history as new.
-- [ ] Each event appears once; reruns do not duplicate.
-- [ ] Corrections and methodology recalcs are labeled apart from real position changes.
-- [ ] Entries link to the stock/manager page and the source filing.
-- [ ] Local-only persistence is explained and unavailable storage degrades gracefully.
+- [x] `localStorage` watchlists for stocks and managers, no auth, persist across reload.
+- [x] First use sets a baseline instead of flagging all history as new.
+- [x] Each event appears once; reruns do not duplicate.
+- [x] Corrections and methodology recalcs are labeled apart from real position changes.
+- [x] Entries link to the stock/manager page and the source filing.
+- [x] Local-only persistence is explained and unavailable storage degrades gracefully.
 - Outbound email/push stays out of scope; it needs a consent design first.
 
 ### Milestone 16 — Consensus filtering and ownership research  (M7)

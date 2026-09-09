@@ -1348,14 +1348,13 @@ Sub-milestones 17.1 → 17.8 are sequential. Contract: **section K**, the `insid
 Firestore table, and the `insider` lines in the GCS layout. Build one at a time; do not start the
 next until every AC box of the current one is checked.
 
-**Handoff status (2026-09-09):** 17.1-17.5 done (see each sub-milestone's `Status:` line and notes
-below for shas and measured numbers) -- config, `insider_fetch.py`/`insider_derive.py`/
-`insider_store.py`/`insider.py`, `insider.yml`, and a full real backfill (`2025-09-01 ..
-2026-09-09`, 242,029 transaction rows, 79,157 filings) already live in production Firestore/GCS.
-Daily write volume is measured and safely under budget; no config cut was needed. **Not started:
-17.6 (web types/reads/`/insiders` page), 17.7 (stock page section + person page), 17.8 (docs
-close-out)** -- the ingest side is fully built and populated, but nothing reads it in the browser
-yet. Pick up at 17.6.
+**Handoff status (2026-09-09): Milestone 17 complete.** 17.1-17.8 all done (see each
+sub-milestone's `Status:` line and notes for shas and measured numbers) -- ingest
+(`insider_fetch.py`/`insider_derive.py`/`insider_store.py`/`insider.py`, `insider.yml`, a full
+real backfill live in production Firestore/GCS) and web (`/insiders`, the stock page section, the
+`/insider/:cik` person page) both shipped. Daily write volume is measured and safely under
+budget; no config cut was needed. Full suite green throughout: 161 ingest tests, 77 web tests,
+production build and lint clean.
 
 Decisions (locked): universe = issuers held by ≥ `universe_min_holders` tracked managers at the
 latest 13F quarter, read from `meta/holder_counts`; forms `4` and `4/A` only (not 3, not 5); a
@@ -1750,7 +1749,7 @@ Acceptance criteria
 - [x] `npm run build` and `npm run lint` green.
 
 #### Milestone 17.8 — Docs and close-out
-Status: not started
+Status: done 1f0b4b1
 
 Tasks
 1. `docs/METHODOLOGY.md`: an "Insider transactions (Form 4)" section — the full code table, what a
@@ -1762,11 +1761,12 @@ Tasks
 4. Tick every AC box above and set each `Status:` line to `done <short sha>` in a `docs:` commit.
 
 Acceptance criteria
-- [ ] METHODOLOGY names every transaction code and states plainly that awards and exercises are not
+- [x] METHODOLOGY names every transaction code and states plainly that awards and exercises are not
       purchases and that withholding and gifts are not sales.
-- [ ] ARCHITECTURE shows three pipelines and the single `meta/holder_counts` join between them.
-- [ ] Every AC box in 17.1–17.8 is checked and every `Status:` line carries a sha.
-- [ ] Full suite green: `pytest` in `ingest/`, `npm run test`, `npm run build`, `npm run lint`.
+- [x] ARCHITECTURE shows three pipelines and the single `meta/holder_counts` join between them.
+- [x] Every AC box in 17.1–17.8 is checked and every `Status:` line carries a sha.
+- [x] Full suite green: `pytest` in `ingest/`, `npm run test`, `npm run build`, `npm run lint`
+      (161 ingest tests, 77 web tests, both clean, both green at commit 1f0b4b1).
 
 ## Doc specs
 

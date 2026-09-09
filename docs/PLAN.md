@@ -38,8 +38,9 @@ Data changes 4×/year. So: **all derived tables are computed once at ingest in P
 | Signals | All 13 signals computed in `ingest/derive.py`. Formulas and thresholds live in `ingest/signals_config.json`. The browser recomputes only explicit custom subsets (Milestone 16A). |
 | Managers | Tracked list lives in `ingest/funds.json`, all in the signal set. Cluster labels are manual. See "Adding a manager" in `CLAUDE.md` for the (code-free) process. |
 | 13D/13G | Milestone 8: a sibling event pipeline (`ingest/ownership*.py`, daily cron). All `SCHEDULE 13D`/`13D/A` on EDGAR; `SCHEDULE 13G`/`13G/A` only from roster managers (CIK or `aliases`). Structured-XML filings only (from 2024-12-18). Contract in section J. |
+| Form 4 | Milestone 17: a third event pipeline (`ingest/insider*.py`, daily cron). Scoped to issuers held by the tracked managers at the latest 13F quarter — universe-wide Form 4 is ~509 filings/day and not fetchable here. Contract in section K. |
 | History | Last **12 quarters** per manager, then trimmed to the newest 12 periods overall so one stale filer cannot add near-empty quarters. QoQ status on quarters that have a prior quarter in the window. |
-| Frontend | Vite + React + TS + **react-router-dom** + **Tailwind v4 + shadcn/ui** (7 components) + Recharts + Firebase JS. Pages: `/patterns`, `/managers`, `/manager/:cik`, `/stock/:symbol`; Milestone 8 adds `/ownership`, `/investor/:cik`. No auth. No per-user manager selection in MVP. |
+| Frontend | Vite + React + TS + **react-router-dom** + **Tailwind v4 + shadcn/ui** (7 components) + Recharts + Firebase JS. Pages: `/patterns`, `/managers`, `/manager/:cik`, `/stock/:symbol`; Milestone 8 adds `/ownership`, `/investor/:cik`; Milestone 17 adds `/insiders`, `/insider/:cik`. No auth. No per-user manager selection in MVP. |
 | Agent docs | `CLAUDE.md` = agent instructions. `AGENTS.md` = symlink to it, recorded in git (real on Linux/GitHub; pointer file on Windows without the symlink privilege). `docs/PLAN.md` = this plan. |
 
 ## Architecture
@@ -60,6 +61,12 @@ GitHub Actions (daily cron; Milestone 8)
        ├─ ownership_derive.py : filings ──► events (NEW / INCREASED / … per investor × issuer) ──► stakes
        └─ ownership_store.py  : GCS state (parquet/ownership_filings.parquet) + Firestore (ownership/, ownership_issuers/, ownership_investors/)
 
+GitHub Actions (daily cron + manual)            # Milestone 17
+  └─ ingest/insider.py
+       ├─ insider_fetch.py   : meta/holder_counts ──► issuer CIKs ──► Form 4/4A index ──► one row per transaction
+       ├─ insider_derive.py  : transactions ──► trades (BUY / SELL / AWARD / EXERCISE / TAX / …) ──► clusters, summaries, vs_13f
+       └─ insider_store.py   : GCS state (parquet/insider_transactions.parquet) + Firestore (insider/, insider_issuers/, insider_people/)
+
 GitHub Actions (on push to main, paths web/**) ──► npm run build ──► Firebase Hosting ──► custom domain
 
 Browser: one Firestore read per page (signals/{period}, manager_quarters/{cik}_{period}, stocks/{symbol}) + meta/latest once.
@@ -73,7 +80,7 @@ Browser: one Firestore read per page (signals/{period}, manager_quarters/{cik}_{
   docs/PLAN.md  docs/ARCHITECTURE.md
   data/last_ingest.json          # written and committed by the ingest workflow
   firebase.json  .firebaserc  firestore.rules
-  .github/workflows/ingest.yml  .github/workflows/deploy.yml  .github/workflows/ownership.yml
+  .github/workflows/ingest.yml  .github/workflows/deploy.yml  .github/workflows/ownership.yml  .github/workflows/insider.yml
   ingest/
     requirements.txt  pyproject.toml  funds.json  signals_config.json  .env.example
     ingest.py         # CLI + orchestration only (13F)
@@ -84,6 +91,10 @@ Browser: one Firestore read per page (signals/{period}, manager_quarters/{cik}_{
     derive.py         # all 13F derived tables (pure pandas, no I/O)
     store.py          # GCS + Firestore writes (13F)
     ownership.py           # CLI + orchestration (13D/13G, Milestone 8)
+    insider.py             # CLI + orchestration (Form 4, Milestone 17)
+    insider_fetch.py       # Form 4/4A listing + XML parsing, scoped by meta/holder_counts
+    insider_derive.py      # transaction codes -> trades, clusters, summaries (pure)
+    insider_store.py       # GCS state + Firestore insider docs
     ownership_fetch.py     # EDGAR index listing + structured 13D/13G parsing → one row per filing
     ownership_derive.py    # 13D/13G events, stakes, recent (pure pandas, no I/O)
     ownership_store.py     # GCS state parquet + Firestore ownership docs
@@ -249,6 +260,98 @@ prev_accession (str|null; from the XML header, display only), url (str)
 
 Config keys (`signals_config.json` → `ownership`): `start_date` (first filing date ingested), `exit_below_pct`, `min_change_pp`, `recent_events`, `purpose_max_chars`, `max_events_per_doc`, `refetch_overlap_days`.
 
+### K. Insider transactions (Form 4) — the contract for `insider_derive.py` (Milestone 17)
+
+**Why this is scoped and 13D/13G is not.** Form 4 volume is a different order of magnitude:
+**3,052 unique accessions over 6 trading days** (~509/day) against 30-50/day for the whole 13D/13G
+family. Universe-wide Form 4 is not fetchable on this budget. The insider universe is therefore
+**issuers held by at least `universe_min_holders` tracked managers at the latest 13F quarter**,
+read from `meta/holder_counts` — the same document `ownership.py` already reads, so the three
+pipelines share one join key and one notion of "a stock we cover".
+
+Consequences to honour, not work around:
+- The universe **moves** each 13F quarter. A stock every manager sold leaves it. Trades already on
+  file for that symbol are **kept and still served**; only new fetching stops. Never delete history
+  because the universe shrank.
+- If `meta/holder_counts` is absent (ingest has never run), the pipeline **stops with an error**
+  rather than falling back to universe-wide. `None` is not an empty universe — same rule as
+  `read_holder_counts` returning `None` rather than `{}`.
+
+**Base table `insider_transactions`** — one row per **transaction line**, not per filing: a Form 4
+routinely reports several. `TRANSACTION_COLUMNS`, in order:
+
+```
+accession form is_amendment filed_at transaction_date issuer_cik issuer_name symbol
+owner_cik owner_name is_director is_officer is_ten_pct_owner officer_title
+is_derivative security code shares price value acquired_disposed shares_after
+aff10b5_one footnotes url
+```
+
+`symbol` resolution, in order: the SEC's own `{cik10: ticker}` map (invert
+`enrich.sec_ticker_to_cik(identity)` — the same map that already hints OpenFIGI for the other two
+pipelines, so the three converge on one symbol space), then the ticker in the Form 4 XML, then
+`"_ISSUER" + issuer_cik`. **Form 4 carries no CUSIP**, so `ensure_securities`/OpenFIGI is not used
+here at all; `sector` comes from the existing `stocks/{symbol}` doc when one exists, else `Unknown`.
+
+**Derived `insider_trades`** — pure function; adds `kind, role, is_open_market, is_planned,
+is_discretionary_sale, first_buy_in_window, holders13f, priority`. Timeline key
+`(owner_cik, issuer_cik)`, ordered by `(transaction_date, filed_at, accession)`.
+
+**Transaction code → `kind`. Exhaustive, and the whole point of the product.** The SEC code is
+authoritative; edgartools' own `Transaction Type` label is not (it reports code `A` as
+`Derivative_Purchase`). **Key on `code`, never on that label.**
+
+| code | `kind` | Must never be presented as |
+|---|---|---|
+| `P` | `BUY` | — this is the only real open-market purchase |
+| `S` | `SELL` | a discretionary sale, unless `aff10b5_one` is false |
+| `A` | `AWARD` | a purchase — it is a grant, the insider paid nothing |
+| `M`, `X` | `EXERCISE` | a purchase |
+| `F` | `TAX` | a sale — these are shares withheld to pay withholding tax |
+| `G` | `GIFT` | a sale |
+| `C` | `CONVERSION` | a purchase |
+| `D` | `DISPOSITION_TO_ISSUER` | an open-market sale |
+| anything else (`J K L U V W Z I E H O`) | `OTHER` | anything |
+
+- `is_open_market = code in {"P", "S"}`. `is_planned = aff10b5_one is True`.
+- `is_discretionary_sale = code == "S" and aff10b5_one is not True`. Note `is not True`: the flag is
+  `None` on filings that predate or omit the checkbox, and unknown is not the same as discretionary
+  — surface it as "not stated", never as a discretionary sale.
+- `role` from the three booleans: `"Officer"` (append `officer_title` when present), `"Director"`,
+  `"10% Owner"`, joined by `", "` in that order; `"Other"` when none is set.
+- `first_buy_in_window`: `True` when `kind == BUY` and this owner has no earlier `BUY` on this
+  timeline within `first_buy_lookback_days`; **`null`** when our log does not reach that far back
+  from `start_date` — absence of evidence is not evidence, the same rule as `status = null` in A and
+  `event = null` in J.
+- `holders13f`: tracked managers holding this symbol at the last 13F quarter, from
+  `meta/holder_counts`. Identical field, meaning and null-semantics as the J event row.
+
+**Priority** (exactly this table, first match wins):
+`HIGH` if `kind == BUY` and `is_open_market` and (`value >= min_open_market_value` or
+`first_buy_in_window is True`); else `MEDIUM` if `kind == BUY`, or (`is_discretionary_sale` and
+`value >= min_open_market_value`); else `LOW`.
+
+**Derived `insider_clusters`** — per symbol, distinct `owner_cik` with a `BUY` whose
+`transaction_date` falls in the last `cluster_window_days`; kept when the count is
+`>= cluster_min_insiders`. Cluster buying is the one insider signal with real published support;
+single buys are noise more often than not, which is why it gets its own table.
+
+**Derived `insider_issuer_summary`** — per symbol: `buyers, sellers, boughtShares, soldShares,
+boughtValue, soldValue, discretionarySellers, plannedSellers, lastTradeAt`, each computed over
+open-market rows only. Planned and discretionary sales are counted separately and **never summed
+into one "insider selling" number**.
+
+**Derived `insider_vs_13f`** — the cross-pipeline table, and the reason this lives in the same
+product: symbols with at least one open-market `BUY` in `cluster_window_days` **and**
+`holders13f >= 1`, sorted by `(holders13f desc, buyers desc, boughtValue desc)`. "Insiders are
+buying something the tracked managers already own" is a statement neither pipeline can make alone.
+
+**Derived `recent`** — the newest `recent_trades` rows by `(filed_at desc, accession desc)`.
+
+Config keys (`signals_config.json` → `insider`): `start_date`, `universe_min_holders`,
+`min_open_market_value`, `cluster_min_insiders`, `cluster_window_days`, `first_buy_lookback_days`,
+`recent_trades`, `max_trades_per_doc`, `refetch_overlap_days`, `footnote_max_chars`.
+
 ## Firestore documents (what the browser reads)
 
 13F paths below (except `meta/latest` and `securities/`) are relative to
@@ -268,6 +371,9 @@ Config keys (`signals_config.json` → `ownership`): `start_date` (first filing 
 | `ownership/feed` | `updatedAt, startDate, lastFiledAt, counts{filings, investors, issuers}, headline{asOf, windowDays, windowSince, filingsInWindow, startDate, new13dSinceStart, activistEntriesSinceStart}, events[J event rows, newest first, ≤ recent_events]` | ownership page |
 | `ownership_issuers/{symbol}` | `symbol, issuerCik, issuerName, sector, holders[J stake rows with is_current], events[newest first, ≤ max_events_per_doc]` | stock page (second read; absent ⇒ section hidden) |
 | `ownership_investors/{cik}` | `cik, name, short\|null, cluster\|null, isRoster, isActivist, stakes[current], events[newest first, ≤ max_events_per_doc]` | investor page; manager page (second read) |
+| `insider/feed` | `updatedAt, startDate, lastFiledAt, universe{symbols, asOfPeriod}, counts{filings, trades, issuers, people}, headline{asOf, windowDays, windowSince, openMarketBuys, discretionarySales, clusterBuys}, trades[K rows, newest first, ≤ recent_trades], clusters[], vsThirteenF[]` | insiders page |
+| `insider_issuers/{symbol}` | `symbol, issuerCik, issuerName, sector, summary{K issuer_summary}, people[{ownerCik, ownerName, role, buys, sells, netShares, lastTradeAt}], trades[newest first, ≤ max_trades_per_doc]` | stock page (third read; absent ⇒ section hidden) |
+| `insider_people/{cik}` | `cik, name, roles[], issuers[{symbol, issuerName, role, netShares}], trades[newest first, ≤ max_trades_per_doc]` | insider person page |
 
 J event row (camelCase): `accession, form, isAmendment, amendmentNo, filedAt, eventDate, investorCik, investorName, short, isRoster, isActivist, issuerCik, issuerName, symbol, sector, shares, pct, prevPct, changePp, event, priority, purpose, url, holders13f`. `holders13f` is the one field that joins the two pipelines: `ingest.py` writes `meta/holder_counts` from C at its latest period, `ownership.py` reads that doc once per run and passes the map into `ownership_derive.events`, which stays pure. It is a count as of the last 13F quarter, always older than the filing it sits beside; `null` means the map was missing (the ownership pipeline ran before ingest ever did), which is not the same as `0`. J stake row: `investorCik, investorName, short, isRoster, isActivist, issuerCik, issuerName, symbol, sector, form, pct, shares, changePp, event, filedAt, accession, url`. `ownership_issuers` ids use `quote(symbol, safe='')` / `encodeURIComponent`, like `stocks/`. Each run rewrites `ownership/feed` and **only** the issuer/investor docs touched by that run's new filings (Firestore free tier: 20K writes/day); `--rebuild` rewrites all.
 
@@ -280,6 +386,8 @@ parquet/holdings/<period>.parquet
 parquet/<table>/<period>.parquet        # one per derived table A–H
 raw_ownership/<accession>.xml           # Milestone 8
 parquet/ownership_filings.parquet       # Milestone 8: single all-time file = the ownership pipeline's state
+raw_insider/<accession>.xml             # Milestone 17
+parquet/insider_transactions.parquet    # Milestone 17: single all-time file = the insider pipeline's state
 ```
 
 ## Secrets and public-repo safety
@@ -1233,6 +1341,293 @@ thresholds, empty universes, reload, and scoped exports. No remote ingest or dep
 ---
 
 ---
+
+## Milestone 17 — Insider transactions (Form 4)  (planned by the planning model; built by the dev model)
+
+Sub-milestones 17.1 → 17.8 are sequential. Contract: **section K**, the `insider_*` rows in the
+Firestore table, and the `insider` lines in the GCS layout. Build one at a time; do not start the
+next until every AC box of the current one is checked.
+
+Decisions (locked): universe = issuers held by ≥ `universe_min_holders` tracked managers at the
+latest 13F quarter, read from `meta/holder_counts`; forms `4` and `4/A` only (not 3, not 5); a
+separate daily `insider.yml`; GCS parquet is the state, exactly as for ownership; no new Python or
+npm dependency; no new shadcn component beyond the 7 already installed.
+
+**Verified facts — do not re-derive, do not deviate without asking** (checked live against EDGAR
+and `edgartools==5.56.0` on 2026-09-09):
+- `Form4.parse_xml(xml)` returns a **`Form4` object**, not a dict. `Form4.from_xml(xml)` is broken —
+  it does `cls(**cls.parse_xml(content))` and raises `TypeError: argument after ** must be a
+  mapping, not Form4`. **Call `parse_xml`.** (Same shape of trap as `Schedule13D` in Milestone 8.2,
+  where `parse_xml` returned a dict instead.)
+- `o.issuer` → `Issuer(cik='0000824142', name='AAON, INC.', ticker='AAON')` — zero-padded CIK, and
+  **a ticker is present**, so Form 4 needs no CUSIP lookup.
+- `o.reporting_owners` → list of `Owner` with `.cik` (zero-padded), `.name`, `.is_director`,
+  `.is_officer`, `.is_ten_pct_owner`, `.officer_title`.
+- `o.aff10b5_one` → `bool | None`, the Rule 10b5-1 cover checkbox. Live sample of 12 filings:
+  11 `False`, 1 `True`. `edgar.ownership.core.detect_10b5_1_plan(footnotes_text)` exists as a
+  footnote-text fallback — use it only when `aff10b5_one is None`, and keep the result distinguishable
+  from the filed checkbox.
+- `o.period_of_report` is **`None`** — do not use it. Transaction dates come from the rows.
+- `o.to_dataframe()` columns: `Transaction Type, Code, Description, Shares, Price, Value, Date,
+  Form, Issuer, Ticker, Insider, Position, Remaining Shares`. `Value` is `None` for a zero-price
+  row (a gift). **`Transaction Type` mislabels code `A` as `Derivative_Purchase` — key on `Code`.**
+- `edgar.get_filings(form=['4'], filing_date='YYYY-MM-DD:YYYY-MM-DD')` → `.to_pandas()` with
+  `form, company, cik (int), filing_date, accession_number`. **Live volume: 1,705 index rows / 830
+  unique accessions in one day; 6,336 rows / 3,052 accessions over 6 trading days.**
+- The index lists a filing **once per associated CIK** — the issuer's own row is present alongside
+  each reporting owner's. So filtering `df[df.cik.isin(issuer_ciks)]` **before** `drop_duplicates`
+  selects exactly our universe's filings and costs one listing request. Do it in that order.
+- Scoped volume, measured: 10 mega-cap issuers produced 22 accessions over 6 trading days (~0.37
+  per issuer per day, and 4 of the 10 filed none). A ~600-symbol universe should land near
+  100-200 filings/day; **17.5 measures it for real before the cron is enabled.**
+- Reuse as-is: `ingest.load_funds/load_config/init_firestore/step_summary/counts_line`,
+  `store.read_holder_counts`, `store._clean/_records/_commit_in_batches`,
+  `enrich.sec_ticker_to_cik`. Web: `useAsyncData`, `useSortableRows`, `SortableTableHead`,
+  `ColorBadge`, `StatTile`, `Explain`, `CsvExport`, `AsyncStates`, `format.ts`, `useSearchParam`.
+  `firestore.rules` needs no change (blanket public read).
+
+Naming, so nothing collides with the 13D/13G pipeline: Python `insider.py`, `insider_fetch.py`,
+`insider_derive.py`, `insider_store.py`; Firestore `insider/feed`, `insider_issuers/{symbol}`,
+`insider_people/{cik}`; web `insiderTypes.ts`, `insider.ts`, `pages/InsiderPage.tsx`,
+`pages/InsiderPersonPage.tsx`, `components/insider/*`; workflow `.github/workflows/insider.yml`.
+
+#### Milestone 17.1 — Contract, config, docs
+Status: not started
+
+Tasks
+1. This section, section K, the three `insider_*` Firestore rows, the two `insider` GCS lines, the
+   Decisions row, the architecture diagram branch, and the repo-layout entries — all in this file.
+2. `ingest/signals_config.json`: an `"insider"` block with exactly the 10 keys named at the end of
+   section K. Defaults: `start_date` `"2025-09-01"`, `universe_min_holders` `1`,
+   `min_open_market_value` `100000`, `cluster_min_insiders` `3`, `cluster_window_days` `90`,
+   `first_buy_lookback_days` `365`, `recent_trades` `300`, `max_trades_per_doc` `500`,
+   `refetch_overlap_days` `3`, `footnote_max_chars` `300`.
+3. `CLAUDE.md`: a "Form 4 gotchas" section — the code table from section K in one line per rule,
+   `parse_xml` not `from_xml`, key on `Code` not `Transaction Type`, the universe comes from
+   `meta/holder_counts` and a missing map is an error not an empty universe, and never sum planned
+   and discretionary sales.
+4. Commit `docs: plan milestone 17 — Form 4 insider transactions`.
+
+Acceptance criteria
+- [ ] This file contains "### K. Insider transactions (Form 4)", three `insider_*` rows in the
+      Firestore table, two `insider` lines in the GCS layout, and Milestones 17.1–17.8.
+- [ ] `python -c "import json; print(sorted(json.load(open('ingest/signals_config.json'))['insider']))"`
+      prints the 10 keys.
+- [ ] `CLAUDE.md` has a "Form 4 gotchas" section naming `P`, `S`, `A`, `M`, `F` and `aff10b5_one`.
+- [ ] `pytest` and `npm run test` still green; nothing else changed.
+
+#### Milestone 17.2 — Fetch and parse (`insider_fetch.py`)
+Status: not started
+
+Tasks
+1. `ingest/insider_fetch.py` (≤ 200 lines):
+   - `FORMS = ["4", "4/A"]`; `TRANSACTION_COLUMNS` = the section K columns, in order.
+   - `universe_ciks(holder_counts: dict[str, int] | None, ticker_to_cik: dict[str, str], cfg) -> tuple[set[int], dict[str, str]]`:
+     raise `ValueError` when `holder_counts is None`; else the issuer CIKs (as `int`, to match the
+     index column) for symbols with `n >= universe_min_holders`, plus the `{cik10: symbol}` map for
+     symbol resolution.
+   - `list_filings(issuer_ciks: set[int], since: str, until: str) -> pd.DataFrame`: one
+     `get_filings(form=FORMS, filing_date=f"{since}:{until}")`; `.to_pandas()`; **filter on
+     `cik.isin(issuer_ciks)` first, then `drop_duplicates("accession_number")`**. Columns
+     `accession, form_raw, filing_date, cik, company`.
+   - `parse_filing(xml, form_raw, accession, filed_at, company, symbol_by_cik, cfg) -> list[dict]`:
+     `Form4.parse_xml`; one output row per `to_dataframe()` row; `[]` (not `None`) when the filing
+     has no transactions; `is_amendment = form_raw.endswith("/A")`; `code` from `Code`;
+     `aff10b5_one` from the object; `footnotes` truncated to `footnote_max_chars`; `symbol` by the
+     section K resolution order; `url` via `filing_url` (reuse the ownership formula, issuer CIK).
+     A filing with several reporting owners emits its rows once **per owner**; a filing with none is
+     skipped with a warning.
+   - `fetch_rows(listed, symbol_by_cik, cfg) -> tuple[list[dict], dict[str, str], int]` — same
+     contract and per-filing `try/except` as `ownership_fetch.fetch_rows`.
+2. Fixtures `ingest/fixtures/insider_form4_buy.xml`, `insider_form4_planned_sale.xml`,
+   `insider_form4_award_and_tax.xml`: real filings trimmed to essentials (keep `issuer`,
+   `reportingOwner`, `nonDerivativeTable`/`derivativeTable`, `aff10b5One`, footnotes; drop
+   signatures and addresses; ≤ ~90 lines each). The third must contain both an `A` and an `F` row so
+   the "an award is not a purchase / withholding is not a sale" tests have real input.
+3. `ingest/test_insider_fetch.py` (**no network**): the buy fixture → one row, `code == "P"`,
+   `kind` untouched here, `shares`/`price`/`value` correct, `symbol` from the map, owner booleans;
+   the planned-sale fixture → `code == "S"` and `aff10b5_one is True`; the award/tax fixture → two
+   rows with codes `{"A", "F"}`; a fixture with `reportingOwner` removed → `[]` and a warning;
+   `universe_ciks(None, ...)` raises; `universe_ciks` honours `universe_min_holders`. State in a
+   one-line comment that `list_filings` is untested because it needs the network.
+4. `ruff format .`, `ruff check .`, `pytest`.
+
+Acceptance criteria
+- [ ] `pytest ingest/test_insider_fetch.py` green; the file contains none of `get_filings`,
+      `requests`, `http`.
+- [ ] `insider_fetch.py` ≤ 200 lines; `ruff check` clean.
+- [ ] `python -c "from insider_fetch import parse_filing"` style check: parsing the award/tax
+      fixture yields rows whose `code` values are exactly `{"A", "F"}`.
+- [ ] Manual, network, recorded in the milestone notes: `list_filings({320193, 789019}, d, d)` for
+      one recent trading day returns only accessions whose issuer is Apple or Microsoft.
+
+#### Milestone 17.3 — Derive (`insider_derive.py`)
+Status: not started
+
+Tasks
+1. `ingest/insider_derive.py` (≤ 220 lines; **pure** — DataFrame in, DataFrame/dict out; imports
+   only pandas/numpy/stdlib; no network, no Firestore):
+   - `CODE_KINDS: dict[str, str]` — the section K table, and `kind()` falls back to `OTHER`.
+   - `trades(transactions, cfg, holder_counts) -> pd.DataFrame`: adds every derived column in
+     section K, in the order listed there.
+   - `clusters(trades, cfg) -> pd.DataFrame`, `issuer_summary(trades, cfg) -> pd.DataFrame`,
+     `vs_13f(trades, clusters, cfg) -> pd.DataFrame`, `people(trades) -> pd.DataFrame`,
+     `recent(trades, n) -> pd.DataFrame`.
+   - `derive_all(transactions, cfg, holder_counts) -> dict` with keys
+     `transactions, trades, clusters, issuer_summary, vs_13f, people, recent`.
+2. `ingest/fixtures/insider_small.csv` (~24 rows, columns = `TRANSACTION_COLUMNS`) covering: an
+   open-market `P` above `min_open_market_value` → `HIGH`; a `P` below it → `MEDIUM`; an `S` with
+   `aff10b5_one` true → planned, `LOW`; an `S` with it false and a large value → `MEDIUM`
+   discretionary; an `S` with `aff10b5_one` null → **not** counted as discretionary; an `A` and an
+   `F` on the same day for one owner → `AWARD`/`TAX`, neither in any buy or sell count; a `G` gift;
+   an `M` exercise; three distinct owners buying one symbol inside `cluster_window_days` → one
+   cluster row; two owners only → no cluster row; an owner whose first `P` predates the log →
+   `first_buy_in_window is None`; a symbol with `holders13f >= 1` and a buy → one `vs_13f` row.
+3. `ingest/test_insider_derive.py`: `test_every_kind_occurs`; `test_award_is_not_a_buy` and
+   `test_withholding_is_not_a_sale` (assert the `A`/`F` rows contribute 0 to
+   `issuer_summary.boughtShares` / `soldShares`); `test_planned_and_discretionary_sales_are_counted_apart`;
+   `test_unstated_10b5_1_is_not_discretionary`; `test_priority_table`;
+   `test_cluster_needs_min_insiders`; `test_first_buy_is_null_when_log_is_too_short`;
+   `test_vs_13f_requires_a_tracked_holder`; `test_trades_does_not_mutate_input`.
+4. `ruff format .`, `ruff check .`, `pytest`.
+
+Acceptance criteria
+- [ ] `pytest ingest/test_insider_derive.py` green, ≥ 10 tests, no network.
+- [ ] `insider_derive.py` ≤ 220 lines, contains no `firestore`/`google`/`edgar` import.
+- [ ] Every code in the section K table appears as a key of `CODE_KINDS`.
+- [ ] `issuer_summary` computed over the fixture reports `boughtShares` counting only `code == "P"`
+      rows, verified by an explicit assertion against a hand-computed number in the test.
+
+#### Milestone 17.4 — Store and CLI (`insider_store.py`, `insider.py`)
+Status: not started
+
+Tasks
+1. `ingest/insider_store.py` (≤ 200 lines), mirroring `ownership_store.py`:
+   `STATE_BLOB = "parquet/insider_transactions.parquet"`, `RAW_PREFIX = "raw_insider/"`,
+   `TRADE_FIELDS`, `read_state`, `write_state`, `headline_counts`, `build_feed`,
+   `build_issuer_docs(tables, cfg, only_symbols)`, `build_people_docs(tables, cfg, only_ciks)`,
+   `write_firestore(db, feed, issuer_docs, people_docs)`. Copy two settled decisions from
+   `ownership_store.py` rather than re-deriving them: headline counts are computed over **every**
+   trade on file with the window measured from **today** (not from the newest filing), and the feed
+   is written **after** the issuer/people docs so an interrupted run leaves no feed pointing at
+   pages that were never written.
+2. `ingest/insider.py` (≤ 200 lines), mirroring `ownership.py`: `--dry-run`, `--since`, `--until`,
+   `--rebuild`; `GCS_BUCKET` required; `read_holder_counts(db)` → **error and exit 1 when `None`**;
+   `_since()` from state minus `refetch_overlap_days`; skip accessions already in state; write only
+   touched issuer/people docs unless `--rebuild`; `step_summary`. `--dry-run` must not write
+   Firestore, must not write GCS state or raw XML.
+3. `ingest/test_insider_store.py`: doc shapes match section K; `--rebuild` vs touched-only selection;
+   a `headline_counts` test with an injected `now` proving a stalled pipeline reports zero for the
+   window; and a test that `write_firestore` commits the feed last.
+4. `ruff format .`, `ruff check .`, `pytest`.
+
+Acceptance criteria
+- [ ] `pytest ingest/test_insider_store.py` green; no network, no real Firestore.
+- [ ] `python insider.py --dry-run --since <recent date>` prints a summary and writes nothing
+      (verified by checking the GCS state blob's generation is unchanged).
+- [ ] With `meta/holder_counts` absent, `python insider.py --dry-run` exits 1 with a message naming
+      the missing document — it does not fall back to a universe-wide fetch.
+- [ ] Every doc built from the fixture is < 1 MB.
+
+#### Milestone 17.5 — Workflow, backfill, measured volume
+Status: not started
+
+Tasks
+1. `.github/workflows/insider.yml`, copied from `ownership.yml`: daily cron (offset from the
+   ownership cron so the two never contend), `workflow_dispatch` with the same four inputs,
+   `permissions: contents: read`, `concurrency: insider`, `pytest` before the run.
+2. Backfill: run `insider.py --since <start_date> --until <today>` in windows of at most one month
+   via `workflow_dispatch`, so a failure costs one window rather than the whole history.
+3. Record in this milestone's notes the **measured** numbers: filings listed, filings fetched,
+   transactions parsed, failures, Firestore documents written, and wall-clock time for one daily run
+   and for one backfill window.
+
+Acceptance criteria
+- [ ] `insider.yml` exists, its cron differs from `ownership.yml`'s, and `permissions` is
+      `contents: read`.
+- [ ] One real daily run is green and its measured numbers are written into this file.
+- [ ] Measured daily Firestore writes are < 2,000 (against the 20K/day free tier shared with the
+      other two pipelines); if not, `max_trades_per_doc` or the universe is cut before the cron is
+      left enabled.
+- [ ] Backfill from `start_date` complete; `parquet/insider_transactions.parquet` exists in GCS and
+      `read_state` loads it.
+
+#### Milestone 17.6 — Web: types, reads, `/insiders`
+Status: not started
+
+Tasks
+1. `web/src/insiderTypes.ts` — `InsiderKind`, `InsiderTrade`, `InsiderCluster`, `InsiderFeed`,
+   `InsiderIssuer`, `InsiderPerson`, mirroring section K exactly. Its own file so `types.ts` and
+   `ownershipTypes.ts` both stay under 300 lines.
+2. `web/src/data.ts` — `getInsiderFeed`, `getInsiderIssuer(symbol)`, `getInsiderPerson(cik)`.
+   **These go through `fetchDoc`, not `fetchDatasetDoc`**: like the ownership docs they are rewritten
+   in place by their own pipeline and are not part of a 13F dataset snapshot, so they must not be
+   cached by the dataset cache.
+3. `web/src/insider.ts` — `filterTrades(trades, filter, query)`, `kindLabel`, `roleLabel`,
+   `KIND_COLORS` (`BUY` → `STATUS_COLORS.NEW`, `SELL` → `STATUS_COLORS.SOLD_OUT`,
+   `AWARD`/`EXERCISE`/`TAX`/`GIFT`/`CONVERSION`/`OTHER` → the neutral `#6b6759`), `personHref`.
+   Prices and values are plain dollars — reuse `format.money`, and **do not** reuse `format.pct`,
+   whose 13F fraction convention does not apply here (the same trap `ownership.ts` documents).
+4. `web/src/pages/InsiderPage.tsx` + `web/src/components/insider/TradesTable.tsx`,
+   `KindBadge.tsx`, `ClusterTable.tsx`. Follow the current design exactly: shadcn `Tabs` for the
+   filter row and `Input` for search as on `/ownership`, `StatTile` headline row with the window
+   named in the label, `SortableTableHead` + `useSortableRows`, `ColorBadge` for kind, `Badge` for
+   role, `Explain` above each table, `CsvExport` above each table, warm paper/ink palette, no new
+   shadcn component.
+5. Route `/insiders` in `App.tsx` and a `Header.tsx` nav link.
+6. `web/src/insider.test.ts`: `filterTrades` per filter; `kindLabel` never returns "Bought" for `A`
+   or `M` and never "Sold" for `F` or `G`.
+
+Acceptance criteria
+- [ ] `/insiders` renders the feed with headline tiles whose labels state their window and scope.
+- [ ] Filter and search live in the URL (`?filter=`, `?q=`) and survive a reload, as `/ownership` does.
+- [ ] An award, an exercise and a tax-withholding row are visibly distinct from a buy and a sale,
+      and a planned sale is labelled apart from a discretionary one.
+- [ ] `npm run test`, `npm run build`, `npm run lint` green; `git diff web/package.json` empty.
+- [ ] `insiderTypes.ts` and `types.ts` are each under 300 lines.
+
+#### Milestone 17.7 — Web: stock page section and person page
+Status: not started
+
+Tasks
+1. `web/src/components/stock/InsiderActivity.tsx` — reads `insider_issuers/{symbol}`; **absent ⇒ the
+   section is not rendered**, exactly like `MajorShareholders`. Shows the summary tiles, the cluster
+   flag when present, and the recent trades table. A one-line note that these dates are the
+   insider's own transaction dates, independent of the selected 13F quarter — the same clarification
+   `MajorShareholders` already carries.
+2. Wire it into `StockPage.tsx` below `MajorShareholders`, using its own `useAsyncData` so a missing
+   insider doc never blocks the 13F sections.
+3. `web/src/pages/InsiderPersonPage.tsx` at `/insider/:cik` — the person's roles, issuers and
+   trades. Link to it from every trades table via `personHref`.
+4. Cross-links both ways: the insider trades table's symbol column uses `StockLink` (so it carries
+   `?period=`), and the stock page's insider section links to `/insiders?q=<symbol>`.
+
+Acceptance criteria
+- [ ] A stock with insider data shows the section; a stock without one shows no empty shell and no
+      error.
+- [ ] `/insider/:cik` renders for a person in the feed and shows an explicit empty state otherwise.
+- [ ] The 13F sections of the stock page still render when the insider read fails (verified by
+      forcing a rejection).
+- [ ] `npm run build` and `npm run lint` green.
+
+#### Milestone 17.8 — Docs and close-out
+Status: not started
+
+Tasks
+1. `docs/METHODOLOGY.md`: an "Insider transactions (Form 4)" section — the full code table, what a
+   `BUY` is and is not, planned vs discretionary sales, the universe rule and that it moves with the
+   13F quarter, `first_buy_in_window` being null-when-unknown, and the standing limitation that
+   Form 4 covers only Section 16 insiders of the issuers we track.
+2. `README.md`: one paragraph and the `/insiders` route.
+3. `docs/ARCHITECTURE.md`: the third pipeline in both the system diagram and the data-flow section.
+4. Tick every AC box above and set each `Status:` line to `done <short sha>` in a `docs:` commit.
+
+Acceptance criteria
+- [ ] METHODOLOGY names every transaction code and states plainly that awards and exercises are not
+      purchases and that withholding and gifts are not sales.
+- [ ] ARCHITECTURE shows three pipelines and the single `meta/holder_counts` join between them.
+- [ ] Every AC box in 17.1–17.8 is checked and every `Status:` line carries a sha.
+- [ ] Full suite green: `pytest` in `ingest/`, `npm run test`, `npm run build`, `npm run lint`.
 
 ## Doc specs
 

@@ -8,6 +8,7 @@ import { ManagerPage } from '@/pages/ManagerPage'
 import { ManagersPage } from '@/pages/ManagersPage'
 import { OwnershipPage } from '@/pages/OwnershipPage'
 import { PatternsPage } from '@/pages/PatternsPage'
+import { WatchlistPage } from '@/pages/WatchlistPage'
 import { StockPage } from '@/pages/StockPage'
 
 export function App() {
@@ -18,6 +19,7 @@ export function App() {
       <main>
         <Routes>
           <Route path="/" element={<Navigate to="/patterns" replace />} />
+          <Route path="/watchlist" element={<WatchlistPage />} />
           <Route path="/patterns" element={<PatternsPage />} />
           <Route path="/managers" element={<ManagersPage />} />
           <Route path="/manager/:cik" element={<ManagerPage />} />

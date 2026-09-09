@@ -1108,7 +1108,15 @@ Nested details are JSON cells; spreadsheet formula prefixes are escaped. No expo
 - [x] Export scope stated; all matching rows by default; correct quoting and formula-prefix escaping.
 
 ### Milestone 15 — Watchlists and change digest  (M6)
-Status: not started
+Status: in progress
+
+`/watchlist` stores stocks/managers and their latest report baseline in localStorage. Saving a
+name establishes its baseline; opening the watchlist on a later visit compares report snapshots.
+The digest records one entry per changed report, with the pipeline's position counts, source
+filing links, and a link to that quarter. A same-quarter revision is labeled separately from a
+new quarterly report; methodology-version changes are labeled recalculations. Stable SHA-256
+fingerprints ignore refresh timestamps so reruns cannot duplicate entries. Reload checks the
+latest published dataset. Storage failure leaves the watchlist usable for the current session.
 
 - [ ] `localStorage` watchlists for stocks and managers, no auth, persist across reload.
 - [ ] First use sets a baseline instead of flagging all history as new.

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStates'
+import { WatchButton } from '@/components/WatchButton'
 import { CsvExport } from '@/components/CsvExport'
 import { Explain, SharesVsWeight, SplitBasis, WeightBasis } from '@/components/Explain'
 import { ManagerLists } from '@/components/manager/ManagerLists'
@@ -79,6 +80,7 @@ export function ManagerPage() {
           )}
         </div>
       </header>
+      <WatchButton kind="manager" id={cik} label={manager.short} />
 
       {mqState.loading && <LoadingState />}
       {/* An error is not an empty portfolio. Saying "no filing" when the read failed invents a

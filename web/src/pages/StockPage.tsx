@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStates'
+import { WatchButton } from '@/components/WatchButton'
 import { CsvExport } from '@/components/CsvExport'
 import { SourceFilings } from '@/components/manager/SourceFilings'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -74,6 +75,7 @@ export function StockPage() {
           </Select>
         )}
         {period && <p className="mt-2 text-sm text-ink-muted">13F holdings as of {quarterLabel(period)}.</p>}
+        {stock && <WatchButton kind="stock" id={symbol} label={symbol} />}
       </header>
       {quarterState.error && <ErrorState message={quarterState.error} />}
       {stockState.error && <ErrorState message={stockState.error} />}

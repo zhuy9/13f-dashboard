@@ -27,6 +27,10 @@ Stock and manager links keep the selected quarter. Stock pages offer historical 
 
 4. **Verify a filing.** Every manager-quarter links its source filings on EDGAR by accession, so any number here can be traced back to the document it came from.
 
+## Watchlist
+
+Use "Watch this name" on a stock or manager page, then open Watchlist. Saving establishes a baseline; later visits show new quarterly reports, revisions, and methodology recalculations with filing links. Use "Reload to check latest data" for a fresh dataset. The list and digest live only in this browser; clearing browser storage removes them. If storage is blocked, the list works for the current session.
+
 ## What this is
 
 This site shows what big investors own. The data comes from SEC Form 13F filings. It also finds patterns across managers, like which stocks many of them are buying at the same time.

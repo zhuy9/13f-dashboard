@@ -1076,7 +1076,7 @@ Acceptance criteria
 - [x] Examples match the new denominator, dry-run behavior, and labels.
 
 ### Publication recovery — prerequisite to Milestone 14
-Status: in progress
+Status: done 721f5f2
 
 Priority agreed 2026-09-08: recovery, Milestone 14, Milestone 15, then 16A only.
 13F publishes immutable `datasets/{datasetId}/{collection}/{document}` documents, including

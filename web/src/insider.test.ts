@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filterTrades, kindLabel, personHref, roleLabel, saleBasisLabel } from './insider'
+import { filterTrades, kindLabel, personHref, roleLabel, saleBasisLabel, tradeKeys } from './insider'
 import type { InsiderKind, InsiderTrade } from './insiderTypes'
 
 function trade(overrides: Partial<InsiderTrade>): InsiderTrade {
@@ -103,6 +103,33 @@ describe('roleLabel', () => {
 describe('personHref', () => {
   it('links to the insider person page', () => {
     expect(personHref('9876543210')).toBe('/insider/9876543210')
+  })
+})
+
+describe('tradeKeys', () => {
+  it('is unique for the two legs of one exercise, which differ only by isDerivative', () => {
+    // A real pair from the feed: the common stock acquired and the RSU disposed, same
+    // accession, owner, code, shares and date.
+    const legs = [
+      trade({ accession: 'a1', code: 'M', shares: 1014, transactionDate: '2026-09-03', isDerivative: false }),
+      trade({ accession: 'a1', code: 'M', shares: 1014, transactionDate: '2026-09-03', isDerivative: true }),
+    ]
+    expect(new Set(tradeKeys(legs)).size).toBe(2)
+  })
+
+  it('is unique even for rows identical in every field', () => {
+    // 0.5% of rows on file are indistinguishable by every field combined; the occurrence
+    // index is what keeps their keys apart. Duplicate keys are what broke the filtered table.
+    const twins = [trade({ accession: 'a2' }), trade({ accession: 'a2' }), trade({ accession: 'a2' })]
+    expect(new Set(tradeKeys(twins)).size).toBe(3)
+  })
+
+  it('gives one key per row, in order', () => {
+    expect(tradeKeys(trades)).toHaveLength(trades.length)
+  })
+
+  it('is stable across calls, so a re-render does not re-key every row', () => {
+    expect(tradeKeys(trades)).toEqual(tradeKeys(trades))
   })
 })
 

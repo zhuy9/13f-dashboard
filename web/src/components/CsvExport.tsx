@@ -52,7 +52,10 @@ export function CsvExport({ rows, name, accessions = [], period: explicitPeriod,
     <Button
       variant="ghost"
       size="sm"
-      className="my-1 -ml-2.5 text-ink-muted hover:text-ink"
+      // w-fit: the button is dropped straight into a `flex flex-col` on the Ownership and
+      // Insiders pages, where a flex item stretches to the container's full width by default.
+      // Everywhere else it sits in a plain block and hugs its text, which is the intended look.
+      className="my-1 -ml-2.5 w-fit text-ink-muted hover:text-ink"
       onClick={download}
       title="Includes period, source filing accessions, tracked coverage and methodology version on every row"
       aria-label={`Export all ${rows.length} rows of this table as CSV`}

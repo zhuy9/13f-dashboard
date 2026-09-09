@@ -62,6 +62,28 @@ export function personHref(cik: string): string {
   return `/insider/${cik}`
 }
 
+// One React key per row, unique by construction.
+//
+// The published data has no unique row id, and no combination of its fields is one: a single
+// Form 4 routinely reports the same transaction line twice -- the two legs of an exercise (the
+// stock acquired and the derivative disposed), or genuinely repeated tranches. Measured over the
+// 242,029 rows on file, 13.5% collide on (accession, owner, code, shares, date), and 0.5% still
+// collide with every other field thrown in. Duplicate keys are what made the trades table drop
+// and reuse rows when the filter changed, so the row count above it moved while the rows below
+// it did not. The occurrence index is the part that actually guarantees uniqueness.
+//
+// ponytail: identity derived in the browser. Publish a real row id from insider_fetch.py if
+// anything ever needs to address a single trade row across a reload.
+export function tradeKeys(trades: InsiderTrade[]): string[] {
+  const seen = new Map<string, number>()
+  return trades.map((t) => {
+    const base = `${t.accession}-${t.ownerCik}-${t.code}-${t.shares}-${t.transactionDate}-${t.isDerivative}`
+    const n = (seen.get(base) ?? 0) + 1
+    seen.set(base, n)
+    return `${base}#${n}`
+  })
+}
+
 // A sale's basis is worth its own label next to the Sold badge: "not stated" is a real third
 // state (the checkbox predates or was omitted from the filing), never folded into discretionary.
 export function saleBasisLabel(trade: InsiderTrade): string | null {

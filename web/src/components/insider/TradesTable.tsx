@@ -7,7 +7,7 @@ import { StockLink } from '@/components/StockLink'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { filedDate, money } from '@/format'
 import { useSortableRows } from '@/hooks/useSortableRows'
-import { personHref, roleLabel, saleBasisLabel } from '@/insider'
+import { personHref, roleLabel, saleBasisLabel, tradeKeys } from '@/insider'
 import type { InsiderTrade } from '@/insiderTypes'
 
 export function TradesTable({ trades, hideOwner, hideIssuer }: { trades: InsiderTrade[]; hideOwner?: boolean; hideIssuer?: boolean }) {
@@ -15,6 +15,7 @@ export function TradesTable({ trades, hideOwner, hideIssuer }: { trades: Insider
   if (trades.length === 0) return <p className="text-sm text-ink-muted">No trades.</p>
 
   const columnCount = 7 + Number(!hideOwner) + Number(!hideIssuer)
+  const keys = tradeKeys(sorted)
 
   return (
     <>
@@ -33,10 +34,10 @@ export function TradesTable({ trades, hideOwner, hideIssuer }: { trades: Insider
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sorted.map((t) => {
+          {sorted.map((t, i) => {
             const basis = saleBasisLabel(t)
             return (
-              <Fragment key={`${t.accession}-${t.ownerCik}-${t.code}-${t.shares}-${t.transactionDate}`}>
+              <Fragment key={keys[i]}>
                 <TableRow className={t.priority === 'HIGH' ? 'border-l-2 border-l-call' : undefined}>
                   <TableCell className="font-tabular whitespace-nowrap">{filedDate(t.filedAt)}</TableCell>
                   {!hideOwner && (

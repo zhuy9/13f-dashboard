@@ -108,6 +108,19 @@ This repository is PUBLIC.
 - `GCS_BUCKET` is required for the ownership pipeline; it has no "skip archive" fallback.
 - Each run rewrites `ownership/feed` and only the issuer/investor docs touched by that run's new filings (Firestore's free tier is 20K writes/day) — use `--rebuild` to force every doc.
 
+## Form 4 gotchas
+
+- `Form4.parse_xml(xml)` returns the `Form4` object. `Form4.from_xml(xml)` is broken and raises `TypeError`. Always call `parse_xml`.
+- The SEC transaction `code` is authoritative; `to_dataframe()`'s `Transaction Type` column is not (it labels code `A` as `Derivative_Purchase`). Classify on `code`, never on that label.
+- `P` = `BUY`, the only real open-market purchase.
+- `S` = `SELL` — a discretionary sale unless `aff10b5_one` is `True` (then it is a planned Rule 10b5-1 sale). `aff10b5_one is None` means "not stated", never treat it as discretionary.
+- `A` = `AWARD`, a grant. Never a purchase.
+- `M`, `X` = `EXERCISE`. Never a purchase.
+- `F` = `TAX`, shares withheld to pay withholding tax. Never a sale.
+- `G` = `GIFT`. Never a sale.
+- The insider universe comes from `meta/holder_counts`. If that document is absent, the pipeline stops with an error — it never falls back to a universe-wide fetch.
+- Never sum planned (`aff10b5_one is True`) and discretionary (`aff10b5_one is not True`) sales into one number; they are tracked and reported apart.
+
 ## Adding a manager
 
 No code changes — it's data-driven end to end.

@@ -21,5 +21,17 @@
     "purpose_max_chars": 400,
     "max_events_per_doc": 500,
     "refetch_overlap_days": 3
+  },
+  "insider": {
+    "start_date": "2025-09-01",
+    "universe_min_holders": 1,
+    "min_open_market_value": 100000,
+    "cluster_min_insiders": 3,
+    "cluster_window_days": 90,
+    "first_buy_lookback_days": 365,
+    "recent_trades": 300,
+    "max_trades_per_doc": 500,
+    "refetch_overlap_days": 3,
+    "footnote_max_chars": 300
   }
 }

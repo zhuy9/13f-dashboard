@@ -1348,6 +1348,15 @@ Sub-milestones 17.1 → 17.8 are sequential. Contract: **section K**, the `insid
 Firestore table, and the `insider` lines in the GCS layout. Build one at a time; do not start the
 next until every AC box of the current one is checked.
 
+**Handoff status (2026-09-09):** 17.1-17.5 done (see each sub-milestone's `Status:` line and notes
+below for shas and measured numbers) -- config, `insider_fetch.py`/`insider_derive.py`/
+`insider_store.py`/`insider.py`, `insider.yml`, and a full real backfill (`2025-09-01 ..
+2026-09-09`, 242,029 transaction rows, 79,157 filings) already live in production Firestore/GCS.
+Daily write volume is measured and safely under budget; no config cut was needed. **Not started:
+17.6 (web types/reads/`/insiders` page), 17.7 (stock page section + person page), 17.8 (docs
+close-out)** -- the ingest side is fully built and populated, but nothing reads it in the browser
+yet. Pick up at 17.6.
+
 Decisions (locked): universe = issuers held by ≥ `universe_min_holders` tracked managers at the
 latest 13F quarter, read from `meta/holder_counts`; forms `4` and `4/A` only (not 3, not 5); a
 separate daily `insider.yml`; GCS parquet is the state, exactly as for ownership; no new Python or

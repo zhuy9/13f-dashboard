@@ -155,8 +155,8 @@ def main() -> int:
         issuer_docs = build_issuer_docs(tables, cfg, only_symbols)
         investor_docs = build_investor_docs(tables, funds, cfg, only_ciks)
 
-        write_state(bucket, filings, raw)
         count = write_firestore(db, feed, issuer_docs, investor_docs)
+        write_state(bucket, filings, raw)
         print(f"wrote {count} Firestore documents")
         summary.append(f"{count} Firestore documents written")
 

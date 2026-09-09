@@ -1008,7 +1008,7 @@ Acceptance criteria
 - [x] Score docs state the per-quarter relative scale; one hand-checked score fixture reproduces its components.
 - [x] Migration note in this file names the affected Firestore docs and says a full re-ingest is required.
 
-**Migration (methodology v1 → v2).** Every published weight changes, so this is a full rewrite, not a patch. Affected docs: `manager_quarters/{cik}_{period}` (`positions[].weight/prevWeight/change`, `sectors[].weight/prevWeight/change`, new `equityValue`), `stocks/{symbol}` (`latest.avgWeight/medianWeight/maxWeight/holders[]`, `trend[]`, `score`), `signals/{period}` (every E/F/G table), `meta/latest` (new `methodologyVersion`). GCS Parquet under `parquet/**` is rewritten the same way. Procedure: one `python ingest.py` over the full `quarters` window — `derive_all` recomputes every period from the fetched filings, and `write_firestore(prune=True)` replaces the docs, so no separate backfill and no mixed-version window. `securities/` and `raw/**` are untouched. Run `--dry-run` first and compare a known manager's top weights against the same manager's filing: an option-heavy book should move the most.
+**Migration (methodology v1 → v2).** Every published weight changes, so this is a full rewrite, not a patch. Affected docs: `manager_quarters/{cik}_{period}` (`positions[].weight/prevWeight/change`, `sectors[].weight/prevWeight/change`, new `equityValue`), `stocks/{symbol}` (`latest.avgWeight/medianWeight/maxWeight/holders[]`, `trend[]`, `score`), `signals/{period}` (every E/F/G table), `meta/latest` (new `methodologyVersion`). GCS Parquet under `parquet/**` is rewritten the same way. Procedure: one `python ingest.py` over the full `quarters` window — `derive_all` recomputes every period from the fetched filings, and `write_firestore` publishes the docs, so no separate backfill is needed. Publication now uses an immutable dataset and a final pointer switch (see Publication recovery). `securities/` and `raw/**` are untouched. Run `--dry-run` first and compare a known manager's top weights against the same manager's filing: an option-heavy book should move the most.
 
 ### Milestone 11 — Splits, identifier changes, 13F-HR/A  (M2)
 Status: done 17b1ec3 + 01d0e85
@@ -1070,6 +1070,22 @@ Acceptance criteria
 - [x] First Patterns viewport explains the product and routes into notable changes and full tables.
 - [~] New entry view works at 375 px and is keyboard accessible. **Partially verified.** Keyboard access holds by construction: the disclosures are native `<details>`/`<summary>` and the cards are `<a>`, all focusable and operable without JavaScript. At a true 375 px (the deployed page inside a 375 px iframe) the header, nav, search and footer wrap with nothing clipped. The data-dependent parts — the cards and the tables — are **not** verified at 375 px: headless Chrome on macOS clamps its viewport to a 500 px minimum, and Firestore does not load inside a `file://` iframe, so no available tool renders the loaded page below 500 px. Needs a real device or a browser-driving tool.
 - [x] Examples match the new denominator, dry-run behavior, and labels.
+
+### Publication recovery — prerequisite to Milestone 14
+Status: in progress
+
+Priority agreed 2026-09-08: recovery, Milestone 14, Milestone 15, then 16A only.
+13F publishes immutable `datasets/{datasetId}/{collection}/{document}` documents, including
+`meta/symbols` and `meta/holder_counts`. `meta/latest.datasetId` switches only after every
+document succeeds. The browser pins that dataset for its session; old clients can read legacy
+paths until reloaded. Existing legacy documents remain during migration. Successful and partial
+snapshots are retained; garbage collection is deferred until storage volume warrants it.
+No publication on a failed manager fetch; `--fund` is preview-only (`--dry-run`).
+Ownership publishes issuer/investor documents, then the feed, then advances its GCS checkpoint.
+
+- [ ] A failed 13F write leaves the published pointer unchanged; retry matches an uninterrupted run.
+- [ ] Ownership retry republishes affected pages after a failure and advances state only on success.
+- [ ] Readers resolve all 13F documents and ownership holder counts through the published dataset.
 
 ### Milestone 14 — Historical stock views and CSV export  (M5)
 Status: not started

@@ -65,7 +65,7 @@ def test_symbols_get_their_own_doc(tables):
 
     write_firestore(db, tables, FUNDS, tables["periods"])
 
-    assert {"symbol", "name", "sector"} <= db.written["meta/symbols"]["symbols"][0].keys()
+    assert {"symbol", "name", "sector"} <= published(db, "meta/symbols")["symbols"][0].keys()
 
 
 def test_manager_quarter_doc_has_camelcase_and_sold_out_position(tables):
@@ -86,6 +86,11 @@ def test_stock_doc_has_options_and_trend(tables):
     assert len(aaa["trend"]) == 2
 
 
+def published(db, path):
+    dataset = db.written["meta/latest"]["datasetId"]
+    return db.written[f"datasets/{dataset}/{path}"]
+
+
 class _FakeDb:
     """Just enough Firestore for write_firestore: batched set/delete and id-only collection reads."""
 
@@ -102,33 +107,6 @@ class _FakeDb:
         self.read.append(name)
         snaps = [SimpleNamespace(id=i, reference=i) for i in self.existing.get(name, [])]
         return SimpleNamespace(select=lambda _fields: SimpleNamespace(stream=lambda: snaps))
-
-
-def test_write_firestore_prunes_stale_docs_in_the_collections_it_owns(tables):
-    db = _FakeDb(
-        {
-            "managers": ["1111111111", "938582"],  # 938582 left the roster
-            "manager_quarters": ["1111111111_2026-06-30", "1111111111_2024-12-31"],  # period fell out
-            "stocks": ["AAA", "GONE"],
-            "signals": ["2026-06-30", "2024-12-31"],
-            "securities": ["037833100"],  # an accumulating cache, not ours to prune
-            "ownership_issuers": ["AAA"],  # the other pipeline's
-        }
-    )
-
-    deleted = write_firestore(db, tables, FUNDS, tables["periods"])
-
-    assert set(db.deleted) == {"938582", "1111111111_2024-12-31", "GONE", "2024-12-31"}
-    assert deleted == 4
-    assert "securities" not in db.read and "ownership_issuers" not in db.read
-
-
-def test_write_firestore_skips_pruning_when_a_manager_failed(tables):
-    """A failed fetch leaves that manager with no rows -- pruning would delete quarters it has."""
-    db = _FakeDb({"managers": ["938582"], "stocks": ["GONE"]})
-
-    assert write_firestore(db, tables, FUNDS, tables["periods"], prune=False) == 0
-    assert db.deleted == []
 
 
 class _CountingDb:
@@ -182,7 +160,7 @@ def test_holder_counts_doc_round_trips_to_the_map_ownership_reads(tables):
 
     write_firestore(db, tables, FUNDS, tables["periods"])
 
-    doc = db.written["meta/holder_counts"]
+    doc = published(db, "meta/holder_counts")
     assert doc["period"] == tables["periods"][-1]
     assert all(row["n"] >= 1 for row in doc["counts"]), "a symbol nobody holds is left out, not stored as 0"
     assert read_holder_counts(_OneDocDb(doc)) == {row["symbol"]: row["n"] for row in doc["counts"]}
@@ -191,3 +169,11 @@ def test_holder_counts_doc_round_trips_to_the_map_ownership_reads(tables):
 def test_read_holder_counts_is_none_not_empty_when_ingest_has_never_run():
     """{} would read as "held by nobody" downstream; the absent doc means "no answer yet"."""
     assert read_holder_counts(_OneDocDb(None)) is None
+
+
+def test_holder_counts_reads_the_published_snapshot():
+    docs = {"meta/latest": {"datasetId": "ready"}, "datasets/ready/meta/holder_counts": {"counts": [{"symbol": "AAA", "n": 3}]}}
+    db = SimpleNamespace(
+        document=lambda path: SimpleNamespace(get=lambda: SimpleNamespace(exists=True, to_dict=lambda: docs[path]))
+    )
+    assert read_holder_counts(db) == {"AAA": 3}

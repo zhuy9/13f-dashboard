@@ -221,7 +221,7 @@ python ingest.py --dry-run
 
 `--dry-run` downloads and computes everything, prints a summary, and writes nothing: no Firestore documents, no `securities/` cache entries, no GCS files. Drop the flag to write for real. A real run rewrites every quarter in the window, so it is safe to repeat.
 
-Useful flags: `--fund CIK` for one manager, `--quarters N` to shorten the window, `--refresh all` to rebuild the ticker and sector cache after changing a rule.
+Useful flags: `--fund CIK --dry-run` to preview one manager, `--quarters N` to shorten the window, `--refresh all` to rebuild the ticker and sector cache after changing a rule.
 
 ### 3. Backfill 13D/13G ownership
 

@@ -144,10 +144,11 @@ def build_investor_docs(tables: dict, funds: list[dict], cfg: dict, only_ciks: O
 
 
 def write_firestore(db, feed: dict, issuer_docs: dict[str, dict], investor_docs: dict[str, dict]) -> int:
-    writes: list[tuple[str, dict]] = [("ownership/feed", feed)]
+    writes: list[tuple[str, dict]] = []
     for symbol, doc in issuer_docs.items():
         writes.append((f"ownership_issuers/{quote(symbol, safe='')}", doc))
     for cik, doc in investor_docs.items():
         writes.append((f"ownership_investors/{cik}", doc))
     _commit_in_batches(db, writes)
-    return len(writes)
+    _commit_in_batches(db, [("ownership/feed", feed)])
+    return len(writes) + 1

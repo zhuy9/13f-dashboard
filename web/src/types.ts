@@ -28,6 +28,7 @@ export interface QuarterCoverage {
 }
 
 export interface Meta {
+  datasetId?: string
   latestPeriod: string
   periods: string[]
   managers: ManagerRef[]

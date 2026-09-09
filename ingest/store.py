@@ -5,6 +5,7 @@ import json
 import logging
 from typing import Optional
 from urllib.parse import quote
+from uuid import uuid4
 
 import pandas as pd
 from firebase_admin import firestore
@@ -248,18 +249,6 @@ def _build_signals_docs(tables: dict, periods: list[str]) -> dict[str, dict]:
     return docs
 
 
-def _prune(db, collection: str, keep: set[str]) -> int:
-    """Delete the docs this run did not write -- a manager dropped from the roster, or a period
-    that fell out of the `quarters` window (one does, every quarter). `select([])` reads ids only."""
-    stale = [snap.reference for snap in db.collection(collection).select([]).stream() if snap.id not in keep]
-    for i in range(0, len(stale), _FIRESTORE_BATCH_SIZE):
-        batch = db.batch()
-        for ref in stale[i : i + _FIRESTORE_BATCH_SIZE]:
-            batch.delete(ref)
-        batch.commit()
-    return len(stale)
-
-
 def _build_holder_counts(tables: dict, latest_period: str) -> dict:
     """How many tracked managers held each symbol at the newest quarter. `ownership.py` reads
     this one doc per run to say what a 13D/13G lands on top of, which is the only place the two
@@ -274,19 +263,17 @@ def _build_holder_counts(tables: dict, latest_period: str) -> dict:
 def read_holder_counts(db) -> Optional[dict[str, int]]:
     """The other side of `_build_holder_counts`, for `ownership.py`. None -- not {} -- when the
     doc is absent because ingest has never run: no answer is not the same answer as zero."""
-    snap = db.document("meta/holder_counts").get()
+    meta = db.document("meta/latest").get()
+    dataset = (meta.to_dict() or {}).get("datasetId") if meta.exists else None
+    path = f"datasets/{dataset}/meta/holder_counts" if dataset else "meta/holder_counts"
+    snap = db.document(path).get()
     doc = snap.to_dict() if snap.exists else None
     return {r["symbol"]: r["n"] for r in doc["counts"]} if doc else None
 
 
-def write_firestore(db, tables: dict, funds: list[dict], periods: list[str], prune: bool = True) -> int:
-    """Write meta/latest and the four owned collections in batches of 400, then delete anything
-    this run did not write. Returns the number of stale docs deleted.
-
-    Only these four are pruned: `securities/` is an accumulating CUSIP cache, and the
-    `ownership_*` collections belong to the other pipeline. `prune=False` after a manager fetch
-    fails, so a transient EDGAR error cannot delete that manager's quarters.
-    """
+def write_firestore(db, tables: dict, funds: list[dict], periods: list[str]) -> None:
+    """Publish a complete snapshot, then atomically switch the reader's pointer."""
+    dataset_id = uuid4().hex
     owned = {
         "managers": _build_manager_docs(tables, funds),
         "manager_quarters": _build_manager_quarter_docs(tables, funds),
@@ -298,12 +285,11 @@ def write_firestore(db, tables: dict, funds: list[dict], periods: list[str], pru
     # symbols is its own doc: every page reads meta/latest, but only the search box needs the
     # ~2,300-entry symbol list, which is most of what meta/latest would otherwise weigh.
     writes: list[tuple[str, dict]] = [
-        ("meta/latest", _build_meta(tables, funds, periods)),
         ("meta/symbols", {"symbols": _records(tables["symbols"][["symbol", "name", "sector"]])}),
         ("meta/holder_counts", _build_holder_counts(tables, periods[-1])),
     ]
     for collection, docs in owned.items():
         writes += [(f"{collection}/{doc_id}", doc) for doc_id, doc in docs.items()]
-    _commit_in_batches(db, writes)
-
-    return sum(_prune(db, collection, set(docs)) for collection, docs in owned.items()) if prune else 0
+    _commit_in_batches(db, [(f"datasets/{dataset_id}/{path}", doc) for path, doc in writes])
+    _commit_in_batches(db, [("meta/latest", {**_build_meta(tables, funds, periods), "datasetId": dataset_id})])
+    # ponytail: retain snapshots for pinned readers; add age-based cleanup if storage grows.

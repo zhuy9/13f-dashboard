@@ -43,6 +43,9 @@ jobs:
 
       - run: pip install -r ingest/requirements.txt
 
+      - run: python -m pytest -q
+        working-directory: ingest
+
       - name: Write service account key
         env:
           SA_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

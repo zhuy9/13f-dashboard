@@ -209,6 +209,8 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="fetch and compute, but write nothing to Firestore or GCS")
     parser.add_argument("--refresh", choices=["none", "unknown", "all"], default="none", help="rebuild securities/ cache entries")
     args = parser.parse_args()
+    if args.fund and not args.dry_run:
+        parser.error("--fund requires --dry-run; publish the full roster to preserve consensus")
 
     identity = os.environ.get("EDGAR_IDENTITY")
     if not identity:
@@ -250,6 +252,10 @@ def main() -> int:
         filing_frames.append(fetched.filings)
         amendment_notes += fetched.notes
 
+    if failed and not args.dry_run:
+        step_summary("Ingest failed", [f"FAILED: {', '.join(failed)}; published dataset unchanged"])
+        return 1
+
     all_cusips = sorted({c for _, base in base_by_fund for c in base["cusip"]})
     securities = (
         ensure_securities(db, all_cusips, identity, api_key, args.refresh, ticker_hints, persist=not args.dry_run)
@@ -285,12 +291,10 @@ def main() -> int:
             bucket = storage.Client().bucket(bucket_name)
             write_gcs(bucket, raw_by_filing, tables)
 
-        pruned = 0
         if args.dry_run:
             print_dry_run_signals(tables)
         else:
-            # A failed manager has no rows, so pruning would delete the quarters it already had.
-            pruned = write_firestore(db, tables, funds, tables["periods"], prune=not failed)
+            write_firestore(db, tables, funds, tables["periods"])
             write_last_ingest(tables, base_by_fund)
 
         latest = tables["periods"][-1]
@@ -305,7 +309,6 @@ def main() -> int:
                 f"positions: {counts_line(mqs[mqs['period'] == latest]['status'])}",
                 f"unmapped tickers: {holdings['ticker'].isna().mean():.1%}",
             ]
-            + ([f"pruned {pruned} stale documents"] if pruned else [])
             + [f"amendment: {note}" for note in amendment_notes]
             + stale_lines
             + fail_line,

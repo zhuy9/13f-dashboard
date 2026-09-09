@@ -11,30 +11,37 @@ async function fetchDoc<T>(path: string): Promise<T | null> {
   return snap.exists() ? (snap.data() as T) : null
 }
 
+// Pin one published snapshot for this browser session, including concurrent page reads.
+let metaPromise: Promise<Meta | null> | undefined
 export function getMeta(): Promise<Meta | null> {
-  return fetchDoc<Meta>('meta/latest')
+  return metaPromise ??= fetchDoc<Meta>('meta/latest')
+}
+
+async function fetchDatasetDoc<T>(path: string): Promise<T | null> {
+  const meta = await getMeta()
+  return fetchDoc<T>(meta?.datasetId ? `datasets/${meta.datasetId}/${path}` : path)
 }
 
 export function getSymbols(): Promise<SymbolIndex | null> {
-  return fetchDoc<SymbolIndex>('meta/symbols')
+  return fetchDatasetDoc<SymbolIndex>('meta/symbols')
 }
 
 export function getManager(cik: string): Promise<Manager | null> {
-  return fetchDoc<Manager>(`managers/${cik}`)
+  return fetchDatasetDoc<Manager>(`managers/${cik}`)
 }
 
 export function getManagerQuarter(cik: string, period: string): Promise<ManagerQuarter | null> {
-  return fetchDoc<ManagerQuarter>(`manager_quarters/${cik}_${period}`)
+  return fetchDatasetDoc<ManagerQuarter>(`manager_quarters/${cik}_${period}`)
 }
 
 export function getStock(symbol: string): Promise<Stock | null> {
   // encodeURIComponent matches store.py's quote() so a ticker with a "/" (e.g. SPAC
   // units "ABC/U") resolves to one Firestore path segment instead of splitting in two.
-  return fetchDoc<Stock>(`stocks/${encodeURIComponent(symbol)}`)
+  return fetchDatasetDoc<Stock>(`stocks/${encodeURIComponent(symbol)}`)
 }
 
 export function getSignals(period: string): Promise<Signals | null> {
-  return fetchDoc<Signals>(`signals/${period}`)
+  return fetchDatasetDoc<Signals>(`signals/${period}`)
 }
 
 export function getOwnershipFeed(): Promise<OwnershipFeed | null> {

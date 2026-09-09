@@ -1,0 +1,2014 @@
+{
+  "period": "2026-06-30",
+  "published": {
+    "consensusBuys": [
+      {
+        "symbol": "FFF",
+        "name": "FFF Co",
+        "newBuyers": 1,
+        "added": 0,
+        "avgWeight": 0.25,
+        "avgWeightIncrease": 0.25,
+        "score": 100,
+        "raw": 54.0,
+        "scorePeak": 54.0,
+        "managers": [
+          "M2"
+        ]
+      },
+      {
+        "symbol": "AAA",
+        "name": "AAA Corp",
+        "newBuyers": 0,
+        "added": 1,
+        "avgWeight": 0.5625,
+        "avgWeightIncrease": 0.21767241379310343,
+        "score": 85,
+        "raw": 45.9375,
+        "scorePeak": 54.0,
+        "managers": [
+          "M1"
+        ]
+      },
+      {
+        "symbol": "EEE",
+        "name": "EEE Co",
+        "newBuyers": 0,
+        "added": 1,
+        "avgWeight": 0.25,
+        "avgWeightIncrease": 0.04999999999999999,
+        "score": 83,
+        "raw": 45.0,
+        "scorePeak": 54.0,
+        "managers": [
+          "M2"
+        ]
+      },
+      {
+        "symbol": "BBB",
+        "name": "BBB Corp",
+        "newBuyers": 0,
+        "added": 1,
+        "avgWeight": 0.5,
+        "avgWeightIncrease": -0.30000000000000004,
+        "score": 51,
+        "raw": 27.5,
+        "scorePeak": 54.0,
+        "managers": [
+          "M2"
+        ]
+      }
+    ],
+    "consensusExits": [
+      {
+        "symbol": "FFF",
+        "name": "FFF Co",
+        "soldOut": 1,
+        "trimmed": 0,
+        "avgReduction": -0.13793103448275862,
+        "managers": [
+          "M1"
+        ]
+      },
+      {
+        "symbol": "DDD",
+        "name": "DDD Inc",
+        "soldOut": 0,
+        "trimmed": 1,
+        "avgReduction": -0.09482758620689657,
+        "managers": [
+          "M1"
+        ]
+      }
+    ],
+    "highConviction": [
+      {
+        "symbol": "BBB",
+        "name": "BBB Corp",
+        "managers": 2,
+        "avgWeight": 0.5,
+        "maxWeight": 0.5,
+        "new": 0,
+        "added": 1,
+        "managerNames": [
+          "M2",
+          "M3"
+        ]
+      },
+      {
+        "symbol": "EEE",
+        "name": "EEE Co",
+        "managers": 2,
+        "avgWeight": 0.25,
+        "maxWeight": 0.25,
+        "new": 0,
+        "added": 1,
+        "managerNames": [
+          "M2",
+          "M3"
+        ]
+      },
+      {
+        "symbol": "FFF",
+        "name": "FFF Co",
+        "managers": 2,
+        "avgWeight": 0.25,
+        "maxWeight": 0.25,
+        "new": 1,
+        "added": 0,
+        "managerNames": [
+          "M2",
+          "M3"
+        ]
+      }
+    ],
+    "biggestNew": [
+      {
+        "cik": "2222222222",
+        "short": "M2",
+        "symbol": "FFF",
+        "name": "FFF Co",
+        "weight": 0.25,
+        "value": 5000
+      }
+    ],
+    "biggestAdds": [
+      {
+        "cik": "1111111111",
+        "short": "M1",
+        "symbol": "AAA",
+        "name": "AAA Corp",
+        "weight": 0.5625,
+        "change": 0.21767241379310343,
+        "value": 18000
+      },
+      {
+        "cik": "2222222222",
+        "short": "M2",
+        "symbol": "EEE",
+        "name": "EEE Co",
+        "weight": 0.25,
+        "change": 0.04999999999999999,
+        "value": 5000
+      },
+      {
+        "cik": "2222222222",
+        "short": "M2",
+        "symbol": "BBB",
+        "name": "BBB Corp",
+        "weight": 0.5,
+        "change": -0.30000000000000004,
+        "value": 10000
+      }
+    ],
+    "biggestTrims": [
+      {
+        "cik": "1111111111",
+        "short": "M1",
+        "symbol": "FFF",
+        "name": "FFF Co",
+        "weight": 0.0,
+        "change": -0.13793103448275862,
+        "value": 0
+      },
+      {
+        "cik": "1111111111",
+        "short": "M1",
+        "symbol": "DDD",
+        "name": "DDD Inc",
+        "weight": 0.25,
+        "change": -0.09482758620689657,
+        "value": 8000
+      }
+    ],
+    "topSignals": [
+      {
+        "symbol": "FFF",
+        "name": "FFF Co",
+        "score": 100,
+        "raw": 54.0,
+        "scorePeak": 54.0,
+        "managerCount": 2,
+        "avgWeight": 0.25,
+        "avgChange": 0.25,
+        "newCount": 1,
+        "addedCount": 0,
+        "managers": [
+          "M2",
+          "M3"
+        ]
+      },
+      {
+        "symbol": "AAA",
+        "name": "AAA Corp",
+        "score": 85,
+        "raw": 45.9375,
+        "scorePeak": 54.0,
+        "managerCount": 1,
+        "avgWeight": 0.5625,
+        "avgChange": 0.21767241379310343,
+        "newCount": 0,
+        "addedCount": 1,
+        "managers": [
+          "M1"
+        ]
+      },
+      {
+        "symbol": "EEE",
+        "name": "EEE Co",
+        "score": 83,
+        "raw": 45.0,
+        "scorePeak": 54.0,
+        "managerCount": 2,
+        "avgWeight": 0.25,
+        "avgChange": 0.04999999999999999,
+        "newCount": 0,
+        "addedCount": 1,
+        "managers": [
+          "M2",
+          "M3"
+        ]
+      },
+      {
+        "symbol": "BBB",
+        "name": "BBB Corp",
+        "score": 51,
+        "raw": 27.5,
+        "scorePeak": 54.0,
+        "managerCount": 2,
+        "avgWeight": 0.5,
+        "avgChange": -0.30000000000000004,
+        "newCount": 0,
+        "addedCount": 1,
+        "managers": [
+          "M2",
+          "M3"
+        ]
+      },
+      {
+        "symbol": "CCC",
+        "name": "CCC Inc",
+        "score": 15,
+        "raw": 8.332974137931032,
+        "scorePeak": 54.0,
+        "managerCount": 1,
+        "avgWeight": 0.1875,
+        "avgChange": 0.015086206896551713,
+        "newCount": 0,
+        "addedCount": 0,
+        "managers": [
+          "M1"
+        ]
+      },
+      {
+        "symbol": "DDD",
+        "name": "DDD Inc",
+        "score": 11,
+        "raw": 6.0,
+        "scorePeak": 54.0,
+        "managerCount": 1,
+        "avgWeight": 0.25,
+        "avgChange": -0.09482758620689657,
+        "newCount": 0,
+        "addedCount": 0,
+        "managers": [
+          "M1"
+        ]
+      }
+    ],
+    "fastestGrowing": [
+      {
+        "symbol": "BBB",
+        "name": "BBB Corp",
+        "prevCount": 1,
+        "count": 2,
+        "newManagers": 1,
+        "exitedManagers": 0,
+        "netChange": 1
+      },
+      {
+        "symbol": "EEE",
+        "name": "EEE Co",
+        "prevCount": 1,
+        "count": 2,
+        "newManagers": 1,
+        "exitedManagers": 0,
+        "netChange": 1
+      },
+      {
+        "symbol": "FFF",
+        "name": "FFF Co",
+        "prevCount": 1,
+        "count": 2,
+        "newManagers": 2,
+        "exitedManagers": 1,
+        "netChange": 1
+      }
+    ],
+    "sectorRotation": [
+      {
+        "sector": "Energy",
+        "avgWeight": 0.25,
+        "avgPrevWeight": 0.16896551724137931,
+        "avgChange": 0.08103448275862069,
+        "increasing": 1,
+        "decreasing": 1
+      },
+      {
+        "sector": "Tech",
+        "avgWeight": 0.53125,
+        "avgPrevWeight": 0.5724137931034483,
+        "avgChange": -0.04116379310344831,
+        "increasing": 1,
+        "decreasing": 1
+      },
+      {
+        "sector": "Health",
+        "avgWeight": 0.4375,
+        "avgPrevWeight": 0.5172413793103449,
+        "avgChange": -0.07974137931034486,
+        "increasing": 0,
+        "decreasing": 1
+      }
+    ],
+    "managerSimilarity": {
+      "ciks": [
+        "1111111111",
+        "2222222222",
+        "3333333333"
+      ],
+      "matrix": [
+        {
+          "values": [
+            0.9999999999999999,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "values": [
+            0.0,
+            1.0000000000000002,
+            1.0000000000000002
+          ]
+        },
+        {
+          "values": [
+            0.0,
+            1.0000000000000002,
+            1.0000000000000002
+          ]
+        }
+      ]
+    },
+    "optionsExposure": [
+      {
+        "symbol": "AAA",
+        "equityHolders": [
+          "1111111111"
+        ],
+        "callHolders": [
+          "1111111111"
+        ],
+        "putHolders": []
+      }
+    ],
+    "filings": [],
+    "config": {
+      "consensusMinManagers": 1,
+      "highConvictionMinWeight": 0.2,
+      "highConvictionMinManagers": 2,
+      "sectorMoveThreshold": 0.005,
+      "topN": 25,
+      "score": {
+        "weightScale": 0.05,
+        "newBonus": 0.5,
+        "addedBonus": 0.25,
+        "accumulationScale": 0.02,
+        "accumulationCap": 3
+      }
+    }
+  },
+  "quarters": {
+    "1111111111_2026-03-31": {
+      "priorPositions": [],
+      "filedAt": "2026-05-14",
+      "totalValue": 44000,
+      "equityValue": 29000,
+      "count": 4,
+      "counts": {
+        "new": 0,
+        "added": 0,
+        "trimmed": 0,
+        "unchanged": 0,
+        "soldOut": 0
+      },
+      "filings": [],
+      "positions": [
+        {
+          "symbol": "AAA",
+          "short": "M1",
+          "name": "AAA Corp",
+          "sector": "Tech",
+          "kind": "EQUITY",
+          "disclosedByAmendment": false,
+          "accession": "1111-26-000001",
+          "value": 10000,
+          "shares": 100,
+          "weight": 0.3448275862068966,
+          "prevValue": null,
+          "prevShares": null,
+          "adjPrevShares": null,
+          "shareChange": null,
+          "splitUnverified": null,
+          "prevWeight": null,
+          "change": null,
+          "status": null
+        },
+        {
+          "symbol": "CCC",
+          "short": "M1",
+          "name": "CCC Inc",
+          "sector": "Health",
+          "kind": "EQUITY",
+          "disclosedByAmendment": false,
+          "accession": "1111-26-000002",
+          "value": 5000,
+          "shares": 50,
+          "weight": 0.1724137931034483,
+          "prevValue": null,
+          "prevShares": null,
+          "adjPrevShares": null,
+          "shareChange": null,
+          "splitUnverified": null,
+          "prevWeight": null,
+          "change": null,
+          "status": null
+        },
+        {
+          "symbol": "DDD",
+          "short": "M1",
+          "name": "DDD Inc",
+          "sector": "Health",
+          "kind": "EQUITY",
+          "disclosedByAmendment": false,
+          "accession": "1111-26-000003",
+          "value": 10000,
+          "shares": 100,
+          "weight": 0.3448275862068966,
+          "prevValue": null,
+          "prevShares": null,
+          "adjPrevShares": null,
+          "shareChange": null,
+          "splitUnverified": null,
+          "prevWeight": null,
+          "change": null,
+          "status": null
+        },
+        {
+          "symbol": "FFF",
+          "short": "M1",
+          "name": "FFF Co",
+          "sector": "Energy",
+          "kind": "EQUITY",
+          "disclosedByAmendment": false,
+          "accession": "1111-26-000004",
+          "value": 4000,
+          "shares": 40,
+          "weight": 0.13793103448275862,
+          "prevValue": null,
+          "prevShares": null,
+          "adjPrevShares": null,
+          "shareChange": null,
+          "splitUnverified": null,
+          "prevWeight": null,
+          "change": null,
+          "status": null
+        }
+      ],
+      "sectors": [
+        {
+          "sector": "Energy",
+          "weight": 0.13793103448275862,
+          "prevWeight": null,
+          "change": null
+        },
+        {
+          "sector": "Health",
+          "weight": 0.5172413793103449,
+          "prevWeight": null,
+          "change": null
+        },
+        {
+          "sector": "Tech",
+          "weight": 0.3448275862068966,
+          "prevWeight": null,
+          "change": null
+        }
+      ],
+      "mostSimilar": [
+        {
+          "cik": "2222222222",
+          "short": "M2",
+          "score": 0.0
+        }
+      ]
+    },
+    "1111111111_2026-06-30": {
+      "priorPositions": [
+        {
+          "symbol": "AAA",
+          "period": "2026-03-31",
+          "held": true
+        },
+        {
+          "symbol": "CCC",
+          "period": "2026-03-31",
+          "held": true
+        },
+        {
+          "symbol": "DDD",
+          "period": "2026-03-31",
+          "held": true
+        },
+        {
+          "symbol": "FFF",
+          "period": "2026-03-31",
+          "held": true
+        }
+      ],
+      "filedAt": "2026-08-14",
+      "totalValue": 35000,
+      "equityValue": 32000,
+      "count": 3,
+      "counts": {
+        "new": 0,
+        "added": 1,
+        "trimmed": 1,
+        "unchanged": 1,
+        "soldOut": 1
+      },
+      "filings": [],
+      "positions": [
+        {
+          "symbol": "AAA",
+          "short": "M1",
+          "name": "AAA Corp",
+          "sector": "Tech",
+          "kind": "EQUITY",
+          "disclosedByAmendment": false,
+          "accession": "1111-26-000006",
+          "value": 18000,
+          "shares": 150,
+          "weight": 0.5625,
+          "prevValue": 10000.0,
+          "prevShares": 100.0,
+          "adjPrevShares": 100.0,
+          "shareChange": 0.5,
+          "splitUnverified": false,
+          "prevWeight": 0.3448275862068966,
+          "change": 0.21767241379310343,
+          "status": "ADDED"
+        },
+        {
+          "symbol": "CCC",
+          "short": "M1",
+          "name": "CCC Inc",
+          "sector": "Health",
+          "kind": "EQUITY",
+          "disclosedByAmendment": false,
+          "accession": "1111-26-000007",
+          "value": 6000,
+          "shares": 50,
+          "weight": 0.1875,
+          "prevValue": 5000.0,
+          "prevShares": 50.0,
+          "adjPrevShares": 50.0,
+          "shareChange": 0.0,
+          "splitUnverified": false,
+          "prevWeight": 0.1724137931034483,
+          "change": 0.015086206896551713,
+          "status": "UNCHANGED"
+        },
+        {
+          "symbol": "DDD",
+          "short": "M1",
+          "name": "DDD Inc",
+          "sector": "Health",
+          "kind": "EQUITY",
+          "disclosedByAmendment": false,
+          "accession": "1111-26-000008",
+          "value": 8000,
+          "shares": 80,
+          "weight": 0.25,
+          "prevValue": 10000.0,
+          "prevShares": 100.0,
+          "adjPrevShares": 100.0,
+          "shareChange": -0.19999999999999996,
+          "splitUnverified": false,
+          "prevWeight": 0.3448275862068966,
+          "change": -0.09482758620689657,
+          "status": "TRIMMED"
+        },
+        {
+          "symbol": "FFF",
+          "short": "M1",
+          "name": "FFF Co",
+          "sector": "Energy",
+          "kind": "EQUITY",
+          "disclosedByAmendment": false,
+          "accession": null,
+          "value": 0,
+          "shares": 0,
+          "weight": 0.0,
+          "prevValue": 4000.0,
+          "prevShares": 40.0,
+          "adjPrevShares": 40.0,
+          "shareChange": -1.0,
+          "splitUnverified": false,
+          "prevWeight": 0.13793103448275862,
+          "change": -0.13793103448275862,
+          "status": "SOLD_OUT"
+        }
+      ],
+      "sectors": [
+        {
+          "sector": "Energy",
+          "weight": 0.0,
+          "prevWeight": 0.13793103448275862,
+          "change": -0.13793103448275862
+        },
+        {
+          "sector": "Health",
+          "weight": 0.4375,
+          "prevWeight": 0.5172413793103449,
+          "change": -0.07974137931034486
+        },
+        {
+          "sector": "Tech",
+          "weight": 0.5625,
+          "prevWeight": 0.3448275862068966,
+          "change": 0.21767241379310343
+        }
+      ],
+      "mostSimilar": [
+        {
+          "cik": "2222222222",
+          "short": "M2",
+          "score": 0.0
+        },
+        {
+          "cik": "3333333333",
+          "short": "M3",
+          "score": 0.0
+        }
+      ]
+    },
+    "2222222222_2026-03-31": {
+      "priorPositions": [],
+      "filedAt": "2026-05-14",
+      "totalValue": 10000,
+      "equityValue": 10000,
+      "count": 2,
+      "counts": {
+        "new": 0,
+        "added": 0,
+        "trimmed": 0,
+        "unchanged": 0,
+        "soldOut": 0
+      },
+      "filings": [],
+      "positions": [
+        {
+          "symbol": "BBB",
+          "short": "M2",
+          "name": "BBB Corp",
+          "sector": "Tech",
+          "kind": "EQUITY",
+          "disclosedByAmendment": false,
+          "accession": "2222-26-000010",
+          "value": 8000,
+          "shares": 80,
+          "weight": 0.8,
+          "prevValue": null,
+          "prevShares": null,
+          "adjPrevShares": null,
+          "shareChange": null,
+          "splitUnverified": null,
+          "prevWeight": null,
+          "change": null,
+          "status": null
+        },
+        {
+          "symbol": "EEE",
+          "short": "M2",
+          "name": "EEE Co",
+          "sector": "Energy",
+          "kind": "EQUITY",
+          "disclosedByAmendment": false,
+          "accession": "2222-26-000011",
+          "value": 2000,
+          "shares": 20,
+          "weight": 0.2,
+          "prevValue": null,
+          "prevShares": null,
+          "adjPrevShares": null,
+          "shareChange": null,
+          "splitUnverified": null,
+          "prevWeight": null,
+          "change": null,
+          "status": null
+        }
+      ],
+      "sectors": [
+        {
+          "sector": "Energy",
+          "weight": 0.2,
+          "prevWeight": null,
+          "change": null
+        },
+        {
+          "sector": "Tech",
+          "weight": 0.8,
+          "prevWeight": null,
+          "change": null
+        }
+      ],
+      "mostSimilar": [
+        {
+          "cik": "1111111111",
+          "short": "M1",
+          "score": 0.0
+        }
+      ]
+    },
+    "2222222222_2026-06-30": {
+      "priorPositions": [
+        {
+          "symbol": "BBB",
+          "period": "2026-03-31",
+          "held": true
+        },
+        {
+          "symbol": "EEE",
+          "period": "2026-03-31",
+          "held": true
+        }
+      ],
+      "filedAt": "2026-08-14",
+      "totalValue": 20000,
+      "equityValue": 20000,
+      "count": 3,
+      "counts": {
+        "new": 1,
+        "added": 2,
+        "trimmed": 0,
+        "unchanged": 0,
+        "soldOut": 0
+      },
+      "filings": [],
+      "positions": [
+        {
+          "symbol": "BBB",
+          "short": "M2",
+          "name": "BBB Corp",
+          "sector": "Tech",
+          "kind": "EQUITY",
+          "disclosedByAmendment": false,
+          "accession": "2222-26-000012",
+          "value": 10000,
+          "shares": 100,
+          "weight": 0.5,
+          "prevValue": 8000.0,
+          "prevShares": 80.0,
+          "adjPrevShares": 80.0,
+          "shareChange": 0.25,
+          "splitUnverified": false,
+          "prevWeight": 0.8,
+          "change": -0.30000000000000004,
+          "status": "ADDED"
+        },
+        {
+          "symbol": "EEE",
+          "short": "M2",
+          "name": "EEE Co",
+          "sector": "Energy",
+          "kind": "EQUITY",
+          "disclosedByAmendment": false,
+          "accession": "2222-26-000013",
+          "value": 5000,
+          "shares": 50,
+          "weight": 0.25,
+          "prevValue": 2000.0,
+          "prevShares": 20.0,
+          "adjPrevShares": 20.0,
+          "shareChange": 1.5,
+          "splitUnverified": false,
+          "prevWeight": 0.2,
+          "change": 0.04999999999999999,
+          "status": "ADDED"
+        },
+        {
+          "symbol": "FFF",
+          "short": "M2",
+          "name": "FFF Co",
+          "sector": "Energy",
+          "kind": "EQUITY",
+          "disclosedByAmendment": false,
+          "accession": "2222-26-000014",
+          "value": 5000,
+          "shares": 50,
+          "weight": 0.25,
+          "prevValue": null,
+          "prevShares": null,
+          "adjPrevShares": null,
+          "shareChange": null,
+          "splitUnverified": null,
+          "prevWeight": null,
+          "change": 0.25,
+          "status": "NEW"
+        }
+      ],
+      "sectors": [
+        {
+          "sector": "Energy",
+          "weight": 0.5,
+          "prevWeight": 0.2,
+          "change": 0.3
+        },
+        {
+          "sector": "Tech",
+          "weight": 0.5,
+          "prevWeight": 0.8,
+          "change": -0.30000000000000004
+        }
+      ],
+      "mostSimilar": [
+        {
+          "cik": "3333333333",
+          "short": "M3",
+          "score": 1.0000000000000002
+        },
+        {
+          "cik": "1111111111",
+          "short": "M1",
+          "score": 0.0
+        }
+      ]
+    },
+    "3333333333_2026-06-30": {
+      "priorPositions": [],
+      "filedAt": "2026-08-14",
+      "totalValue": 40000,
+      "equityValue": 40000,
+      "count": 3,
+      "counts": {
+        "new": 0,
+        "added": 0,
+        "trimmed": 0,
+        "unchanged": 0,
+        "soldOut": 0
+      },
+      "filings": [],
+      "positions": [
+        {
+          "symbol": "BBB",
+          "short": "M3",
+          "name": "BBB Corp",
+          "sector": "Tech",
+          "kind": "EQUITY",
+          "disclosedByAmendment": false,
+          "accession": "3333-26-000015",
+          "value": 20000,
+          "shares": 200,
+          "weight": 0.5,
+          "prevValue": null,
+          "prevShares": null,
+          "adjPrevShares": null,
+          "shareChange": null,
+          "splitUnverified": null,
+          "prevWeight": null,
+          "change": null,
+          "status": null
+        },
+        {
+          "symbol": "EEE",
+          "short": "M3",
+          "name": "EEE Co",
+          "sector": "Energy",
+          "kind": "EQUITY",
+          "disclosedByAmendment": false,
+          "accession": "3333-26-000016",
+          "value": 10000,
+          "shares": 100,
+          "weight": 0.25,
+          "prevValue": null,
+          "prevShares": null,
+          "adjPrevShares": null,
+          "shareChange": null,
+          "splitUnverified": null,
+          "prevWeight": null,
+          "change": null,
+          "status": null
+        },
+        {
+          "symbol": "FFF",
+          "short": "M3",
+          "name": "FFF Co",
+          "sector": "Energy",
+          "kind": "EQUITY",
+          "disclosedByAmendment": false,
+          "accession": "3333-26-000017",
+          "value": 10000,
+          "shares": 100,
+          "weight": 0.25,
+          "prevValue": null,
+          "prevShares": null,
+          "adjPrevShares": null,
+          "shareChange": null,
+          "splitUnverified": null,
+          "prevWeight": null,
+          "change": null,
+          "status": null
+        }
+      ],
+      "sectors": [
+        {
+          "sector": "Energy",
+          "weight": 0.5,
+          "prevWeight": null,
+          "change": null
+        },
+        {
+          "sector": "Tech",
+          "weight": 0.5,
+          "prevWeight": null,
+          "change": null
+        }
+      ],
+      "mostSimilar": [
+        {
+          "cik": "2222222222",
+          "short": "M2",
+          "score": 1.0000000000000002
+        },
+        {
+          "cik": "1111111111",
+          "short": "M1",
+          "score": 0.0
+        }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "ciks": [
+        "1111111111",
+        "2222222222",
+        "3333333333"
+      ],
+      "expected": {
+        "consensusBuys": [
+          {
+            "symbol": "FFF",
+            "name": "FFF Co",
+            "newBuyers": 1,
+            "added": 0,
+            "avgWeight": 0.25,
+            "avgWeightIncrease": 0.25,
+            "score": 100,
+            "raw": 54.0,
+            "scorePeak": 54.0,
+            "managers": [
+              "M2"
+            ]
+          },
+          {
+            "symbol": "AAA",
+            "name": "AAA Corp",
+            "newBuyers": 0,
+            "added": 1,
+            "avgWeight": 0.5625,
+            "avgWeightIncrease": 0.21767241379310343,
+            "score": 85,
+            "raw": 45.9375,
+            "scorePeak": 54.0,
+            "managers": [
+              "M1"
+            ]
+          },
+          {
+            "symbol": "EEE",
+            "name": "EEE Co",
+            "newBuyers": 0,
+            "added": 1,
+            "avgWeight": 0.25,
+            "avgWeightIncrease": 0.04999999999999999,
+            "score": 83,
+            "raw": 45.0,
+            "scorePeak": 54.0,
+            "managers": [
+              "M2"
+            ]
+          },
+          {
+            "symbol": "BBB",
+            "name": "BBB Corp",
+            "newBuyers": 0,
+            "added": 1,
+            "avgWeight": 0.5,
+            "avgWeightIncrease": -0.30000000000000004,
+            "score": 51,
+            "raw": 27.5,
+            "scorePeak": 54.0,
+            "managers": [
+              "M2"
+            ]
+          }
+        ],
+        "consensusExits": [
+          {
+            "symbol": "FFF",
+            "name": "FFF Co",
+            "soldOut": 1,
+            "trimmed": 0,
+            "avgReduction": -0.13793103448275862,
+            "managers": [
+              "M1"
+            ]
+          },
+          {
+            "symbol": "DDD",
+            "name": "DDD Inc",
+            "soldOut": 0,
+            "trimmed": 1,
+            "avgReduction": -0.09482758620689657,
+            "managers": [
+              "M1"
+            ]
+          }
+        ],
+        "highConviction": [
+          {
+            "symbol": "BBB",
+            "name": "BBB Corp",
+            "managers": 2,
+            "avgWeight": 0.5,
+            "maxWeight": 0.5,
+            "new": 0,
+            "added": 1,
+            "managerNames": [
+              "M2",
+              "M3"
+            ]
+          },
+          {
+            "symbol": "EEE",
+            "name": "EEE Co",
+            "managers": 2,
+            "avgWeight": 0.25,
+            "maxWeight": 0.25,
+            "new": 0,
+            "added": 1,
+            "managerNames": [
+              "M2",
+              "M3"
+            ]
+          },
+          {
+            "symbol": "FFF",
+            "name": "FFF Co",
+            "managers": 2,
+            "avgWeight": 0.25,
+            "maxWeight": 0.25,
+            "new": 1,
+            "added": 0,
+            "managerNames": [
+              "M2",
+              "M3"
+            ]
+          }
+        ],
+        "biggestNew": [
+          {
+            "cik": "2222222222",
+            "short": "M2",
+            "symbol": "FFF",
+            "name": "FFF Co",
+            "weight": 0.25,
+            "value": 5000
+          }
+        ],
+        "biggestAdds": [
+          {
+            "cik": "1111111111",
+            "short": "M1",
+            "symbol": "AAA",
+            "name": "AAA Corp",
+            "weight": 0.5625,
+            "change": 0.21767241379310343,
+            "value": 18000
+          },
+          {
+            "cik": "2222222222",
+            "short": "M2",
+            "symbol": "EEE",
+            "name": "EEE Co",
+            "weight": 0.25,
+            "change": 0.04999999999999999,
+            "value": 5000
+          },
+          {
+            "cik": "2222222222",
+            "short": "M2",
+            "symbol": "BBB",
+            "name": "BBB Corp",
+            "weight": 0.5,
+            "change": -0.30000000000000004,
+            "value": 10000
+          }
+        ],
+        "biggestTrims": [
+          {
+            "cik": "1111111111",
+            "short": "M1",
+            "symbol": "FFF",
+            "name": "FFF Co",
+            "weight": 0.0,
+            "change": -0.13793103448275862,
+            "value": 0
+          },
+          {
+            "cik": "1111111111",
+            "short": "M1",
+            "symbol": "DDD",
+            "name": "DDD Inc",
+            "weight": 0.25,
+            "change": -0.09482758620689657,
+            "value": 8000
+          }
+        ],
+        "topSignals": [
+          {
+            "symbol": "FFF",
+            "name": "FFF Co",
+            "score": 100,
+            "raw": 54.0,
+            "scorePeak": 54.0,
+            "managerCount": 2,
+            "avgWeight": 0.25,
+            "avgChange": 0.25,
+            "newCount": 1,
+            "addedCount": 0,
+            "managers": [
+              "M2",
+              "M3"
+            ]
+          },
+          {
+            "symbol": "AAA",
+            "name": "AAA Corp",
+            "score": 85,
+            "raw": 45.9375,
+            "scorePeak": 54.0,
+            "managerCount": 1,
+            "avgWeight": 0.5625,
+            "avgChange": 0.21767241379310343,
+            "newCount": 0,
+            "addedCount": 1,
+            "managers": [
+              "M1"
+            ]
+          },
+          {
+            "symbol": "EEE",
+            "name": "EEE Co",
+            "score": 83,
+            "raw": 45.0,
+            "scorePeak": 54.0,
+            "managerCount": 2,
+            "avgWeight": 0.25,
+            "avgChange": 0.04999999999999999,
+            "newCount": 0,
+            "addedCount": 1,
+            "managers": [
+              "M2",
+              "M3"
+            ]
+          },
+          {
+            "symbol": "BBB",
+            "name": "BBB Corp",
+            "score": 51,
+            "raw": 27.5,
+            "scorePeak": 54.0,
+            "managerCount": 2,
+            "avgWeight": 0.5,
+            "avgChange": -0.30000000000000004,
+            "newCount": 0,
+            "addedCount": 1,
+            "managers": [
+              "M2",
+              "M3"
+            ]
+          },
+          {
+            "symbol": "CCC",
+            "name": "CCC Inc",
+            "score": 15,
+            "raw": 8.332974137931032,
+            "scorePeak": 54.0,
+            "managerCount": 1,
+            "avgWeight": 0.1875,
+            "avgChange": 0.015086206896551713,
+            "newCount": 0,
+            "addedCount": 0,
+            "managers": [
+              "M1"
+            ]
+          },
+          {
+            "symbol": "DDD",
+            "name": "DDD Inc",
+            "score": 11,
+            "raw": 6.0,
+            "scorePeak": 54.0,
+            "managerCount": 1,
+            "avgWeight": 0.25,
+            "avgChange": -0.09482758620689657,
+            "newCount": 0,
+            "addedCount": 0,
+            "managers": [
+              "M1"
+            ]
+          }
+        ],
+        "fastestGrowing": [
+          {
+            "symbol": "BBB",
+            "name": "BBB Corp",
+            "prevCount": 1,
+            "count": 2,
+            "newManagers": 1,
+            "exitedManagers": 0,
+            "netChange": 1
+          },
+          {
+            "symbol": "EEE",
+            "name": "EEE Co",
+            "prevCount": 1,
+            "count": 2,
+            "newManagers": 1,
+            "exitedManagers": 0,
+            "netChange": 1
+          },
+          {
+            "symbol": "FFF",
+            "name": "FFF Co",
+            "prevCount": 1,
+            "count": 2,
+            "newManagers": 2,
+            "exitedManagers": 1,
+            "netChange": 1
+          }
+        ],
+        "sectorRotation": [
+          {
+            "sector": "Energy",
+            "avgWeight": 0.25,
+            "avgPrevWeight": 0.16896551724137931,
+            "avgChange": 0.08103448275862069,
+            "increasing": 1,
+            "decreasing": 1
+          },
+          {
+            "sector": "Tech",
+            "avgWeight": 0.53125,
+            "avgPrevWeight": 0.5724137931034483,
+            "avgChange": -0.04116379310344831,
+            "increasing": 1,
+            "decreasing": 1
+          },
+          {
+            "sector": "Health",
+            "avgWeight": 0.4375,
+            "avgPrevWeight": 0.5172413793103449,
+            "avgChange": -0.07974137931034486,
+            "increasing": 0,
+            "decreasing": 1
+          }
+        ],
+        "managerSimilarity": {
+          "ciks": [
+            "1111111111",
+            "2222222222",
+            "3333333333"
+          ],
+          "matrix": [
+            {
+              "values": [
+                0.9999999999999999,
+                0.0,
+                0.0
+              ]
+            },
+            {
+              "values": [
+                0.0,
+                1.0000000000000002,
+                1.0000000000000002
+              ]
+            },
+            {
+              "values": [
+                0.0,
+                1.0000000000000002,
+                1.0000000000000002
+              ]
+            }
+          ]
+        },
+        "optionsExposure": [
+          {
+            "symbol": "AAA",
+            "equityHolders": [
+              "1111111111"
+            ],
+            "callHolders": [
+              "1111111111"
+            ],
+            "putHolders": []
+          }
+        ],
+        "filings": [],
+        "config": {
+          "consensusMinManagers": 1,
+          "highConvictionMinWeight": 0.2,
+          "highConvictionMinManagers": 2,
+          "sectorMoveThreshold": 0.005,
+          "topN": 25,
+          "score": {
+            "weightScale": 0.05,
+            "newBonus": 0.5,
+            "addedBonus": 0.25,
+            "accumulationScale": 0.02,
+            "accumulationCap": 3
+          }
+        }
+      }
+    },
+    {
+      "ciks": [
+        "1111111111",
+        "2222222222"
+      ],
+      "expected": {
+        "consensusBuys": [
+          {
+            "symbol": "AAA",
+            "name": "AAA Corp",
+            "newBuyers": 0,
+            "added": 1,
+            "avgWeight": 0.5625,
+            "avgWeightIncrease": 0.21767241379310343,
+            "score": 100,
+            "raw": 45.9375,
+            "scorePeak": 45.9375,
+            "managers": [
+              "M1"
+            ]
+          },
+          {
+            "symbol": "FFF",
+            "name": "FFF Co",
+            "newBuyers": 1,
+            "added": 0,
+            "avgWeight": 0.25,
+            "avgWeightIncrease": 0.25,
+            "score": 59,
+            "raw": 27.0,
+            "scorePeak": 45.9375,
+            "managers": [
+              "M2"
+            ]
+          },
+          {
+            "symbol": "EEE",
+            "name": "EEE Co",
+            "newBuyers": 0,
+            "added": 1,
+            "avgWeight": 0.25,
+            "avgWeightIncrease": 0.04999999999999999,
+            "score": 49,
+            "raw": 22.5,
+            "scorePeak": 45.9375,
+            "managers": [
+              "M2"
+            ]
+          },
+          {
+            "symbol": "BBB",
+            "name": "BBB Corp",
+            "newBuyers": 0,
+            "added": 1,
+            "avgWeight": 0.5,
+            "avgWeightIncrease": -0.30000000000000004,
+            "score": 30,
+            "raw": 13.75,
+            "scorePeak": 45.9375,
+            "managers": [
+              "M2"
+            ]
+          }
+        ],
+        "consensusExits": [
+          {
+            "symbol": "FFF",
+            "name": "FFF Co",
+            "soldOut": 1,
+            "trimmed": 0,
+            "avgReduction": -0.13793103448275862,
+            "managers": [
+              "M1"
+            ]
+          },
+          {
+            "symbol": "DDD",
+            "name": "DDD Inc",
+            "soldOut": 0,
+            "trimmed": 1,
+            "avgReduction": -0.09482758620689657,
+            "managers": [
+              "M1"
+            ]
+          }
+        ],
+        "highConviction": [],
+        "biggestNew": [
+          {
+            "cik": "2222222222",
+            "short": "M2",
+            "symbol": "FFF",
+            "name": "FFF Co",
+            "weight": 0.25,
+            "value": 5000
+          }
+        ],
+        "biggestAdds": [
+          {
+            "cik": "1111111111",
+            "short": "M1",
+            "symbol": "AAA",
+            "name": "AAA Corp",
+            "weight": 0.5625,
+            "change": 0.21767241379310343,
+            "value": 18000
+          },
+          {
+            "cik": "2222222222",
+            "short": "M2",
+            "symbol": "EEE",
+            "name": "EEE Co",
+            "weight": 0.25,
+            "change": 0.04999999999999999,
+            "value": 5000
+          },
+          {
+            "cik": "2222222222",
+            "short": "M2",
+            "symbol": "BBB",
+            "name": "BBB Corp",
+            "weight": 0.5,
+            "change": -0.30000000000000004,
+            "value": 10000
+          }
+        ],
+        "biggestTrims": [
+          {
+            "cik": "1111111111",
+            "short": "M1",
+            "symbol": "FFF",
+            "name": "FFF Co",
+            "weight": 0.0,
+            "change": -0.13793103448275862,
+            "value": 0
+          },
+          {
+            "cik": "1111111111",
+            "short": "M1",
+            "symbol": "DDD",
+            "name": "DDD Inc",
+            "weight": 0.25,
+            "change": -0.09482758620689657,
+            "value": 8000
+          }
+        ],
+        "topSignals": [
+          {
+            "symbol": "AAA",
+            "name": "AAA Corp",
+            "score": 100,
+            "raw": 45.9375,
+            "scorePeak": 45.9375,
+            "managerCount": 1,
+            "avgWeight": 0.5625,
+            "avgChange": 0.21767241379310343,
+            "newCount": 0,
+            "addedCount": 1,
+            "managers": [
+              "M1"
+            ]
+          },
+          {
+            "symbol": "FFF",
+            "name": "FFF Co",
+            "score": 59,
+            "raw": 27.0,
+            "scorePeak": 45.9375,
+            "managerCount": 1,
+            "avgWeight": 0.25,
+            "avgChange": 0.25,
+            "newCount": 1,
+            "addedCount": 0,
+            "managers": [
+              "M2"
+            ]
+          },
+          {
+            "symbol": "EEE",
+            "name": "EEE Co",
+            "score": 49,
+            "raw": 22.5,
+            "scorePeak": 45.9375,
+            "managerCount": 1,
+            "avgWeight": 0.25,
+            "avgChange": 0.04999999999999999,
+            "newCount": 0,
+            "addedCount": 1,
+            "managers": [
+              "M2"
+            ]
+          },
+          {
+            "symbol": "BBB",
+            "name": "BBB Corp",
+            "score": 30,
+            "raw": 13.75,
+            "scorePeak": 45.9375,
+            "managerCount": 1,
+            "avgWeight": 0.5,
+            "avgChange": -0.30000000000000004,
+            "newCount": 0,
+            "addedCount": 1,
+            "managers": [
+              "M2"
+            ]
+          },
+          {
+            "symbol": "CCC",
+            "name": "CCC Inc",
+            "score": 18,
+            "raw": 8.332974137931032,
+            "scorePeak": 45.9375,
+            "managerCount": 1,
+            "avgWeight": 0.1875,
+            "avgChange": 0.015086206896551713,
+            "newCount": 0,
+            "addedCount": 0,
+            "managers": [
+              "M1"
+            ]
+          },
+          {
+            "symbol": "DDD",
+            "name": "DDD Inc",
+            "score": 13,
+            "raw": 6.0,
+            "scorePeak": 45.9375,
+            "managerCount": 1,
+            "avgWeight": 0.25,
+            "avgChange": -0.09482758620689657,
+            "newCount": 0,
+            "addedCount": 0,
+            "managers": [
+              "M1"
+            ]
+          }
+        ],
+        "fastestGrowing": [],
+        "sectorRotation": [
+          {
+            "sector": "Energy",
+            "avgWeight": 0.25,
+            "avgPrevWeight": 0.16896551724137931,
+            "avgChange": 0.08103448275862069,
+            "increasing": 1,
+            "decreasing": 1
+          },
+          {
+            "sector": "Tech",
+            "avgWeight": 0.53125,
+            "avgPrevWeight": 0.5724137931034483,
+            "avgChange": -0.04116379310344831,
+            "increasing": 1,
+            "decreasing": 1
+          },
+          {
+            "sector": "Health",
+            "avgWeight": 0.4375,
+            "avgPrevWeight": 0.5172413793103449,
+            "avgChange": -0.07974137931034486,
+            "increasing": 0,
+            "decreasing": 1
+          }
+        ],
+        "managerSimilarity": {
+          "ciks": [
+            "1111111111",
+            "2222222222"
+          ],
+          "matrix": [
+            {
+              "values": [
+                0.9999999999999999,
+                0.0
+              ]
+            },
+            {
+              "values": [
+                0.0,
+                1.0000000000000002
+              ]
+            }
+          ]
+        },
+        "optionsExposure": [
+          {
+            "symbol": "AAA",
+            "equityHolders": [
+              "1111111111"
+            ],
+            "callHolders": [
+              "1111111111"
+            ],
+            "putHolders": []
+          }
+        ],
+        "filings": [],
+        "config": {
+          "consensusMinManagers": 1,
+          "highConvictionMinWeight": 0.2,
+          "highConvictionMinManagers": 2,
+          "sectorMoveThreshold": 0.005,
+          "topN": 25,
+          "score": {
+            "weightScale": 0.05,
+            "newBonus": 0.5,
+            "addedBonus": 0.25,
+            "accumulationScale": 0.02,
+            "accumulationCap": 3
+          }
+        }
+      }
+    },
+    {
+      "ciks": [
+        "2222222222",
+        "3333333333"
+      ],
+      "expected": {
+        "consensusBuys": [
+          {
+            "symbol": "FFF",
+            "name": "FFF Co",
+            "newBuyers": 1,
+            "added": 0,
+            "avgWeight": 0.25,
+            "avgWeightIncrease": 0.25,
+            "score": 100,
+            "raw": 54.0,
+            "scorePeak": 54.0,
+            "managers": [
+              "M2"
+            ]
+          },
+          {
+            "symbol": "EEE",
+            "name": "EEE Co",
+            "newBuyers": 0,
+            "added": 1,
+            "avgWeight": 0.25,
+            "avgWeightIncrease": 0.04999999999999999,
+            "score": 83,
+            "raw": 45.0,
+            "scorePeak": 54.0,
+            "managers": [
+              "M2"
+            ]
+          },
+          {
+            "symbol": "BBB",
+            "name": "BBB Corp",
+            "newBuyers": 0,
+            "added": 1,
+            "avgWeight": 0.5,
+            "avgWeightIncrease": -0.30000000000000004,
+            "score": 51,
+            "raw": 27.5,
+            "scorePeak": 54.0,
+            "managers": [
+              "M2"
+            ]
+          }
+        ],
+        "consensusExits": [],
+        "highConviction": [
+          {
+            "symbol": "BBB",
+            "name": "BBB Corp",
+            "managers": 2,
+            "avgWeight": 0.5,
+            "maxWeight": 0.5,
+            "new": 0,
+            "added": 1,
+            "managerNames": [
+              "M2",
+              "M3"
+            ]
+          },
+          {
+            "symbol": "EEE",
+            "name": "EEE Co",
+            "managers": 2,
+            "avgWeight": 0.25,
+            "maxWeight": 0.25,
+            "new": 0,
+            "added": 1,
+            "managerNames": [
+              "M2",
+              "M3"
+            ]
+          },
+          {
+            "symbol": "FFF",
+            "name": "FFF Co",
+            "managers": 2,
+            "avgWeight": 0.25,
+            "maxWeight": 0.25,
+            "new": 1,
+            "added": 0,
+            "managerNames": [
+              "M2",
+              "M3"
+            ]
+          }
+        ],
+        "biggestNew": [
+          {
+            "cik": "2222222222",
+            "short": "M2",
+            "symbol": "FFF",
+            "name": "FFF Co",
+            "weight": 0.25,
+            "value": 5000
+          }
+        ],
+        "biggestAdds": [
+          {
+            "cik": "2222222222",
+            "short": "M2",
+            "symbol": "EEE",
+            "name": "EEE Co",
+            "weight": 0.25,
+            "change": 0.04999999999999999,
+            "value": 5000
+          },
+          {
+            "cik": "2222222222",
+            "short": "M2",
+            "symbol": "BBB",
+            "name": "BBB Corp",
+            "weight": 0.5,
+            "change": -0.30000000000000004,
+            "value": 10000
+          }
+        ],
+        "biggestTrims": [],
+        "topSignals": [
+          {
+            "symbol": "FFF",
+            "name": "FFF Co",
+            "score": 100,
+            "raw": 54.0,
+            "scorePeak": 54.0,
+            "managerCount": 2,
+            "avgWeight": 0.25,
+            "avgChange": 0.25,
+            "newCount": 1,
+            "addedCount": 0,
+            "managers": [
+              "M2",
+              "M3"
+            ]
+          },
+          {
+            "symbol": "EEE",
+            "name": "EEE Co",
+            "score": 83,
+            "raw": 45.0,
+            "scorePeak": 54.0,
+            "managerCount": 2,
+            "avgWeight": 0.25,
+            "avgChange": 0.04999999999999999,
+            "newCount": 0,
+            "addedCount": 1,
+            "managers": [
+              "M2",
+              "M3"
+            ]
+          },
+          {
+            "symbol": "BBB",
+            "name": "BBB Corp",
+            "score": 51,
+            "raw": 27.5,
+            "scorePeak": 54.0,
+            "managerCount": 2,
+            "avgWeight": 0.5,
+            "avgChange": -0.30000000000000004,
+            "newCount": 0,
+            "addedCount": 1,
+            "managers": [
+              "M2",
+              "M3"
+            ]
+          }
+        ],
+        "fastestGrowing": [
+          {
+            "symbol": "BBB",
+            "name": "BBB Corp",
+            "prevCount": 1,
+            "count": 2,
+            "newManagers": 1,
+            "exitedManagers": 0,
+            "netChange": 1
+          },
+          {
+            "symbol": "EEE",
+            "name": "EEE Co",
+            "prevCount": 1,
+            "count": 2,
+            "newManagers": 1,
+            "exitedManagers": 0,
+            "netChange": 1
+          }
+        ],
+        "sectorRotation": [
+          {
+            "sector": "Energy",
+            "avgWeight": 0.5,
+            "avgPrevWeight": 0.2,
+            "avgChange": 0.3,
+            "increasing": 1,
+            "decreasing": 0
+          },
+          {
+            "sector": "Tech",
+            "avgWeight": 0.5,
+            "avgPrevWeight": 0.8,
+            "avgChange": -0.30000000000000004,
+            "increasing": 0,
+            "decreasing": 1
+          }
+        ],
+        "managerSimilarity": {
+          "ciks": [
+            "2222222222",
+            "3333333333"
+          ],
+          "matrix": [
+            {
+              "values": [
+                1.0000000000000002,
+                1.0000000000000002
+              ]
+            },
+            {
+              "values": [
+                1.0000000000000002,
+                1.0000000000000002
+              ]
+            }
+          ]
+        },
+        "optionsExposure": [],
+        "filings": [],
+        "config": {
+          "consensusMinManagers": 1,
+          "highConvictionMinWeight": 0.2,
+          "highConvictionMinManagers": 2,
+          "sectorMoveThreshold": 0.005,
+          "topN": 25,
+          "score": {
+            "weightScale": 0.05,
+            "newBonus": 0.5,
+            "addedBonus": 0.25,
+            "accumulationScale": 0.02,
+            "accumulationCap": 3
+          }
+        }
+      }
+    },
+    {
+      "ciks": [
+        "3333333333"
+      ],
+      "expected": {
+        "consensusBuys": [],
+        "consensusExits": [],
+        "highConviction": [],
+        "biggestNew": [],
+        "biggestAdds": [],
+        "biggestTrims": [],
+        "topSignals": [
+          {
+            "symbol": "BBB",
+            "name": "BBB Corp",
+            "score": 100,
+            "raw": 11.0,
+            "scorePeak": 11.0,
+            "managerCount": 1,
+            "avgWeight": 0.5,
+            "avgChange": 0.0,
+            "newCount": 0,
+            "addedCount": 0,
+            "managers": [
+              "M3"
+            ]
+          },
+          {
+            "symbol": "EEE",
+            "name": "EEE Co",
+            "score": 55,
+            "raw": 6.0,
+            "scorePeak": 11.0,
+            "managerCount": 1,
+            "avgWeight": 0.25,
+            "avgChange": 0.0,
+            "newCount": 0,
+            "addedCount": 0,
+            "managers": [
+              "M3"
+            ]
+          },
+          {
+            "symbol": "FFF",
+            "name": "FFF Co",
+            "score": 55,
+            "raw": 6.0,
+            "scorePeak": 11.0,
+            "managerCount": 1,
+            "avgWeight": 0.25,
+            "avgChange": 0.0,
+            "newCount": 0,
+            "addedCount": 0,
+            "managers": [
+              "M3"
+            ]
+          }
+        ],
+        "fastestGrowing": [],
+        "sectorRotation": [],
+        "managerSimilarity": {
+          "ciks": [
+            "3333333333"
+          ],
+          "matrix": [
+            {
+              "values": [
+                1.0000000000000002
+              ]
+            }
+          ]
+        },
+        "optionsExposure": [],
+        "filings": [],
+        "config": {
+          "consensusMinManagers": 1,
+          "highConvictionMinWeight": 0.2,
+          "highConvictionMinManagers": 2,
+          "sectorMoveThreshold": 0.005,
+          "topN": 25,
+          "score": {
+            "weightScale": 0.05,
+            "newBonus": 0.5,
+            "addedBonus": 0.25,
+            "accumulationScale": 0.02,
+            "accumulationCap": 3
+          }
+        }
+      }
+    }
+  ]
+}

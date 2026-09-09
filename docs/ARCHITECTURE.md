@@ -119,7 +119,7 @@ flowchart LR
 5. **Display** (`web/src/*`) — The website reads one Firestore document per
    page and renders it. Clicking a column header re-orders the rows already
    on screen — it never asks Firestore for new numbers, and it never
-   calculates a signal itself. If a number looks wrong, the fix is always in
+   calculates a signal for default views. Custom manager/style subsets are the explicit exception: they aggregate the selected manager-quarter documents using published thresholds. If a number looks wrong, the fix is always in
    `derive.py`, never in the browser code.
 
 The 13D/13G pipeline (`ingest/ownership*.py`) runs the same way, on its own

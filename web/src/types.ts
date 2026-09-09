@@ -101,6 +101,7 @@ export interface SourceFiling {
 }
 
 export interface ManagerQuarter {
+  priorPositions?: { symbol: string; period: string; held: boolean }[]
   filedAt: string
   totalValue: number
   equityValue: number
@@ -284,7 +285,17 @@ export interface OptionsExposureRow {
   putHolders: string[]
 }
 
+export interface SignalConfig {
+  consensusMinManagers: number
+  highConvictionMinManagers: number
+  highConvictionMinWeight: number
+  sectorMoveThreshold: number
+  topN: number
+  score: { weightScale: number; newBonus: number; addedBonus: number; accumulationScale: number; accumulationCap: number }
+}
+
 export interface Signals {
+  config?: SignalConfig
   filings?: SourceFiling[]
   consensusBuys: ConsensusBuyRow[]
   consensusExits: ConsensusExitRow[]

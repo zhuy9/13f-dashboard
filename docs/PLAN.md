@@ -23,7 +23,7 @@ manager → stocks, stock → managers, manager → sectors, quarter → quarter
 - Values are in **dollars** since 2023 (older: thousands). We load the last 12 quarters, all post-2023 -- 12 is the ceiling: a 16th quarter back would reach 2022-09-30, filed in thousands.
 - Citadel and Millennium were **removed** by the user: their 13F is a market-making book and would poison every consensus signal.
 
-Data changes 4×/year. So: **all derived tables are computed once at ingest in Python** and written as read-optimized Firestore docs. The browser only renders. No backend API, no always-on server, no auth.
+Data changes 4×/year. So: **all derived tables are computed once at ingest in Python** and written as read-optimized Firestore docs. Default views only render; custom subsets aggregate locally (Milestone 16A). No backend API, no always-on server, no auth.
 
 ## Decisions (locked, confirmed by user)
 
@@ -35,7 +35,7 @@ Data changes 4×/year. So: **all derived tables are computed once at ingest in P
 | File data | **Google Cloud Storage**: raw 13F XML + Parquet of the base table and every derived table. Blaze plan (billing on, $0 within free tier). Gated by `GCS_BUCKET`. |
 | SQL | **No Cloud SQL.** BigQuery external tables over the Parquet later, if wanted. |
 | Ingest | Python (3.12 in CI, 3.10 locally — no 3.11+-only syntax), `edgartools` + `pandas`, run by **GitHub Actions** (cron + manual). |
-| Signals | All 13 signals computed in `ingest/derive.py`. Formulas and thresholds live in `ingest/signals_config.json`. The browser never computes a signal. |
+| Signals | All 13 signals computed in `ingest/derive.py`. Formulas and thresholds live in `ingest/signals_config.json`. The browser recomputes only explicit custom subsets (Milestone 16A). |
 | Managers | Tracked list lives in `ingest/funds.json`, all in the signal set. Cluster labels are manual. See "Adding a manager" in `CLAUDE.md` for the (code-free) process. |
 | 13D/13G | Milestone 8: a sibling event pipeline (`ingest/ownership*.py`, daily cron). All `SCHEDULE 13D`/`13D/A` on EDGAR; `SCHEDULE 13G`/`13G/A` only from roster managers (CIK or `aliases`). Structured-XML filings only (from 2024-12-18). Contract in section J. |
 | History | Last **12 quarters** per manager, then trimmed to the newest 12 periods overall so one stale filer cannot add near-empty quarters. QoQ status on quarters that have a prior quarter in the window. |
@@ -1056,7 +1056,7 @@ Acceptance criteria
 - [x] A load failure shows an error, never "no holdings".
 
 ### Milestone 13 — README, user guide, first-run experience  (M4)
-Status: done (375 px browser verification completed 2026-09-08)
+Status: done 96047c3 (375 px browser verification completed 2026-09-08)
 
 Tasks
 1. Top of README: live demo link, two screenshots, purpose in one sentence, three concrete questions the site answers.
@@ -1127,14 +1127,26 @@ latest published dataset. Storage failure leaves the watchlist usable for the cu
 - Outbound email/push stays out of scope; it needs a consent design first.
 
 ### Milestone 16 — Consensus filtering and ownership research  (M7)
-Status: not started
+Status: 16A in progress; 16B deferred by user
+
+16A uses native manager checkboxes/style selection and a minimum-manager threshold, encoded in
+the URL. Custom subsets load the selected `manager_quarters` documents and recompute all
+Patterns tables using `web/src/subsetSignals.ts`; positions/statuses remain pipeline-derived.
+Published `signals/{period}.config` supplies `consensusMinManagers`, `highConvictionMinWeight`,
+`highConvictionMinManagers`, `sectorMoveThreshold`, `topN`, and `score` constants (camelCase).
+`manager_quarters.priorPositions[{symbol, period, held}]` records the last earlier observation of
+each equity symbol for that manager, including sold-out observations, so filtered holder-count
+trends retain their original missing-history semantics. Full-universe and subset fixtures compare
+browser results against Python. Default all-manager views keep their existing one-document read.
+Custom filtering requires a full re-ingest to publish config and priorPositions; older datasets
+show an explicit unavailable message. The browser-only-rendering rule has this one exception.
 
 16A — manager/style subset filters:
 - [ ] A subset recomputes counts, averages, thresholds, and scores; it does not just hide rows.
 - [ ] Selected universe and threshold are visible and shareable.
 - [ ] Empty and under-threshold subsets show explicit states.
 - [ ] Selecting everything reproduces the published numbers (parity fixture).
-- Note: this moves aggregation into the browser, which contradicts "the browser never computes a signal" in CLAUDE.md. Update that rule first, or do it server-side.
+- The CLAUDE.md exception and this contract are updated before implementing browser subset aggregation.
 
 16B — ownership pagination and purpose changes:
 - [ ] Events past the 300-row feed are reachable; stable ordering, no gaps or dupes at boundaries.
@@ -1142,6 +1154,18 @@ Status: not started
 - [ ] Purpose summaries cite accessions and supporting text.
 - [ ] Missing prior text → "comparison unavailable", never "purpose unchanged".
 - [ ] Summary failure leaves deterministic ownership data usable.
+
+### Deployment order for publication recovery and Milestones 14-16A
+
+1. Deploy the updated web reader first. It supports both legacy paths and dataset IDs.
+2. Run a full 13F ingest (no `--fund`) to publish `stock_quarters`, signal config, and prior positions.
+3. Run ownership normally; it reads holder counts from the published dataset and checkpoints after publishing.
+4. Reload the browser to pin the new dataset. Old datasets remain available to already-open sessions.
+
+Local verification: 130 Python tests, 51 web tests, production build, and browser checks at 375 px.
+The browser exercised historical navigation/reload, missing quarters, CSV downloads, watchlist
+persistence/deduplication/revisions/methodology changes/blocked storage, and manager/style filters,
+thresholds, empty universes, reload, and scoped exports. No remote ingest or deployment was run.
 
 ### Release verification (Milestones 9-13)
 - Run `pytest` in `ingest`, `npm run test` and `npm run build` in `web`. Report the real commands and outcomes.

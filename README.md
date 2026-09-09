@@ -27,6 +27,10 @@ Stock and manager links keep the selected quarter. Stock pages offer historical 
 
 4. **Verify a filing.** Every manager-quarter links its source filings on EDGAR by accession, so any number here can be traced back to the document it came from.
 
+## Filter the research universe
+
+On Patterns, open Research universe to choose a style, individual managers, and the minimum manager count. Every table recomputes for that selection; the URL preserves your selection and exports include it. Stock and manager links still show their full reported holdings. Default views read precomputed results; custom subsets aggregate the published manager-quarter data locally.
+
 ## Watchlist
 
 Use "Watch this name" on a stock or manager page, then open Watchlist. Saving establishes a baseline; later visits show new quarterly reports, revisions, and methodology recalculations with filing links. Use "Reload to check latest data" for a fresh dataset. The list and digest live only in this browser; clearing browser storage removes them. If storage is blocked, the list works for the current session.
@@ -171,7 +175,7 @@ GitHub Actions (on every push to main)
   └─ build the site → Firebase Hosting → your domain
 ```
 
-A script runs once a month. It downloads the latest filings and computes every signal. It writes the results to Firestore. The website only reads and displays them. Nothing is computed live.
+A script runs once a month. It downloads the latest filings and computes every signal. It writes the results to Firestore. The website only reads and displays them. Default views need no live computation; custom manager/style filters recompute their selected universe in the browser.
 
 Each page reads a small number of whole documents — never a query, never an aggregation. `meta/latest` on every page, plus one document for the page's own data: two reads for Patterns and Ownership, three for a stock, four for a manager (the manager, its quarter, and its 13D/13G filings). The search box loads its symbol list once, the first time you focus it.
 

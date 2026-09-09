@@ -61,7 +61,7 @@ This repository is PUBLIC.
 ## Where logic lives
 
 - 13F signal math: `ingest/derive.py`. 13D/13G event math: `ingest/ownership_derive.py`. Thresholds and score constants for both: `ingest/signals_config.json`.
-- The browser only formats and renders. It never computes a signal.
+- Published signals are computed in Python. The browser only formats and renders, except for Milestone 16A's explicit manager/style subsets: `web/src/subsetSignals.ts` aggregates published manager-quarter rows with published thresholds, verified against Python parity fixtures. It never infers trades or changes position status.
 - The Firestore document shapes in `docs/PLAN.md` are the contract between Python and TypeScript. If a shape must change, change the plan first, then both sides.
 
 ## Conventions

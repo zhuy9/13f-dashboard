@@ -30,6 +30,16 @@ manager changes every count and average on the site.
 13D filings are collected from every filer on EDGAR. 13G filings are collected only from the
 tracked roster, because the universe-wide 13G stream is dominated by index funds.
 
+## Custom manager/style subsets
+
+Patterns can restrict the research universe to selected managers. Counts, averages, rankings,
+and score normalization are recomputed within that universe, using the published methodology
+and thresholds. The minimum-manager control overrides both consensus and high-conviction count
+thresholds; the qualifying portfolio-weight threshold stays unchanged. The selection and minimum
+are encoded in the URL and CSV exports. Each manager's own equity weights remain unchanged.
+Default views use Python's precomputed tables; custom subsets use browser aggregation verified
+against the same Python fixtures. Stock and manager drill-downs show their full reported holdings.
+
 ## Portfolio weight
 
 A 13F reports positions in equities, and also option positions, convertible notes, and warrants.

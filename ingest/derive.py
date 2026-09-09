@@ -147,13 +147,13 @@ def _period_pairs(cur: pd.DataFrame, periods: list[str], filed: dict, key_col: s
         cur_p = by_period[period]
         prev_p = by_period.get(prev_period) if prev_period else None
 
-        for cik in filed.get(period, set()):
+        for cik in sorted(filed.get(period, set())):
             manager_filed_prev = prev_period is not None and cik in filed.get(prev_period, set())
             cur_pos = cur_p[cur_p["cik"] == cik].set_index(key_col)
             prev_pos = prev_p[prev_p["cik"] == cik].set_index(key_col) if manager_filed_prev else None
 
             keys = set(cur_pos.index) | (set(prev_pos.index) if manager_filed_prev else set())
-            for key in keys:
+            for key in sorted(keys):
                 cur_row = cur_pos.loc[key] if key in cur_pos.index else None
                 prev_row = prev_pos.loc[key] if manager_filed_prev and key in prev_pos.index else None
                 yield period, cik, key, cur_row, prev_row, manager_filed_prev
@@ -672,6 +672,17 @@ def derive_all(h: pd.DataFrame, funds: list[dict], cfg: dict, actions: list[dict
     return {
         "periods": periods,
         "methodology_version": cfg["methodology_version"],
+        "signal_config": {
+            k: cfg[k]
+            for k in [
+                "consensus_min_managers",
+                "high_conviction_min_weight",
+                "high_conviction_min_managers",
+                "sector_move_threshold",
+                "top_n",
+                "score",
+            ]
+        },
         "holdings": h,
         "totals": totals(h),
         "symbols": h[["symbol", "name", "sector", "kind"]].drop_duplicates("symbol").reset_index(drop=True),

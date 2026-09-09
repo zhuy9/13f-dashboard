@@ -147,6 +147,12 @@ def _build_manager_quarter_docs(tables: dict, funds: list[dict]) -> dict[str, di
         counts = grp["status"].value_counts()
         similar = similarity.get(period, {}).get("most_similar", {}).get(cik, [])
         docs[f"{cik}_{period}"] = {
+            "priorPositions": _records(
+                mqs[(mqs["cik"] == cik) & (mqs["period"] < period) & (mqs["kind"] == "EQUITY")]
+                .sort_values("period")
+                .drop_duplicates("symbol", keep="last")
+                .assign(held=lambda d: d["value"] > 0)[["symbol", "period", "held"]]
+            ),
             "filedAt": totals_idx.loc[(cik, period), "filed_at"],
             "totalValue": int(totals_idx.loc[(cik, period), "total_value"]),
             # The filing total covers every row. The equity value is the weight denominator,
@@ -265,6 +271,7 @@ def _build_signals_docs(tables: dict, periods: list[str]) -> dict[str, dict]:
         doc["optionsExposure"] = _records(opts[opts["period"] == period].drop(columns=["period"]))
         filings = tables.get("filings")
         doc["filings"] = _records(filings[filings["period"] == period]) if filings is not None else []
+        doc["config"] = _clean(tables["signal_config"])
         docs[period] = doc
     return docs
 

@@ -1095,8 +1095,9 @@ Ownership publishes issuer/investor documents, then the feed, then advances its 
 Status: done d1d99e3
 
 Stock, manager, and pattern links preserve `period`. Stock history uses one document per
-stock-quarter, and `stocks/{symbol}` keeps no `latest` copy — one publisher of the holder table,
-so the two can never disagree.
+stock-quarter, and `stocks/{symbol}` is no longer *published* with a `latest` copy — one publisher
+of the holder table, so the two can never disagree. The reader still **reads** `latest` as a
+fallback; see "Legacy stock latest" below.
 `signals/{period}.filings` lists that quarter's source filings for export provenance.
 CSV exports cover all rows of each displayed research table (ranked tables keep their published
 top-N scope), with period, source accessions, tracked coverage, and methodology version on every row.
@@ -1155,6 +1156,21 @@ show an explicit unavailable message. The browser-only-rendering rule has this o
 - [ ] Purpose summaries cite accessions and supporting text.
 - [ ] Missing prior text → "comparison unavailable", never "purpose unchanged".
 - [ ] Summary failure leaves deterministic ownership data usable.
+
+### Legacy stock latest
+
+`stock_quarters/` first ships in Milestone 14, so any dataset published before that ingest runs
+has no such collection — and `meta/latest` there has no `datasetId` either, which is why
+`fetchDatasetDoc` falls back to unprefixed paths. Those datasets carry the newest quarter's holder
+table on `stocks/{symbol}.latest` instead.
+
+`StockPage` and `useWatchlist.readReport` therefore fall back to `stocks/{symbol}.latest`, and use
+it only when its `period` equals the requested quarter. `Stock.latest` is typed optional for this
+reason alone. Removing either fallback makes every stock page read "Holdings unavailable for this
+quarter" and every stock unwatchable until a full ingest lands — this happened once, in `23e8e94`,
+where the fallback was mistaken for duplicated data. `useWatchlist.test.ts` covers it.
+
+Both may be deleted once no browser can still be pinned to a pre-Milestone-14 dataset.
 
 ### Deployment order for publication recovery and Milestones 14-16A
 

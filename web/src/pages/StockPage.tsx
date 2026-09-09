@@ -44,7 +44,9 @@ export function StockPage() {
     return message ? <ErrorState message={message} /> : <EmptyState message="Stock not found." />
   }
 
-  const latest = quarterState.data
+  // A dataset published before stock_quarters/ existed carries the newest quarter on the stock
+  // doc instead. Without this the whole page reads "unavailable" until the next full ingest.
+  const latest = quarterState.data ?? (stock?.latest?.period === period ? stock.latest : null)
   const name = stock?.name ?? issuer?.issuerName ?? symbol
   const sector = stock?.sector ?? issuer?.sector ?? 'Unknown'
   const unresolved = !stock && isUnresolvedSymbol(symbol)

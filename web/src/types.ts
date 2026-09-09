@@ -185,6 +185,10 @@ export interface Stock {
   sector: string
   kind: SecurityKind
   trend: StockTrendPoint[]
+  // Only in datasets published before Milestone 14 introduced stock_quarters/. Current ingests
+  // omit it, and the readers below treat it as a fallback. Delete both once no legacy dataset
+  // is reachable -- see "Legacy stock latest" in docs/PLAN.md.
+  latest?: StockLatest | null
 }
 
 // signals/{period}

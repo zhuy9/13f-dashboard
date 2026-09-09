@@ -1480,7 +1480,7 @@ of which supports section K's per-owner, per-row `shares_after`/`acquired_dispos
 joint filing.
 
 #### Milestone 17.3 — Derive (`insider_derive.py`)
-Status: not started
+Status: done b58bc78
 
 Tasks
 1. `ingest/insider_derive.py` (≤ 220 lines; **pure** — DataFrame in, DataFrame/dict out; imports
@@ -1510,11 +1510,19 @@ Tasks
 4. `ruff format .`, `ruff check .`, `pytest`.
 
 Acceptance criteria
-- [ ] `pytest ingest/test_insider_derive.py` green, ≥ 10 tests, no network.
-- [ ] `insider_derive.py` ≤ 220 lines, contains no `firestore`/`google`/`edgar` import.
-- [ ] Every code in the section K table appears as a key of `CODE_KINDS`.
-- [ ] `issuer_summary` computed over the fixture reports `boughtShares` counting only `code == "P"`
+- [x] `pytest ingest/test_insider_derive.py` green, ≥ 10 tests, no network.
+- [x] `insider_derive.py` ≤ 220 lines, contains no `firestore`/`google`/`edgar` import.
+- [x] Every code in the section K table appears as a key of `CODE_KINDS`.
+- [x] `issuer_summary` computed over the fixture reports `boughtShares` counting only `code == "P"`
       rows, verified by an explicit assertion against a hand-computed number in the test.
+
+**Deviation from spec, discovered while writing the fixture:** section K's own formula for
+`is_discretionary_sale` (`code == "S" and aff10b5_one is not True`) would count an unstated
+checkbox (`aff10b5_one is None`) as discretionary, since `None is not True` is `True` in Python
+-- but section K's own prose two lines later, and the milestone's explicit fixture/test
+(`test_unstated_10b5_1_is_not_discretionary`), both require the opposite: "not stated" must never
+read as discretionary. Implemented as `aff10b5_one == False` (a strict equality that excludes
+`None`), matching the milestone's own test over the ambiguous formula text.
 
 #### Milestone 17.4 — Store and CLI (`insider_store.py`, `insider.py`)
 Status: not started

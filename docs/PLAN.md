@@ -1525,7 +1525,7 @@ read as discretionary. Implemented as `aff10b5_one == False` (a strict equality 
 `None`), matching the milestone's own test over the ambiguous formula text.
 
 #### Milestone 17.4 — Store and CLI (`insider_store.py`, `insider.py`)
-Status: not started
+Status: done 4a497b7
 
 Tasks
 1. `ingest/insider_store.py` (≤ 200 lines), mirroring `ownership_store.py`:
@@ -1548,12 +1548,34 @@ Tasks
 4. `ruff format .`, `ruff check .`, `pytest`.
 
 Acceptance criteria
-- [ ] `pytest ingest/test_insider_store.py` green; no network, no real Firestore.
-- [ ] `python insider.py --dry-run --since <recent date>` prints a summary and writes nothing
+- [x] `pytest ingest/test_insider_store.py` green; no network, no real Firestore.
+- [x] `python insider.py --dry-run --since <recent date>` prints a summary and writes nothing
       (verified by checking the GCS state blob's generation is unchanged).
-- [ ] With `meta/holder_counts` absent, `python insider.py --dry-run` exits 1 with a message naming
+- [x] With `meta/holder_counts` absent, `python insider.py --dry-run` exits 1 with a message naming
       the missing document — it does not fall back to a universe-wide fetch.
-- [ ] Every doc built from the fixture is < 1 MB.
+- [x] Every doc built from the fixture is < 1 MB.
+
+**Manual network check (2026-09-09):** `python insider.py --dry-run --since 2026-09-01` against
+real EDGAR, Firestore and GCS. First attempt crashed inside `derive_all` --
+`ValueError: unconverted data remains when parsing with format "%Y-%m-%d": "-05:00"` -- a handful
+of real filers' `transactionDate` values carry a trailing UTC offset that none of the three
+hand-built fixtures happened to contain. Fixed in `insider_derive.trades()` by keeping only the
+`YYYY-MM-DD` prefix before parsing (see the milestone's commit). Re-run succeeded: window
+`2026-09-01 .. 2026-09-09`, universe **1,565 issuers** at `universe_min_holders: 1` (well above
+the plan's "~600-symbol" estimate -- worth a closer look during 17.5's volume measurement, since
+it directly drives daily filing volume and Firestore write count), 4,541 new transaction rows,
+0 failed filings, every SEC code represented (`SELL 2045, EXERCISE 757, AWARD 660, TAX 449,
+DISPOSITION_TO_ISSUER 211, OTHER 138, BUY 125, GIFT 104, CONVERSION 52`). Confirmed after the run:
+`parquet/insider_transactions.parquet` does not exist in GCS and `raw_insider/` is empty --
+`--dry-run` wrote nothing.
+
+**The "`meta/holder_counts` absent" case was verified by code inspection and the unit suite, not
+against real Firestore:** `insider.py` checks `read_holder_counts(db) is None` and exits 1 with a
+message naming `meta/holder_counts` before ever calling `universe_ciks` (`insider.py` main());
+`test_universe_ciks_raises_when_holder_counts_missing` (17.2) covers the same contract at the
+function level. The real Firestore project already has `meta/holder_counts` published from prior
+milestones' ingest runs, and deleting it there to exercise this path live would touch production
+data the site currently serves from, for no benefit over the two checks above.
 
 #### Milestone 17.5 — Workflow, backfill, measured volume
 Status: not started

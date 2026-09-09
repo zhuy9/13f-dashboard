@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStates'
 import { WatchButton } from '@/components/WatchButton'
 import { CsvExport } from '@/components/CsvExport'
+import { Explain } from '@/components/Explain'
 import { SourceFilings } from '@/components/manager/SourceFilings'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useMeta } from '@/context/MetaContext'
@@ -104,7 +105,15 @@ export function StockPage() {
               <h2 className="mb-2 text-lg font-medium">Holders</h2>
               <CsvExport rows={latest.holders} name={`${symbol}-holders`} accessions={latest.filings?.map(f => f.accession)} />
               <HoldersTable holders={latest.holders} />
-              {latest.filings && <SourceFilings filings={latest.filings} cik="" />}
+              {/* Collapsed: one accession per holder is provenance, not something to read past on
+                  the way down the page. Same native <details> as the Explain above the table. */}
+              {latest.filings && latest.filings.length > 0 && (
+                <div className="mt-4">
+                  <Explain summary={`Source filings (${latest.filings.length})`}>
+                    <SourceFilings filings={latest.filings} cik="" />
+                  </Explain>
+                </div>
+              )}
             </section>
 
             {latest.soldOut.length > 0 && (

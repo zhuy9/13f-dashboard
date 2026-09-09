@@ -1392,7 +1392,7 @@ Naming, so nothing collides with the 13D/13G pipeline: Python `insider.py`, `ins
 `pages/InsiderPersonPage.tsx`, `components/insider/*`; workflow `.github/workflows/insider.yml`.
 
 #### Milestone 17.1 — Contract, config, docs
-Status: not started
+Status: done f314052
 
 Tasks
 1. This section, section K, the three `insider_*` Firestore rows, the two `insider` GCS lines, the
@@ -1409,12 +1409,12 @@ Tasks
 4. Commit `docs: plan milestone 17 — Form 4 insider transactions`.
 
 Acceptance criteria
-- [ ] This file contains "### K. Insider transactions (Form 4)", three `insider_*` rows in the
+- [x] This file contains "### K. Insider transactions (Form 4)", three `insider_*` rows in the
       Firestore table, two `insider` lines in the GCS layout, and Milestones 17.1–17.8.
-- [ ] `python -c "import json; print(sorted(json.load(open('ingest/signals_config.json'))['insider']))"`
+- [x] `python -c "import json; print(sorted(json.load(open('ingest/signals_config.json'))['insider']))"`
       prints the 10 keys.
-- [ ] `CLAUDE.md` has a "Form 4 gotchas" section naming `P`, `S`, `A`, `M`, `F` and `aff10b5_one`.
-- [ ] `pytest` and `npm run test` still green; nothing else changed.
+- [x] `CLAUDE.md` has a "Form 4 gotchas" section naming `P`, `S`, `A`, `M`, `F` and `aff10b5_one`.
+- [x] `pytest` and `npm run test` still green; nothing else changed.
 
 #### Milestone 17.2 — Fetch and parse (`insider_fetch.py`)
 Status: not started

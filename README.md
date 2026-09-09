@@ -23,6 +23,8 @@ Four things the site is built to do:
 1. **Find a crowded stock.** [Patterns](https://13f.darren-zhu.com/patterns) → Consensus Buys. Open a row's *Buyers* to see which managers, and its *Score* to see the arithmetic behind the ranking.
 2. **Inspect who holds it.** Click the symbol. The stock page lists every tracked holder, its weight, and whether it added or trimmed.
 3. **Compare what changed.** A manager's page shows its whole reported book, quarter over quarter, with sector exposure and its most similar managers.
+Stock and manager links keep the selected quarter. Stock pages offer historical holders and explicit unavailable states. Research tables export all displayed rows to CSV with period, source accessions, tracked coverage, and methodology version; ranked tables retain their displayed top-N scope.
+
 4. **Verify a filing.** Every manager-quarter links its source filings on EDGAR by accession, so any number here can be traced back to the document it came from.
 
 ## What this is

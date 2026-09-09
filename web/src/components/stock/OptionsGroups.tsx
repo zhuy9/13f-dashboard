@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { ManagerLink } from '@/components/ManagerLink'
 import { SideBadge } from '@/components/SideBadge'
 import { CALL_COLOR, PUT_COLOR } from '@/format'
 import type { Holder, OptionHolderRef } from '@/types'
@@ -11,9 +11,7 @@ function ManagerLinkList({ items }: { items: { cik: string; short: string }[] })
     <ul className="flex flex-col gap-1 px-2 py-1 text-sm">
       {items.map((m) => (
         <li key={m.cik}>
-          <Link to={`/manager/${m.cik}`} className="text-call hover:underline">
-            {m.short}
-          </Link>
+          <ManagerLink cik={m.cik} label={m.short} />
         </li>
       ))}
     </ul>

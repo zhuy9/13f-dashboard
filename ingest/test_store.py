@@ -10,6 +10,7 @@ from store import (
     _build_manager_quarter_docs,
     _build_meta,
     _build_stock_docs,
+    _build_stock_quarter_docs,
     _camel,
     _clean,
     _commit_in_batches,
@@ -84,6 +85,15 @@ def test_stock_doc_has_options_and_trend(tables):
     aaa = docs["AAA"]
     assert aaa["latest"]["options"]["calls"] == [{"cik": "1111111111", "short": "M1"}]
     assert len(aaa["trend"]) == 2
+
+
+def test_stock_quarters_keep_historical_holders_and_do_not_fill_missing_periods(tables):
+    docs = _build_stock_quarter_docs(tables, FUNDS)
+    before, after = docs["AAA_2026-03-31"], docs["AAA_2026-06-30"]
+    assert before["period"] == "2026-03-31"
+    assert before["holders"] != after["holders"]
+    assert "AAA_2025-12-31" not in docs
+    assert after == {**_build_stock_docs(tables, FUNDS)["AAA"]["latest"], "filings": []}
 
 
 def published(db, path):

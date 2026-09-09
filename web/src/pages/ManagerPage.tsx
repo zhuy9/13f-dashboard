@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStates'
+import { CsvExport } from '@/components/CsvExport'
 import { Explain, SharesVsWeight, SplitBasis, WeightBasis } from '@/components/Explain'
 import { ManagerLists } from '@/components/manager/ManagerLists'
 import { OwnershipFilings } from '@/components/manager/OwnershipFilings'
@@ -119,6 +120,7 @@ export function ManagerPage() {
             </div>
             <div>
               <h2 className="mb-2 text-lg font-medium">Sector QoQ</h2>
+              <CsvExport rows={mqState.data.sectors} name={`${manager.short}-sectors`} accessions={mqState.data.filings?.map(f => f.accession)} />
               <SectorQoQTable sectors={mqState.data.sectors} />
             </div>
           </section>
@@ -139,6 +141,7 @@ export function ManagerPage() {
               <WeightBasis />
               <p>Notes and warrants are listed here and badged; option positions are not listed at all.</p>
             </Explain>
+            <CsvExport rows={mqState.data.positions} name={`${manager.short}-positions`} accessions={mqState.data.filings?.map(f => f.accession)} />
             <PositionsTable positions={mqState.data.positions} />
           </section>
 

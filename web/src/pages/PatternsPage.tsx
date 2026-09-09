@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStates'
+import { CsvExport } from '@/components/CsvExport'
 import { Explain, SharesVsWeight, WeightBasis } from '@/components/Explain'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { StatTile } from '@/components/StatTile'
@@ -25,6 +26,7 @@ const SectorRotation = lazy(() => import('@/pages/patterns/SectorRotation').then
 interface Section {
   id: string
   label: string
+  rows?: object[]
   node: ReactNode
   help: ReactNode
 }
@@ -39,6 +41,7 @@ function buildSections(data: Signals, labelByCik: Map<string, string>): Section[
       id: 'consensus-buys',
       label: 'Consensus Buys',
       node: <ConsensusBuys rows={data.consensusBuys} />,
+      rows: data.consensusBuys,
       help: (
         <>
           <p>
@@ -65,6 +68,7 @@ function buildSections(data: Signals, labelByCik: Map<string, string>): Section[
       id: 'consensus-exits',
       label: 'Consensus Exits',
       node: <ConsensusExits rows={data.consensusExits} />,
+      rows: data.consensusExits,
       help: (
         <>
           <p>
@@ -83,6 +87,7 @@ function buildSections(data: Signals, labelByCik: Map<string, string>): Section[
       id: 'high-conviction',
       label: 'High Conviction',
       node: <HighConviction rows={data.highConviction} />,
+      rows: data.highConviction,
       help: (
         <>
           <p>
@@ -101,6 +106,7 @@ function buildSections(data: Signals, labelByCik: Map<string, string>): Section[
       id: 'biggest-new',
       label: 'Biggest New',
       node: <BiggestNew rows={data.biggestNew} />,
+      rows: data.biggestNew,
       help: (
         <>
           <p>The largest brand-new positions this quarter, one row per manager and stock, ranked by weight.</p>
@@ -112,6 +118,7 @@ function buildSections(data: Signals, labelByCik: Map<string, string>): Section[
       id: 'biggest-adds',
       label: 'Biggest Adds',
       node: <BiggestAdds rows={data.biggestAdds} />,
+      rows: data.biggestAdds,
       help: (
         <>
           <p>The largest increases in weight, one row per manager and stock.</p>
@@ -124,6 +131,7 @@ function buildSections(data: Signals, labelByCik: Map<string, string>): Section[
       id: 'biggest-trims',
       label: 'Biggest Trims',
       node: <BiggestTrims rows={data.biggestTrims} />,
+      rows: data.biggestTrims,
       help: (
         <>
           <p>The largest decreases in weight, including positions that left the 13F entirely.</p>
@@ -135,6 +143,7 @@ function buildSections(data: Signals, labelByCik: Map<string, string>): Section[
       id: 'sector-rotation',
       label: 'Sector Rotation',
       node: <SectorRotation rows={data.sectorRotation} />,
+      rows: data.sectorRotation,
       help: (
         <>
           <p>
@@ -150,6 +159,7 @@ function buildSections(data: Signals, labelByCik: Map<string, string>): Section[
       id: 'fastest-growing',
       label: 'Fastest Growing',
       node: <FastestGrowing rows={data.fastestGrowing} />,
+      rows: data.fastestGrowing,
       help: (
         <p>
           Change in the <strong>number of tracked managers holding</strong> the stock, not in its price or value.{' '}
@@ -173,6 +183,7 @@ function buildSections(data: Signals, labelByCik: Map<string, string>): Section[
       id: 'put-call-exposure',
       label: 'Put/Call Exposure',
       node: <PutCallExposure rows={data.optionsExposure} labelByCik={labelByCik} />,
+      rows: data.optionsExposure,
       help: (
         <>
           <p>
@@ -337,6 +348,7 @@ export function PatternsPage() {
         <section key={s.id} id={s.id} className="scroll-mt-40">
           <h2 className="mb-1 text-lg font-medium">{s.label}</h2>
           <Explain>{s.help}</Explain>
+          {s.rows && <CsvExport rows={s.rows} name={s.id} accessions={signalsState.data?.filings?.map(f => f.accession)} />}
           <Suspense fallback={<LoadingState />}>{s.node}</Suspense>
         </section>
       ))}

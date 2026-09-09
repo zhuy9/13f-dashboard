@@ -131,6 +131,7 @@ export interface StockTrendPoint {
 }
 
 export interface Holder {
+  accession?: string | null
   cik: string
   short: string
   value: number
@@ -155,6 +156,7 @@ export interface OptionHolderRef {
 }
 
 export interface StockLatest {
+  filings?: SourceFiling[]
   period: string
   managerCount: number
   managersTotal: number
@@ -283,6 +285,7 @@ export interface OptionsExposureRow {
 }
 
 export interface Signals {
+  filings?: SourceFiling[]
   consensusBuys: ConsensusBuyRow[]
   consensusExits: ConsensusExitRow[]
   highConviction: HighConvictionRow[]

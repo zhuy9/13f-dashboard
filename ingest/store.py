@@ -215,6 +215,24 @@ def _build_stock_docs(tables: dict, funds: list[dict]) -> dict[str, dict]:
     return docs
 
 
+def _build_stock_quarter_docs(tables: dict, funds: list[dict]) -> dict[str, dict]:
+    short = {f["cik"]: f["short"] for f in funds}
+    options = {(r.period, r.symbol): r for r in tables["options_exposure"].itertuples()}
+    docs = {}
+    for _, row in tables["stock_quarter_summary"].iterrows():
+        period, symbol = row["period"], row["symbol"]
+        opt = options.get((period, symbol))
+        doc = _clean(row.drop(labels=["symbol", "name"]).to_dict())
+        doc["options"] = {
+            "calls": [{"cik": c, "short": short[c]} for c in opt.call_holders] if opt else [],
+            "puts": [{"cik": c, "short": short[c]} for c in opt.put_holders] if opt else [],
+        }
+        ciks = {r["cik"] for r in doc["holders"] + doc["soldOut"]}
+        doc["filings"] = [r for cik in sorted(ciks) for r in _filing_records(tables.get("filings"), cik, period)]
+        docs[f"{symbol}_{period}"] = doc
+    return docs
+
+
 def _build_signals_docs(tables: dict, periods: list[str]) -> dict[str, dict]:
     # (Firestore field name, source table name) -- table names stay snake_case (Python side);
     # doc field names are camelCase (JS side), converted explicitly since these are top-level
@@ -245,6 +263,8 @@ def _build_signals_docs(tables: dict, periods: list[str]) -> dict[str, dict]:
 
         opts = tables["options_exposure"]
         doc["optionsExposure"] = _records(opts[opts["period"] == period].drop(columns=["period"]))
+        filings = tables.get("filings")
+        doc["filings"] = _records(filings[filings["period"] == period]) if filings is not None else []
         docs[period] = doc
     return docs
 
@@ -281,6 +301,7 @@ def write_firestore(db, tables: dict, funds: list[dict], periods: list[str]) -> 
         # split into extra Firestore path segments. Ordinary tickers are untouched.
         "stocks": {quote(symbol, safe=""): doc for symbol, doc in _build_stock_docs(tables, funds).items()},
         "signals": _build_signals_docs(tables, periods),
+        "stock_quarters": {quote(key, safe=""): doc for key, doc in _build_stock_quarter_docs(tables, funds).items()},
     }
     # symbols is its own doc: every page reads meta/latest, but only the search box needs the
     # ~2,300-entry symbol list, which is most of what meta/latest would otherwise weigh.

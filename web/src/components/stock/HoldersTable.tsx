@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { ManagerLink } from '@/components/ManagerLink'
 import { Explain, SharesVsWeight, SplitBasis, WeightBasis } from '@/components/Explain'
 import { StatusBadge } from '@/components/StatusBadge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -32,9 +32,7 @@ export function HoldersTable({ holders }: { holders: Holder[] }) {
           {sorted.map((h) => (
             <TableRow key={h.cik}>
               <TableCell>
-                <Link to={`/manager/${h.cik}`} className="text-call hover:underline">
-                  {h.short}
-                </Link>
+                <ManagerLink cik={h.cik} label={h.short} />
               </TableCell>
               <TableCell className="font-tabular text-right">{pct(h.weight)}</TableCell>
               <TableCell className="font-tabular text-right">{h.change != null ? pp(h.change) : '—'}</TableCell>

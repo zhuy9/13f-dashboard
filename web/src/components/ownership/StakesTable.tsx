@@ -1,3 +1,4 @@
+import { CsvExport } from '@/components/CsvExport'
 import { Link } from 'react-router-dom'
 import { FormBadge } from '@/components/ownership/FormBadge'
 import { StockLink } from '@/components/StockLink'
@@ -20,6 +21,8 @@ export function StakesTable({
   if (stakes.length === 0) return <p className="text-sm text-ink-muted">No current stakes.</p>
 
   return (
+    <>
+    <CsvExport rows={sorted} name="ownership-stakes" period="event-driven" />
     <Table>
       <TableHeader>
         <TableRow>
@@ -54,5 +57,6 @@ export function StakesTable({
         ))}
       </TableBody>
     </Table>
+    </>
   )
 }

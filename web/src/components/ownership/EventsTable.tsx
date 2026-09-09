@@ -1,3 +1,4 @@
+import { CsvExport } from '@/components/CsvExport'
 import { Fragment } from 'react'
 import { Link } from 'react-router-dom'
 import { EventBadge } from '@/components/ownership/EventBadge'
@@ -26,6 +27,8 @@ export function EventsTable({
   const columnCount = 6 + Number(!hideInvestor) + 2 * Number(!hideIssuer)
 
   return (
+    <>
+    <CsvExport rows={sorted} name="ownership-events" period="event-driven" />
     <Table>
       <TableHeader>
         <TableRow>
@@ -86,5 +89,6 @@ export function EventsTable({
         ))}
       </TableBody>
     </Table>
+    </>
   )
 }

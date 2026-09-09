@@ -1,14 +1,18 @@
-import { lazy, Suspense } from 'react'
-import { useParams } from 'react-router-dom'
+import { lazy, Suspense, useEffect } from 'react'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStates'
+import { CsvExport } from '@/components/CsvExport'
+import { SourceFilings } from '@/components/manager/SourceFilings'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useMeta } from '@/context/MetaContext'
 import { KindBadge } from '@/components/KindBadge'
 import { ManagerLink } from '@/components/ManagerLink'
 import { HoldersTable } from '@/components/stock/HoldersTable'
 import { MajorShareholders } from '@/components/stock/MajorShareholders'
 import { OptionsGroups } from '@/components/stock/OptionsGroups'
 import { StatTile } from '@/components/StatTile'
-import { getOwnershipIssuer, getStock } from '@/data'
-import { pct } from '@/format'
+import { getOwnershipIssuer, getStock, getStockQuarter } from '@/data'
+import { pct, quarterLabel } from '@/format'
 import { useAsyncData } from '@/hooks/useAsyncData'
 import { isUnresolvedSymbol } from '@/ownership'
 
@@ -17,10 +21,17 @@ const TrendCharts = lazy(() => import('@/components/stock/TrendCharts').then((m)
 export function StockPage() {
   const { symbol: rawSymbol = '' } = useParams<{ symbol: string }>()
   const symbol = decodeURIComponent(rawSymbol)
+  const { meta } = useMeta()
+  const [params, setParams] = useSearchParams()
+  const period = params.get('period') ?? meta?.latestPeriod ?? null
+  useEffect(() => {
+    if (period && !params.has('period')) setParams({ period }, { replace: true })
+  }, [period, params, setParams])
+  const quarterState = useAsyncData(() => period ? getStockQuarter(symbol, period) : Promise.resolve(null), [symbol, period])
   const stockState = useAsyncData(() => getStock(symbol), [symbol])
   const issuerState = useAsyncData(() => getOwnershipIssuer(symbol), [symbol])
 
-  if (stockState.loading || issuerState.loading) return <LoadingState />
+  if (stockState.loading || issuerState.loading || quarterState.loading) return <LoadingState />
 
   const stock = stockState.data
   const issuer = issuerState.data
@@ -32,7 +43,7 @@ export function StockPage() {
     return message ? <ErrorState message={message} /> : <EmptyState message="Stock not found." />
   }
 
-  const latest = stock?.latest ?? null
+  const latest = quarterState.data ?? (stock?.latest?.period === period ? stock.latest : null)
   const name = stock?.name ?? issuer?.issuerName ?? symbol
   const sector = stock?.sector ?? issuer?.sector ?? 'Unknown'
   const unresolved = !stock && isUnresolvedSymbol(symbol)
@@ -56,9 +67,18 @@ export function StockPage() {
             No ticker matched this filing ({symbol}). The company is usually delisted or acquired.
           </p>
         )}
+        {period && meta && (
+          <Select value={period} onValueChange={p => setParams({ period: p })}>
+            <SelectTrigger aria-label="Stock quarter"><SelectValue /></SelectTrigger>
+            <SelectContent>{meta.periods.map(p => <SelectItem key={p} value={p}>{quarterLabel(p)}</SelectItem>)}</SelectContent>
+          </Select>
+        )}
+        {period && <p className="mt-2 text-sm text-ink-muted">13F holdings as of {quarterLabel(period)}.</p>}
       </header>
+      {quarterState.error && <ErrorState message={quarterState.error} />}
+      {stockState.error && <ErrorState message={stockState.error} />}
 
-      {stock ? (
+      {!quarterState.error && stock ? (
         latest ? (
           <>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
@@ -71,7 +91,9 @@ export function StockPage() {
 
             <section>
               <h2 className="mb-2 text-lg font-medium">Holders</h2>
+              <CsvExport rows={latest.holders} name={`${symbol}-holders`} accessions={latest.filings?.map(f => f.accession)} />
               <HoldersTable holders={latest.holders} />
+              {latest.filings && <SourceFilings filings={latest.filings} cik="" />}
             </section>
 
             {latest.soldOut.length > 0 && (
@@ -109,9 +131,9 @@ export function StockPage() {
             )}
           </>
         ) : (
-          <EmptyState message="No holders this quarter." />
+          <EmptyState message="Holdings unavailable for this quarter. Select another quarter." />
         )
-      ) : (
+      ) : !stockState.error && !quarterState.error && (
         <p className="text-sm text-ink-muted">No tracked manager reported this stock in a 13F filing.</p>
       )}
 

@@ -251,13 +251,17 @@ Config keys (`signals_config.json` → `ownership`): `start_date` (first filing 
 
 ## Firestore documents (what the browser reads)
 
+13F paths below (except `meta/latest` and `securities/`) are relative to
+`datasets/{meta/latest.datasetId}/`. Legacy datasets without an ID use the original paths.
+
 | Doc | Content | Read by |
 |---|---|---|
-| `meta/latest` | `latestPeriod, periods[], managers[{cik, short, name, cluster}], clusters[{label, members, commonHoldings, topSector}], coverage[{period, filed[], missing[]}], methodologyVersion, updatedAt` | every page, once |
+| `meta/latest` | `datasetId, latestPeriod, periods[], managers[{cik, short, name, cluster}], clusters[{label, members, commonHoldings, topSector}], coverage[{period, filed[], missing[]}], methodologyVersion, updatedAt` | every page, once |
 | `meta/symbols` | `symbols[{symbol, name, sector}]` | the search box, on first focus only |
 | `managers/{cik}` | `cik, name, short, cluster, periods[]` | manager page |
 | `manager_quarters/{cik}_{period}` | `filedAt, totalValue, equityValue, filings[{accession, url, filedAt, isAmendment, amendmentType, filerCik}], count, counts{new,added,trimmed,unchanged,soldOut}, positions[A rows incl. SOLD_OUT], sectors[B rows], mostSimilar[{cik, short, score}]` | manager page |
 | `stocks/{symbol}` | `symbol, name, sector, kind, trend[D rows], latest{C summary + holders + soldOut + options{calls[], puts[]}}` | stock page |
+| `stock_quarters/{symbol}_{period}` | C summary + holders (including accession), soldOut, options, filings[SourceFiling] | selected stock quarter; absent means unavailable |
 | `signals/{period}` | all E tables, F, G (`ciks[]`, `matrix[][]`), H (symbols with options only) | patterns page |
 | `securities/{cusip}` | enrichment cache (ingest only) | — |
 | `meta/holder_counts` | `period, counts[{symbol, n}]` — how many tracked managers held each symbol at `period` | the ownership pipeline, once per run (not the browser) |
@@ -1088,7 +1092,14 @@ Ownership publishes issuer/investor documents, then the feed, then advances its 
 - [x] Readers resolve all 13F documents and ownership holder counts through the published dataset.
 
 ### Milestone 14 — Historical stock views and CSV export  (M5)
-Status: not started
+Status: in progress
+
+Stock, manager, and pattern links preserve `period`. Stock history uses one document per
+stock-quarter; the existing `latest` field is only a fallback when its period matches exactly.
+`signals/{period}.filings` lists that quarter's source filings for export provenance.
+CSV exports cover all rows of each displayed research table (ranked tables keep their published
+top-N scope), with period, source accessions, tracked coverage, and methodology version on every row.
+Nested details are JSON cells; spreadsheet formula prefixes are escaped. No export dependency.
 
 - [ ] Quarter selector on stock pages, quarter in the URL, restored on reload.
 - [ ] Missing quarter → explicit unavailable state, never current-quarter substitution.

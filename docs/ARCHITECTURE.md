@@ -152,6 +152,17 @@ run writes `meta/holder_counts` (how many tracked managers hold each stock),
 and the daily ownership run reads that one document, so every event can say
 what it landed on top of — "a 13D on a stock 5 tracked managers already own".
 
+## Publication and recovery
+
+The 13F writer stages immutable documents under `datasets/{datasetId}/`, then switches
+`meta/latest.datasetId` only when every write succeeds. The browser pins that dataset for
+its session. A failed run leaves the previous dataset available. Stock history is stored
+as one `stock_quarters/{symbol}_{period}` document per quarter.
+
+Ownership writes the affected issuer/investor pages and then the feed before advancing
+its GCS checkpoint. If publication fails, a normal retry fetches and republishes those
+filings. Snapshots are retained for pinned readers; cleanup can be added when needed.
+
 ## Why it's built this way
 
 13F data changes four times a year, and only shortly after each quarter

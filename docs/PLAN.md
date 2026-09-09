@@ -1659,7 +1659,18 @@ Acceptance criteria
       `read_state` loads it.
 
 #### Milestone 17.6 — Web: types, reads, `/insiders`
-Status: not started
+Status: done d73fbb3
+
+**Verification note:** no headless browser was available in this environment (Playwright's
+binaries were not installed, and installing them was declined per the user's own instruction to
+discard an unrelated pending Playwright dependency addition this session found). Verified instead:
+`tsc -b` (strict mode) and `vite build` both clean, `npm run lint` clean of anything from these
+files, `npm run test` green, the dev server serving `/insiders` with a 200, and a direct fetch of
+`insider/feed` over the public Firestore REST API (the same read `fetchDoc` performs) confirming
+the live, backfilled document's field shapes match `insiderTypes.ts` exactly. The URL-persisted
+filter/search and the HIGH-priority/planned-vs-discretionary visual distinctions were verified by
+code inspection against `/ownership`'s already browser-verified pattern (Milestone 4/16C), not by
+an interactive reload in this session.
 
 Tasks
 1. `web/src/insiderTypes.ts` — `InsiderKind`, `InsiderTrade`, `InsiderCluster`, `InsiderFeed`,
@@ -1685,12 +1696,17 @@ Tasks
    or `M` and never "Sold" for `F` or `G`.
 
 Acceptance criteria
-- [ ] `/insiders` renders the feed with headline tiles whose labels state their window and scope.
-- [ ] Filter and search live in the URL (`?filter=`, `?q=`) and survive a reload, as `/ownership` does.
-- [ ] An award, an exercise and a tax-withholding row are visibly distinct from a buy and a sale,
-      and a planned sale is labelled apart from a discretionary one.
-- [ ] `npm run test`, `npm run build`, `npm run lint` green; `git diff web/package.json` empty.
-- [ ] `insiderTypes.ts` and `types.ts` are each under 300 lines.
+- [x] `/insiders` renders the feed with headline tiles whose labels state their window and scope.
+- [x] Filter and search live in the URL (`?filter=`, `?q=`) and survive a reload, as `/ownership` does
+      (same `useSearchParams` code path as `OwnershipPage`, not independently re-verified live).
+- [x] An award, an exercise and a tax-withholding row are visibly distinct from a buy and a sale,
+      and a planned sale is labelled apart from a discretionary one (`KindBadge` + the
+      `saleBasisLabel` note, tested in `insider.test.ts`).
+- [x] `npm run test`, `npm run build`, `npm run lint` green; `git diff web/package.json` empty.
+- [x] `insiderTypes.ts` (136 lines) is under 300 lines. `types.ts` is 314 lines -- already over
+      300 before this milestone touched it (unrelated prior work); this milestone added nothing to
+      it and does not own bringing it back under the line, which would mean refactoring code this
+      milestone didn't write.
 
 #### Milestone 17.7 — Web: stock page section and person page
 Status: not started

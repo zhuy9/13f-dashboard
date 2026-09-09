@@ -1417,7 +1417,7 @@ Acceptance criteria
 - [x] `pytest` and `npm run test` still green; nothing else changed.
 
 #### Milestone 17.2 — Fetch and parse (`insider_fetch.py`)
-Status: not started
+Status: done 76337ed
 
 Tasks
 1. `ingest/insider_fetch.py` (≤ 200 lines):
@@ -1453,13 +1453,31 @@ Tasks
 4. `ruff format .`, `ruff check .`, `pytest`.
 
 Acceptance criteria
-- [ ] `pytest ingest/test_insider_fetch.py` green; the file contains none of `get_filings`,
+- [x] `pytest ingest/test_insider_fetch.py` green; the file contains none of `get_filings`,
       `requests`, `http`.
-- [ ] `insider_fetch.py` ≤ 200 lines; `ruff check` clean.
-- [ ] `python -c "from insider_fetch import parse_filing"` style check: parsing the award/tax
+- [x] `insider_fetch.py` ≤ 200 lines; `ruff check` clean.
+- [x] `python -c "from insider_fetch import parse_filing"` style check: parsing the award/tax
       fixture yields rows whose `code` values are exactly `{"A", "F"}`.
-- [ ] Manual, network, recorded in the milestone notes: `list_filings({320193, 789019}, d, d)` for
+- [x] Manual, network, recorded in the milestone notes: `list_filings({320193, 789019}, d, d)` for
       one recent trading day returns only accessions whose issuer is Apple or Microsoft.
+
+**Manual network check (2026-09-08):** `list_filings({320193, 789019}, "2026-09-03", "2026-09-03")`
+returned exactly one row -- accession `0001140361-26-035636`, `cik=320193` (Apple). Microsoft filed
+no Form 4 that day, and no other CIK appeared, confirming the issuer-CIK filter runs before
+`drop_duplicates` as intended.
+
+**Deviation from spec, discovered live:** `Form4.parse_xml` itself makes a network call per
+reporting owner (`edgar.entity.Entity(cik).data.is_company`, to decide whether to reverse the
+name) -- unrelated to anything in `insider_fetch.py`, but it means parsing a fixture is not
+network-free by default. `test_insider_fetch.py` monkeypatches
+`edgar.ownership.owners.Entity` so the suite stays offline; production code is unaffected (it
+already expects to hit the network once per filing).
+
+`parse_filing` reads `obj.non_derivative_table`/`obj.derivative_table` directly rather than
+`to_dataframe()`/`get_transaction_activities()`: the higher-level summary APIs join every
+reporting owner's name into one string and use a filing-level "remaining shares" figure, neither
+of which supports section K's per-owner, per-row `shares_after`/`acquired_disposed` columns for a
+joint filing.
 
 #### Milestone 17.3 — Derive (`insider_derive.py`)
 Status: not started

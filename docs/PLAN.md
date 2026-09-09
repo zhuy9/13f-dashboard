@@ -1102,7 +1102,13 @@ fallback; see "Legacy stock latest" below.
 `signals/{period}.filings` lists that quarter's source filings for export provenance.
 CSV exports cover all rows of each displayed research table (ranked tables keep their published
 top-N scope), with period, source accessions, tracked coverage, and methodology version on every row.
-Nested details are JSON cells; spreadsheet formula prefixes are escaped. No export dependency.
+Coverage travels as counts (`universeManagers`, `managersFiled`, `managersMissing`), not as rosters:
+these are constant for the whole export, and spelling out 34 CIKs twice per row buried the data under
+more boilerplate than data. Provenance columns trail the data columns, and a provenance value that is
+undefined is omitted rather than exported as an empty column. Data columns are sorted, not first-seen:
+rows of one table do not all carry the same fields — a NEW position has no `prevWeight` — so first-seen
+order made the layout depend on which row sorted first. Nested details are JSON cells; spreadsheet
+formula prefixes are escaped. No export dependency.
 
 - [x] Quarter selector on stock pages, quarter in the URL, restored on reload.
 - [x] Missing quarter → explicit unavailable state, never current-quarter substitution.

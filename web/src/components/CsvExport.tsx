@@ -23,8 +23,20 @@ export function CsvExport({ rows, name, accessions = [], period: explicitPeriod,
   if (!rows.length || !meta) return null
 
   function download() {
-    const text = csv(rows, { period, sourceAccessions: accessions, coverage: meta?.coverage?.filter(c => c.period === period).map(c => ({ ...c, filed: c.filed.filter(id => !universe || universe.includes(id)), missing: c.missing.filter(id => !universe || universe.includes(id)) })),
-      trackedManagers: universe ?? meta?.managers.map(m => m.cik), minimumManagers: minimum, methodologyVersion: meta?.methodologyVersion })
+    // Counts, not rosters. Coverage and the tracked universe are constant for the whole export,
+    // and spelling out 34 CIKs twice per row buried the data under ~1,400 characters of identical
+    // boilerplate. The managers behind a ranked row are already in that row's own column.
+    const inUniverse = (cik: string) => !universe || universe.includes(cik)
+    const coverage = meta?.coverage?.find(c => c.period === period)
+    const text = csv(rows, {
+      period,
+      sourceAccessions: accessions.length ? accessions.join(' ') : undefined,
+      universeManagers: (universe ?? meta?.managers.map(m => m.cik))?.length,
+      managersFiled: coverage?.filed.filter(inUniverse).length,
+      managersMissing: coverage?.missing.filter(inUniverse).length,
+      minimumManagers: minimum,
+      methodologyVersion: meta?.methodologyVersion,
+    })
     const url = URL.createObjectURL(new Blob(['\ufeff', text], { type: 'text/csv;charset=utf-8' }))
     const link = document.createElement('a')
     link.href = url

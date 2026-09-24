@@ -115,6 +115,7 @@ def _build_meta(tables: dict, funds: list[dict], periods: list[str]) -> dict:
         # Which roster managers have a filing per quarter, so the site can say "no filing"
         # instead of rendering a missing filer as a manager holding zero of everything.
         "coverage": _clean(tables["coverage"]),
+        "copyability": _records(tables["copyability"]),
         "methodologyVersion": tables["methodology_version"],
         "updatedAt": firestore.SERVER_TIMESTAMP,
     }

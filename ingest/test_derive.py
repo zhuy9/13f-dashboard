@@ -6,6 +6,7 @@ import pytest
 from derive import (
     _OPTIONS_EXPOSURE_COLUMNS,
     conviction_score,
+    copyability,
     derive_all,
     manager_quarter_summary,
     options_exposure,
@@ -583,3 +584,32 @@ def test_the_table_that_displays_a_score_also_carries_its_trace(out):
     for name in ["consensus_buys", "top_signals"]:
         columns = set(out[name].columns)
         assert {"raw", "score_peak"} <= columns, f"{name} shows a score with no way to check it"
+
+
+def test_copyability_turnover_concentration_and_nulls(out):
+    table = out["copyability"].set_index("cik")
+    m1 = table.loc["1111111111"]
+    # M1's Q2 weight moves: AAA +.2177, CCC +.0151, DDD -.0948, FFF sold out -.1379 -> half the sum.
+    assert m1["turnover"] == pytest.approx(0.2328, abs=1e-4)
+    assert m1["top10_weight"] == pytest.approx(1.0)  # three positions, all in the top ten
+    assert m1["quarters"] == 2
+    # A two-quarter window can never see four quarters ahead.
+    assert pd.isna(m1["new_held_after4"])
+    m3 = table.loc["3333333333"]
+    assert pd.isna(m3["turnover"]) and m3["quarters"] == 1  # first filing: no prior quarter to turn over from
+
+
+def test_copyability_new_held_after4_counts_only_positions_old_enough_to_tell():
+    periods = [f"2025-{m:02d}-30" for m in (3, 6, 9, 12)] + ["2026-03-31"]
+    rows = [
+        {"period": periods[0], "symbol": "KEEP", "value": 1, "weight": 0.5, "change": 0.5, "status": "NEW"},
+        {"period": periods[0], "symbol": "DROP", "value": 1, "weight": 0.5, "change": 0.5, "status": "NEW"},
+        {"period": periods[4], "symbol": "KEEP", "value": 1, "weight": 1.0, "change": 0.0, "status": "UNCHANGED"},
+        {"period": periods[4], "symbol": "DROP", "value": 0, "weight": 0.0, "change": -0.5, "status": "SOLD_OUT"},
+        # LATE's +4 quarter is outside the window, so it cannot count either way.
+        {"period": periods[4], "symbol": "LATE", "value": 1, "weight": 0.1, "change": 0.1, "status": "NEW"},
+    ]
+    mqs = pd.DataFrame(rows).assign(cik="1", short="M")
+    table = copyability(mqs, periods)
+    assert table.loc[0, "new_held_after4"] == 0.5
+    assert table.loc[0, "quarters"] == 2

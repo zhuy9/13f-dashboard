@@ -59,6 +59,7 @@ def test_build_meta_shape(tables):
     assert len(meta["managers"]) == 3
     assert "symbols" not in meta  # its own doc: every page reads meta/latest, only search needs symbols
     assert meta["clusters"][0]["commonHoldings"]  # camelCase, non-empty at latest period
+    assert {"cik", "turnover", "top10Weight", "newHeldAfter4"} <= meta["copyability"][0].keys()
 
 
 def test_symbols_get_their_own_doc(tables):

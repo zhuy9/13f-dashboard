@@ -634,6 +634,37 @@ def clusters(mqs: pd.DataFrame, mse: pd.DataFrame, funds: list[dict]) -> dict:
     return result
 
 
+def copyability(mqs: pd.DataFrame, periods: list[str]) -> pd.DataFrame:
+    """Table L: how well a 13F clone can mechanically track each manager. Equity rows only.
+
+    Copying a filing that is 45-135 days old works when the manager trades rarely and holds a
+    few names in size. No returns are involved: this ranks how much of a book survives the lag,
+    not whether the book is any good.
+    """
+    idx = {p: i for i, p in enumerate(periods)}
+    rows = []
+    for cik, grp in mqs.groupby("cik"):
+        filed = set(grp["period"])
+        held = set(zip(grp.loc[grp["value"] > 0, "period"], grp.loc[grp["value"] > 0, "symbol"]))
+        # Quarters without a prior filing have change == None throughout and drop out here.
+        per_quarter = pd.to_numeric(grp["change"]).abs().groupby(grp["period"]).sum(min_count=1).dropna() / 2
+        new = grp[grp["status"] == "NEW"]
+        later = new["period"].map(lambda p: periods[idx[p] + 4] if idx[p] + 4 < len(periods) else None)
+        checkable = later.notna() & later.isin(filed)
+        kept = [(q, s) in held for q, s in zip(later[checkable], new.loc[checkable, "symbol"])]
+        rows.append(
+            {
+                "cik": cik,
+                "short": grp["short"].iloc[0],
+                "quarters": len(filed),
+                "turnover": float(per_quarter.mean()) if len(per_quarter) else None,
+                "top10_weight": float(grp[grp["period"] == max(filed)].nlargest(10, "weight")["weight"].sum()),
+                "new_held_after4": sum(kept) / len(kept) if kept else None,
+            }
+        )
+    return pd.DataFrame(rows, columns=["cik", "short", "quarters", "turnover", "top10_weight", "new_held_after4"])
+
+
 def coverage(h: pd.DataFrame, funds: list[dict], periods: list[str]) -> list[dict]:
     """Per period: which roster managers have a filing and which do not.
 
@@ -695,5 +726,6 @@ def derive_all(h: pd.DataFrame, funds: list[dict], cfg: dict, actions: list[dict
         "manager_similarity": manager_similarity(eq_mqs),
         "options_exposure": options_exposure(h),
         "clusters": clusters(eq_mqs, mse, funds),
+        "copyability": copyability(eq_mqs, periods),
         "coverage": coverage(h, funds, periods),
     }

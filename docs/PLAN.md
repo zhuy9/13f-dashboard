@@ -169,7 +169,7 @@ sold_out: [{cik, short, prev_weight}]
 ```
 
 ### D. `stock_trend` — per symbol, one row per period
-`manager_count, avg_weight, median_weight, max_weight, new_managers, exited_managers, net_change`.
+`manager_count, avg_weight, median_weight, max_weight, new_managers, exited_managers, net_change, implied_price` (Milestone 18: median of `value / shares` over current holders — the quarter-end price the filers imply, the only price 13F carries; null with no holder. Filers still reporting in thousands push it ~1000x, which the median absorbs unless they are the majority).
 
 ### E. Consensus tables — per period, from C (thresholds from `signals_config.json`)
 | Table | Filter | Columns | Sort |
@@ -352,6 +352,19 @@ Config keys (`signals_config.json` → `insider`): `start_date`, `universe_min_h
 `min_open_market_value`, `cluster_min_insiders`, `cluster_window_days`, `first_buy_lookback_days`,
 `recent_trades`, `max_trades_per_doc`, `refetch_overlap_days`, `footnote_max_chars`.
 
+### L. Copyability — per manager, from A (Milestone 18)
+
+How well a 13F clone can mechanically track a manager. Copying a filing that is 45-135 days old
+works when the manager trades rarely and holds a few names in size. No returns are involved: this
+ranks how much of a book survives the lag, not whether the book is any good. Equity rows only.
+```
+cik, short, quarters (periods with a filing in the window)
+turnover      mean over quarters with a prior filing of 0.5 x sum |change|  (NEW = +weight, SOLD_OUT = -prev_weight); null with no such quarter
+top10_weight  sum of the ten largest weights at the manager's latest quarter
+new_held_after4   share of NEW positions still held (value > 0) four quarters later, over NEW positions whose +4 quarter is in the window and was filed; null when none qualify
+```
+Published as `meta/latest.copyability[]`.
+
 ## Firestore documents (what the browser reads)
 
 13F paths below (except `meta/latest` and `securities/`) are relative to
@@ -359,10 +372,10 @@ Config keys (`signals_config.json` → `insider`): `start_date`, `universe_min_h
 
 | Doc | Content | Read by |
 |---|---|---|
-| `meta/latest` | `datasetId, latestPeriod, periods[], managers[{cik, short, name, cluster}], clusters[{label, members, commonHoldings, topSector}], coverage[{period, filed[], missing[]}], methodologyVersion, updatedAt` | every page, once |
+| `meta/latest` | `datasetId, latestPeriod, periods[], managers[{cik, short, name, cluster}], clusters[{label, members, commonHoldings, topSector}], coverage[{period, filed[], missing[]}], copyability[L rows], methodologyVersion, updatedAt` | every page, once |
 | `meta/symbols` | `symbols[{symbol, name, sector}]` | the search box, on first focus only |
 | `managers/{cik}` | `cik, name, short, cluster, periods[]` | manager page |
-| `manager_quarters/{cik}_{period}` | `filedAt, totalValue, equityValue, filings[{accession, url, filedAt, isAmendment, amendmentType, filerCik}], count, counts{new,added,trimmed,unchanged,soldOut}, positions[A rows incl. SOLD_OUT], sectors[B rows], mostSimilar[{cik, short, score}]` | manager page |
+| `manager_quarters/{cik}_{period}` | `filedAt, totalValue, equityValue, filings[{accession, url, filedAt, isAmendment, amendmentType, filerCik}], count, counts{new,added,trimmed,unchanged,soldOut}, positions[A rows incl. SOLD_OUT], sectors[B rows], mostSimilar[{cik, short, score}], options{calls[symbol], puts[symbol]} (Milestone 18: symbols this manager reported an option side on, from H)` | manager page |
 | `stocks/{symbol}` | `symbol, name, sector, kind, trend[D rows]` — identity and trend only; every quarter's holder table, newest included, lives in `stock_quarters/` | stock page |
 | `stock_quarters/{symbol}_{period}` | C summary + holders (including accession), soldOut, options, filings[SourceFiling] | selected stock quarter; absent means unavailable |
 | `signals/{period}` | all E tables, F, G (`ciks[]`, `matrix[][]`), H (symbols with options only) | patterns page |
@@ -1767,6 +1780,30 @@ Acceptance criteria
 - [x] Every AC box in 17.1–17.8 is checked and every `Status:` line carries a sha.
 - [x] Full suite green: `pytest` in `ingest/`, `npm run test`, `npm run build`, `npm run lint`
       (161 ingest tests, 77 web tests, both clean, both green at commit 1f0b4b1).
+
+---
+
+## Milestone 18 — Copy-trade aids  (built by the dev model, one sub-task per commit)
+
+Small additions that make the published rows easier to act on. No price feed: everything below is
+formatting of rows the pipelines already publish, plus two new Python fields (L, `implied_price`).
+
+18.1 — Copyability (table L, `meta/latest.copyability`, a scatter and table on `/managers`).
+- [ ] `copyability()` is pure and tested: turnover, top-10 weight, held-after-4-quarters, nulls where the window cannot tell.
+- [ ] `/managers` shows turnover against concentration with the manager's short name, and a sortable table of the same rows.
+- [ ] The section says in one line that this is mechanical fit, not returns.
+
+18.2 — Activity timeline on the stock page: Form 4 buys and sells at their own price, 13D/13G events as dated markers, on one time axis.
+- [ ] Renders from docs the stock page already reads; absent insider or ownership docs shrink the chart, never hide the 13F sections.
+
+18.3 — Sellers-appearing strip on the stock page: 13F trims/exits in the selected quarter, 13D/13G decreases/exits, and discretionary insider sales in the insider window, each its own light.
+- [ ] Planned sales are never counted as discretionary. Missing source docs read as "no data", not "no sellers".
+
+18.4 — Implied quarter-end price: `stock_trend.implied_price` drawn as a step line on the 18.2 timeline.
+- [ ] Median over holders; null with no holder; test covers a thousands-reporting outlier.
+
+18.5 — Hedge badge: `manager_quarters.options{calls, puts}` and a PUT / CALL badge on the manager's positions table.
+- [ ] A position the manager also holds puts on is badged, with the standing "reported put exposure, not short" wording.
 
 ## Doc specs
 

@@ -27,6 +27,16 @@ export interface QuarterCoverage {
   missing: string[]
 }
 
+// meta/latest.copyability -- table L. Mechanical fit of a 13F clone, never a returns claim.
+export interface Copyability {
+  cik: string
+  short: string
+  quarters: number
+  turnover: number | null
+  top10Weight: number
+  newHeldAfter4: number | null
+}
+
 export interface Meta {
   datasetId?: string
   latestPeriod: string
@@ -34,6 +44,8 @@ export interface Meta {
   managers: ManagerRef[]
   clusters: ClusterSummary[]
   coverage?: QuarterCoverage[]
+  // Optional: datasets published before Milestone 18 do not carry it.
+  copyability?: Copyability[]
   methodologyVersion: number
   updatedAt: Timestamp
 }

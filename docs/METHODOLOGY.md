@@ -208,6 +208,23 @@ The 13F holder count shown beside an insider trade works exactly like the one be
 ownership event: from the most recent 13F quarter, always older than the transaction next to it,
 and a dash means the 13F pipeline has not run yet.
 
+## Copyability
+
+A per-manager table of how well a copy of the latest 13F could mechanically track the manager.
+Three numbers, all from the position table: quarterly turnover (half the sum of absolute weight
+changes, averaged over quarters that have a prior filing), the weight of the ten largest positions
+at the latest quarter, and the share of new positions still held four quarters later, where the
+window reaches that far. It ranks how much of a book survives the 45-to-135-day filing lag. It is
+not a returns measure and says nothing about whether the book is any good.
+
+## Implied quarter-end price
+
+A 13F carries no prices, but every row carries value and shares, and their ratio is the price the
+filer used at quarter end. The stock page's timeline draws the median of that ratio across the
+holders each quarter. Median, not mean, so a filer still reporting in thousands cannot move it a
+thousandfold on its own. It is a quarter-end reference, not a quote, and it is absent when nobody
+held the stock that quarter.
+
 ## Dollar values
 
 Values are dollars for filings from 2023 onward. Older filings reported thousands, and a few

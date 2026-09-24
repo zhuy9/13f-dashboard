@@ -1785,25 +1785,38 @@ Acceptance criteria
 
 ## Milestone 18 — Copy-trade aids  (built by the dev model, one sub-task per commit)
 
+Status: done (18.1-18.5 below; docs commit follows)
+
 Small additions that make the published rows easier to act on. No price feed: everything below is
 formatting of rows the pipelines already publish, plus two new Python fields (L, `implied_price`).
 
 18.1 — Copyability (table L, `meta/latest.copyability`, a scatter and table on `/managers`).
-- [ ] `copyability()` is pure and tested: turnover, top-10 weight, held-after-4-quarters, nulls where the window cannot tell.
-- [ ] `/managers` shows turnover against concentration with the manager's short name, and a sortable table of the same rows.
-- [ ] The section says in one line that this is mechanical fit, not returns.
+Status: done eea5fc8
+- [x] `copyability()` is pure and tested: turnover, top-10 weight, held-after-4-quarters, nulls where the window cannot tell.
+- [x] `/managers` shows turnover against concentration with the manager's short name, and a sortable table of the same rows.
+- [x] The section says in one line that this is mechanical fit, not returns.
 
 18.2 — Activity timeline on the stock page: Form 4 buys and sells at their own price, 13D/13G events as dated markers, on one time axis.
-- [ ] Renders from docs the stock page already reads; absent insider or ownership docs shrink the chart, never hide the 13F sections.
+Status: done 02fc32f
+- [x] Renders from docs the stock page already reads; absent insider or ownership docs shrink the chart, never hide the 13F sections.
 
 18.3 — Sellers-appearing strip on the stock page: 13F trims/exits in the selected quarter, 13D/13G decreases/exits, and discretionary insider sales in the insider window, each its own light.
-- [ ] Planned sales are never counted as discretionary. Missing source docs read as "no data", not "no sellers".
+Status: done cd8a57d
+- [x] Planned sales are never counted as discretionary. Missing source docs read as "no data", not "no sellers".
 
 18.4 — Implied quarter-end price: `stock_trend.implied_price` drawn as a step line on the 18.2 timeline.
-- [ ] Median over holders; null with no holder; test covers a thousands-reporting outlier.
+Status: done d833669
+- [x] Median over holders; null with no holder; test covers a thousands-reporting outlier.
 
 18.5 — Hedge badge: `manager_quarters.options{calls, puts}` and a PUT / CALL badge on the manager's positions table.
-- [ ] A position the manager also holds puts on is badged, with the standing "reported put exposure, not short" wording.
+Status: done b8fd062
+- [x] A position the manager also holds puts on is badged, with the standing "reported put exposure, not short" wording.
+
+Verification: `pytest` 165 green, `npm run test` 82 green, `npm run build` and `npm run lint` clean
+at b8fd062. No browser check: the dev machine used for this milestone had no `web/.env`, so the new
+sections were not rendered against live Firestore. The copyability, `implied_price` and
+`options` fields appear on the site only after the next full 13F ingest publishes them; until then
+the section and the badges are hidden and the timeline draws without its 13F line.
 
 ## Doc specs
 

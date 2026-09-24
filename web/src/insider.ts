@@ -92,3 +92,10 @@ export function saleBasisLabel(trade: InsiderTrade): string | null {
   if (trade.isDiscretionarySale) return 'Discretionary'
   return 'Not stated'
 }
+
+// Distinct insiders with a discretionary open-market sale dated on or after `since`. Planned
+// 10b5-1 sales are excluded upstream by `isDiscretionarySale`, and a flag the filing left blank
+// reads as not stated, so it is excluded too.
+export function discretionarySellersSince(trades: InsiderTrade[], since: string): number {
+  return new Set(trades.filter((t) => t.isDiscretionarySale && t.transactionDate >= since).map((t) => t.ownerCik)).size
+}

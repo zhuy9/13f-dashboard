@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filterTrades, kindLabel, personHref, roleLabel, saleBasisLabel, tradeKeys } from './insider'
+import { discretionarySellersSince, filterTrades, kindLabel, personHref, roleLabel, saleBasisLabel, tradeKeys } from './insider'
 import type { InsiderKind, InsiderTrade } from './insiderTypes'
 
 function trade(overrides: Partial<InsiderTrade>): InsiderTrade {
@@ -143,5 +143,17 @@ describe('saleBasisLabel', () => {
   })
   it('labels an unstated 10b5-1 checkbox as not stated, never as discretionary', () => {
     expect(saleBasisLabel(trade({ kind: 'SELL', isPlanned: false, isDiscretionarySale: false }))).toBe('Not stated')
+  })
+})
+
+describe('discretionarySellersSince', () => {
+  it('counts distinct discretionary sellers in the window and never a planned or unstated sale', () => {
+    const trades = [
+      trade({ ownerCik: 'a', code: 'S', kind: 'SELL', isDiscretionarySale: true, transactionDate: '2026-08-01' }),
+      trade({ ownerCik: 'a', code: 'S', kind: 'SELL', isDiscretionarySale: true, transactionDate: '2026-08-02' }),
+      trade({ ownerCik: 'b', code: 'S', kind: 'SELL', isPlanned: true, aff10b5One: true, isDiscretionarySale: false }),
+      trade({ ownerCik: 'c', code: 'S', kind: 'SELL', isDiscretionarySale: true, transactionDate: '2026-01-01' }),
+    ]
+    expect(discretionarySellersSince(trades, '2026-06-01')).toBe(1)
   })
 })

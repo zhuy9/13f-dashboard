@@ -13,6 +13,7 @@ import { HoldersTable } from '@/components/stock/HoldersTable'
 import { InsiderActivity } from '@/components/stock/InsiderActivity'
 import { MajorShareholders } from '@/components/stock/MajorShareholders'
 import { OptionsGroups } from '@/components/stock/OptionsGroups'
+import { SellersStrip } from '@/components/stock/SellersStrip'
 import { StatTile } from '@/components/StatTile'
 import { getInsiderIssuer, getOwnershipIssuer, getStock, getStockQuarter } from '@/data'
 import { pct, quarterLabel } from '@/format'
@@ -159,6 +160,8 @@ export function StockPage() {
       ) : !stockState.error && !quarterState.error && (
         <p className="text-sm text-ink-muted">No tracked manager reported this stock in a 13F filing.</p>
       )}
+
+      {(latest || issuer || insiderState.data) && <SellersStrip latest={latest} issuer={issuer} insider={insiderState.data} />}
 
       {insiderState.data && (
         <Suspense fallback={<LoadingState />}>

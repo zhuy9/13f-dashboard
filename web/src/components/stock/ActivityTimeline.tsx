@@ -25,6 +25,9 @@ export function ActivityTimeline({ trades, events, trend }: { trades: InsiderTra
     .filter((t) => t.impliedPrice != null)
     .map((t) => ({ at: day(t.period), price: t.impliedPrice as number, who: 'Quarter-end implied (13F)' }))
   if (buys.length + sells.length + implied.length === 0) return null
+  // The axis spans every dated item, or a 13D/G filed after the newest trade would fall off the chart.
+  const dates = [...buys, ...sells, ...implied].map((p) => p.at).concat(events.map((e) => day(e.filedAt)))
+  const domain: [number, number] = [Math.min(...dates), Math.max(...dates)]
 
   return (
     <section>
@@ -36,14 +39,16 @@ export function ActivityTimeline({ trades, events, trend }: { trades: InsiderTra
       <ResponsiveContainer width="100%" height={260}>
         <ComposedChart>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-line)" />
-          <XAxis dataKey="at" type="number" domain={['dataMin', 'dataMax']} tickFormatter={label} tick={{ fontSize: 12 }} />
+          <XAxis dataKey="at" type="number" domain={domain} tickFormatter={label} tick={{ fontSize: 12 }} />
           <YAxis dataKey="price" type="number" domain={['auto', 'auto']} tickFormatter={(v: number) => `$${v}`} tick={{ fontSize: 12 }} width={64} />
           <Tooltip
             labelFormatter={(v) => label(Number(v))}
             formatter={(value, _name, item) => [`$${Number(value).toFixed(2)} · ${(item.payload as Point).who}`, '']}
           />
           <Legend />
-          <Line data={implied} dataKey="price" name="13F implied price" type="stepAfter" stroke="var(--color-ink-muted)" dot={{ r: 3 }} isAnimationActive={false} />
+          {implied.length > 0 && (
+            <Line data={implied} dataKey="price" name="13F implied price" type="stepAfter" stroke="var(--color-ink-muted)" dot={{ r: 3 }} isAnimationActive={false} />
+          )}
           <Scatter name="Insider buy" data={buys} fill="var(--color-call)" isAnimationActive={false} />
           <Scatter name="Insider sell" data={sells} fill="var(--color-put)" isAnimationActive={false} />
           {events.map((e) => (
@@ -52,7 +57,7 @@ export function ActivityTimeline({ trades, events, trend }: { trades: InsiderTra
               x={day(e.filedAt)}
               stroke="var(--color-ink-muted)"
               strokeDasharray="4 2"
-              label={{ value: `${e.form} ${e.event ?? ''}`.trim(), position: 'top', fontSize: 10, fill: 'var(--color-ink-muted)' }}
+              label={{ value: `${e.form} ${e.event ?? ''}`.trim(), position: 'insideTopLeft', fontSize: 10, fill: 'var(--color-ink-muted)' }}
             />
           ))}
         </ComposedChart>

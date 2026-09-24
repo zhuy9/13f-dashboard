@@ -1813,8 +1813,9 @@ Status: done b8fd062
 - [x] A position the manager also holds puts on is badged, with the standing "reported put exposure, not short" wording.
 
 Verification: `pytest` 165 green, `npm run test` 82 green, `npm run build` and `npm run lint` clean
-at b8fd062. No browser check: the dev machine used for this milestone had no `web/.env`, so the new
-sections were not rendered against live Firestore. The copyability, `implied_price` and
+at b8fd062. Browser check against live Firestore at 1280 px: the stock page strip and timeline on
+NVDA (sells only, no 13D/G doc) and GPI (buys plus three 13D filings, all three markers drawn and
+labelled after the axis fix); `/managers` renders without the section. The copyability, `implied_price` and
 `options` fields appear on the site only after the next full 13F ingest publishes them; until then
 the section and the badges are hidden and the timeline draws without its 13F line.
 

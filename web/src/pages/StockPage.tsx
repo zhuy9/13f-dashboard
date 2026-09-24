@@ -165,7 +165,7 @@ export function StockPage() {
 
       {insiderState.data && (
         <Suspense fallback={<LoadingState />}>
-          <ActivityTimeline trades={insiderState.data.trades} events={issuer?.events ?? []} />
+          <ActivityTimeline trades={insiderState.data.trades} events={issuer?.events ?? []} trend={stock?.trend ?? []} />
         </Suspense>
       )}
 

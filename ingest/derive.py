@@ -330,6 +330,9 @@ def stock_trend(sqs: pd.DataFrame) -> pd.DataFrame:
         prev_holder_ciks = None
         for _, r in grp.sort_values("period").iterrows():
             holder_ciks = {holder["cik"] for holder in r["holders"]}
+            # The only price a 13F carries: what each filer's value/shares implies at quarter end.
+            # Median, not mean, so one filer still reporting in thousands does not move it 1000x.
+            prices = [holder["value"] / holder["shares"] for holder in r["holders"] if holder["shares"]]
             if prev_holder_ciks is None:
                 new_managers = exited_managers = 0
             else:
@@ -346,6 +349,7 @@ def stock_trend(sqs: pd.DataFrame) -> pd.DataFrame:
                     "new_managers": new_managers,
                     "exited_managers": exited_managers,
                     "net_change": new_managers - exited_managers,
+                    "implied_price": float(np.median(prices)) if prices else None,
                 }
             )
             prev_holder_ciks = holder_ciks

@@ -12,6 +12,7 @@ from derive import (
     options_exposure,
     security_kind,
     split_factor,
+    stock_trend,
 )
 
 FIXTURE = Path(__file__).parent / "fixtures" / "holdings_small.csv"
@@ -179,6 +180,23 @@ def test_stock_trend_net_change(out):
     assert fff.loc[P2, "new_managers"] == 2  # M2, M3
     assert fff.loc[P2, "exited_managers"] == 1  # M1
     assert fff.loc[P2, "net_change"] == 1
+    bbb = trend[trend["symbol"] == "BBB"].set_index("period")
+    assert bbb.loc[P2, "implied_price"] == 100.0  # M2 10000/100 and M3 20000/200 agree
+
+
+def test_implied_price_is_the_median_so_a_thousands_reporter_cannot_move_it():
+    holders = [{"cik": "1", "value": 100_000, "shares": 1_000}, {"cik": "2", "value": 101_000, "shares": 1_000}]
+    thousands = {"cik": "3", "value": 100_000_000, "shares": 1_000}  # a filer that never switched to dollars
+    zeros = dict.fromkeys(["manager_count", "avg_weight", "median_weight", "max_weight"], 0)
+    sqs = pd.DataFrame(
+        [
+            {"symbol": "X", "period": P1, "holders": holders + [thousands], **zeros},
+            {"symbol": "Y", "period": P1, "holders": [], **zeros},
+        ]
+    )
+    trend = stock_trend(sqs).set_index("symbol")
+    assert trend.loc["X", "implied_price"] == 101.0
+    assert pd.isna(trend.loc["Y", "implied_price"])
 
 
 def test_consensus_buys_membership_and_order(out):

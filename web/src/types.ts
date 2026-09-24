@@ -141,6 +141,8 @@ export interface StockTrendPoint {
   newManagers: number
   exitedManagers: number
   netChange: number
+  // Median value/shares over holders at quarter end. Optional: older datasets do not carry it.
+  impliedPrice?: number | null
 }
 
 export interface Holder {

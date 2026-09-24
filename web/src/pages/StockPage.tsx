@@ -14,11 +14,12 @@ import { InsiderActivity } from '@/components/stock/InsiderActivity'
 import { MajorShareholders } from '@/components/stock/MajorShareholders'
 import { OptionsGroups } from '@/components/stock/OptionsGroups'
 import { StatTile } from '@/components/StatTile'
-import { getOwnershipIssuer, getStock, getStockQuarter } from '@/data'
+import { getInsiderIssuer, getOwnershipIssuer, getStock, getStockQuarter } from '@/data'
 import { pct, quarterLabel } from '@/format'
 import { useAsyncData } from '@/hooks/useAsyncData'
 import { isUnresolvedSymbol } from '@/ownership'
 
+const ActivityTimeline = lazy(() => import('@/components/stock/ActivityTimeline').then((m) => ({ default: m.ActivityTimeline })))
 const TrendCharts = lazy(() => import('@/components/stock/TrendCharts').then((m) => ({ default: m.TrendCharts })))
 
 export function StockPage() {
@@ -33,6 +34,7 @@ export function StockPage() {
   const quarterState = useAsyncData(() => period ? getStockQuarter(symbol, period) : Promise.resolve(null), [symbol, period])
   const stockState = useAsyncData(() => getStock(symbol), [symbol])
   const issuerState = useAsyncData(() => getOwnershipIssuer(symbol), [symbol])
+  const insiderState = useAsyncData(() => getInsiderIssuer(symbol), [symbol])
 
   if (stockState.loading || issuerState.loading || quarterState.loading) return <LoadingState />
 
@@ -158,9 +160,15 @@ export function StockPage() {
         <p className="text-sm text-ink-muted">No tracked manager reported this stock in a 13F filing.</p>
       )}
 
+      {insiderState.data && (
+        <Suspense fallback={<LoadingState />}>
+          <ActivityTimeline trades={insiderState.data.trades} events={issuer?.events ?? []} />
+        </Suspense>
+      )}
+
       {issuer && <MajorShareholders issuer={issuer} />}
 
-      <InsiderActivity symbol={symbol} />
+      <InsiderActivity symbol={symbol} issuer={insiderState.data} />
 
       {stock && (
         <section>

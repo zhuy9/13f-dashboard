@@ -2,20 +2,18 @@ import { Link } from 'react-router-dom'
 import { ColorBadge } from '@/components/ColorBadge'
 import { TradesTable } from '@/components/insider/TradesTable'
 import { StatTile } from '@/components/StatTile'
-import { getInsiderFeed, getInsiderIssuer } from '@/data'
+import { getInsiderFeed } from '@/data'
+import type { InsiderIssuer } from '@/insiderTypes'
 import { money } from '@/format'
 import { useAsyncData } from '@/hooks/useAsyncData'
 
-// Its own fetches, not lifted into the stock page's shared loading gate: a missing, slow, or
-// failed insider read must never hold up the 13F sections above it -- useAsyncData already
-// catches into an error string rather than throwing, so a rejection here just leaves this
-// section absent.
-export function InsiderActivity({ symbol }: { symbol: string }) {
-  const issuerState = useAsyncData(() => getInsiderIssuer(symbol), [symbol])
+// The issuer doc is read by the stock page outside its loading gate: a missing, slow, or failed
+// insider read must never hold up the 13F sections above it -- useAsyncData already catches into
+// an error string rather than throwing, so a rejection just leaves this section absent.
+export function InsiderActivity({ symbol, issuer }: { symbol: string; issuer: InsiderIssuer | null }) {
   const feedState = useAsyncData(() => getInsiderFeed(), [])
 
-  if (!issuerState.data) return null
-  const issuer = issuerState.data
+  if (!issuer) return null
   const { summary } = issuer
   const hasCluster = feedState.data?.clusters.some((c) => c.symbol === symbol) ?? false
 

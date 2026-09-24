@@ -512,7 +512,13 @@
           "short": "M2",
           "score": 0.0
         }
-      ]
+      ],
+      "options": {
+        "calls": [],
+        "puts": [
+          "EEE"
+        ]
+      }
     },
     "1111111111_2026-06-30": {
       "priorPositions": [
@@ -662,7 +668,13 @@
           "short": "M3",
           "score": 0.0
         }
-      ]
+      ],
+      "options": {
+        "calls": [
+          "AAA"
+        ],
+        "puts": []
+      }
     },
     "2222222222_2026-03-31": {
       "priorPositions": [],
@@ -740,7 +752,11 @@
           "short": "M1",
           "score": 0.0
         }
-      ]
+      ],
+      "options": {
+        "calls": [],
+        "puts": []
+      }
     },
     "2222222222_2026-06-30": {
       "priorPositions": [
@@ -854,7 +870,11 @@
           "short": "M1",
           "score": 0.0
         }
-      ]
+      ],
+      "options": {
+        "calls": [],
+        "puts": []
+      }
     },
     "3333333333_2026-06-30": {
       "priorPositions": [],
@@ -957,7 +977,11 @@
           "short": "M1",
           "score": 0.0
         }
-      ]
+      ],
+      "options": {
+        "calls": [],
+        "puts": []
+      }
     }
   },
   "cases": [

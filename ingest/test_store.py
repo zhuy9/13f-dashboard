@@ -188,3 +188,10 @@ def test_holder_counts_reads_the_published_snapshot():
         document=lambda path: SimpleNamespace(get=lambda: SimpleNamespace(exists=True, to_dict=lambda: docs[path]))
     )
     assert read_holder_counts(db) == {"AAA": 3}
+
+
+def test_manager_quarter_doc_lists_the_symbols_it_holds_options_on(tables):
+    docs = _build_manager_quarter_docs(tables, FUNDS)
+    assert docs["1111111111_2026-06-30"]["options"] == {"calls": ["AAA"], "puts": []}
+    assert docs["1111111111_2026-03-31"]["options"] == {"calls": [], "puts": ["EEE"]}
+    assert docs["2222222222_2026-06-30"]["options"] == {"calls": [], "puts": []}

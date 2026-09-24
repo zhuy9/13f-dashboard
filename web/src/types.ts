@@ -129,6 +129,8 @@ export interface ManagerQuarter {
   positions: Position[]
   sectors: SectorExposure[]
   mostSimilar: SimilarManager[]
+  // Symbols this manager also reported an option side on. Optional: older datasets omit it.
+  options?: { calls: string[]; puts: string[] }
 }
 
 // stocks/{symbol}

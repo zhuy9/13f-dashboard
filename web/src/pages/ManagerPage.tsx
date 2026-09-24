@@ -141,10 +141,14 @@ export function ManagerPage() {
                 confidential. That is when it was disclosed, not when it was bought.
               </p>
               <WeightBasis />
-              <p>Notes and warrants are listed here and badged; option positions are not listed at all.</p>
+              <p>
+                Notes and warrants are listed here and badged; option positions are not listed at all. A{' '}
+                <em>Reported Put Exposure</em> or <em>Reported Call Exposure</em> badge means the manager also reported
+                that option side on the same name, so the long may be hedged. Put exposure is not a short.
+              </p>
             </Explain>
             <CsvExport rows={mqState.data.positions} name={`${manager.short}-positions`} accessions={mqState.data.filings?.map(f => f.accession)} />
-            <PositionsTable positions={mqState.data.positions} />
+            <PositionsTable positions={mqState.data.positions} options={mqState.data.options} />
           </section>
 
           {mqState.data.filings && mqState.data.filings.length > 0 && (

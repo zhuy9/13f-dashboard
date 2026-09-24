@@ -142,11 +142,13 @@ def _build_manager_quarter_docs(tables: dict, funds: list[dict]) -> dict[str, di
     mse = tables["manager_sector_exposure"]
     similarity = tables["manager_similarity"]
     filings = tables.get("filings")
+    options = tables["options_exposure"]
 
     docs = {}
     for (cik, period), grp in mqs.groupby(["cik", "period"]):
         counts = grp["status"].value_counts()
         similar = similarity.get(period, {}).get("most_similar", {}).get(cik, [])
+        mine = options[options["period"] == period]
         docs[f"{cik}_{period}"] = {
             "priorPositions": _records(
                 mqs[(mqs["cik"] == cik) & (mqs["period"] < period) & (mqs["kind"] == "EQUITY")]
@@ -175,6 +177,12 @@ def _build_manager_quarter_docs(tables: dict, funds: list[dict]) -> dict[str, di
             "mostSimilar": [
                 {"cik": s["cik"], "short": short_by_cik.get(s["cik"], s["cik"]), "score": s["score"]} for s in similar
             ],
+            # Symbols this manager reported an option side on, so the positions table can badge a
+            # long that is also hedged. Reported put exposure, never "short".
+            "options": {
+                "calls": sorted(mine[mine["call_holders"].map(lambda h: cik in h)]["symbol"]),
+                "puts": sorted(mine[mine["put_holders"].map(lambda h: cik in h)]["symbol"]),
+            },
         }
     return docs
 

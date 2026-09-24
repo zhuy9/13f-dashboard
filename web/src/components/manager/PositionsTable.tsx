@@ -1,5 +1,6 @@
 import { ColorBadge } from '@/components/ColorBadge'
 import { KindBadge } from '@/components/KindBadge'
+import { SideBadge } from '@/components/SideBadge'
 import { StatusBadge } from '@/components/StatusBadge'
 import { StockLink } from '@/components/StockLink'
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table'
@@ -7,8 +8,10 @@ import { pct, pp, signedPct } from '@/format'
 import { useSortableRows } from '@/hooks/useSortableRows'
 import type { Position } from '@/types'
 
-export function PositionsTable({ positions }: { positions: Position[] }) {
+export function PositionsTable({ positions, options }: { positions: Position[]; options?: { calls: string[]; puts: string[] } }) {
   const { sorted, SortHead } = useSortableRows(positions, 'weight')
+  const puts = new Set(options?.puts)
+  const calls = new Set(options?.calls)
   return (
     <Table>
       <TableHeader>
@@ -31,6 +34,18 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
                 <span title="First disclosed in an amended filing (13F-HR/A), usually because the position was confidential. That is when it was reported, not when it was bought.">
                   {' '}
                   <ColorBadge color="#6639ba" label="AMENDED" />
+                </span>
+              )}
+              {puts.has(p.symbol) && (
+                <span title="The manager also reported put exposure on this name, so the long weight may be hedged. Reported put exposure is not a short.">
+                  {' '}
+                  <SideBadge side="PUT" />
+                </span>
+              )}
+              {calls.has(p.symbol) && (
+                <span title="The manager also reported call exposure on this name.">
+                  {' '}
+                  <SideBadge side="CALL" />
                 </span>
               )}
             </TableCell>

@@ -33,6 +33,10 @@ _PARQUET_TABLES = [
     "options_exposure",
 ]
 
+# Snapshots kept after a publish, the new one included. A browser pins the snapshot it loaded
+# for its whole session, so the ones before it stay readable for tabs left open across ingests.
+_KEEP_DATASETS = 3
+
 _FIRESTORE_BATCH_SIZE = 400
 # A commit is capped on total size as well as on operation count, and the size ceiling is the
 # one that bites: at 12 quarters a manager_quarters doc runs to ~200 KiB, so 400 of them is
@@ -296,8 +300,8 @@ def read_holder_counts(db) -> Optional[dict[str, int]]:
     return {r["symbol"]: r["n"] for r in snap.to_dict()["counts"]} if snap and snap.exists else None
 
 
-def write_firestore(db, tables: dict, funds: list[dict], periods: list[str]) -> None:
-    """Publish a complete snapshot, then atomically switch the reader's pointer."""
+def write_firestore(db, tables: dict, funds: list[dict], periods: list[str]) -> str:
+    """Publish a complete snapshot, then atomically switch the reader's pointer. Returns its id."""
     dataset_id = uuid4().hex
     owned = {
         "managers": _build_manager_docs(tables, funds),
@@ -318,4 +322,23 @@ def write_firestore(db, tables: dict, funds: list[dict], periods: list[str]) -> 
         writes += [(f"{collection}/{doc_id}", doc) for doc_id, doc in docs.items()]
     commit_in_batches(db, [(f"datasets/{dataset_id}/{path}", doc) for path, doc in writes])
     commit_in_batches(db, [("meta/latest", {**_build_meta(tables, funds, periods), "datasetId": dataset_id})])
-    # ponytail: retain snapshots for pinned readers; add age-based cleanup if storage grows.
+    return dataset_id
+
+
+def prune_datasets(db, current: str, keep: int = _KEEP_DATASETS) -> list[str]:
+    """Delete every snapshot but `current` and the newest `keep - 1` before it; returns the ids.
+
+    Age is when the snapshot's first document, meta/symbols, was created: a dataset id is a
+    random uuid and the `datasets/{id}` parent doc is never written, so neither carries a time.
+    A partial snapshot that never got that far sorts oldest and goes first.
+    """
+
+    def born(ref) -> float:
+        snap = ref.collection("meta").document("symbols").get()
+        return snap.create_time.timestamp() if snap.exists else 0.0
+
+    older = sorted((ref for ref in db.collection("datasets").list_documents() if ref.id != current), key=born, reverse=True)
+    doomed = older[keep - 1 :]
+    for ref in doomed:
+        db.recursive_delete(ref)
+    return [ref.id for ref in doomed]

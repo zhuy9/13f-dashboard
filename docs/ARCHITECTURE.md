@@ -202,7 +202,8 @@ as one `stock_quarters/{symbol}_{period}` document per quarter.
 
 Ownership writes the affected issuer/investor pages and then the feed before advancing
 its GCS checkpoint. If publication fails, a normal retry fetches and republishes those
-filings. Snapshots are retained for pinned readers; cleanup can be added when needed.
+filings. After each successful publish, the ingest keeps the newest 3 snapshots, so a tab left
+open across an ingest still resolves, and deletes the older ones.
 
 ## Why it's built this way
 

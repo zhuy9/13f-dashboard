@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import quote
@@ -14,6 +15,7 @@ from store import (
     _camel,
     _clean,
     commit_in_batches,
+    prune_datasets,
     read_holder_counts,
     write_firestore,
 )
@@ -196,3 +198,38 @@ def test_manager_quarter_doc_lists_the_symbols_it_holds_options_on(tables):
     assert docs["1111111111_2026-06-30"]["options"] == {"calls": ["AAA"], "puts": []}
     assert docs["1111111111_2026-03-31"]["options"] == {"calls": [], "puts": ["EEE"]}
     assert docs["2222222222_2026-06-30"]["options"] == {"calls": [], "puts": []}
+
+
+class _DatasetsDb:
+    """Just enough Firestore for prune_datasets: snapshot ids, each one's meta/symbols create
+    time (None = a partial snapshot that never wrote it), and recursive_delete."""
+
+    def __init__(self, born: dict):
+        self.born, self.deleted = born, []
+
+    def _ref(self, dataset_id):
+        t = self.born[dataset_id]
+        snap = SimpleNamespace(exists=t is not None, create_time=t and datetime(2026, 9, t, tzinfo=timezone.utc))
+        symbols = SimpleNamespace(get=lambda: snap)
+        return SimpleNamespace(id=dataset_id, collection=lambda name: SimpleNamespace(document=lambda doc: symbols))
+
+    def collection(self, name):
+        return SimpleNamespace(list_documents=lambda: [self._ref(i) for i in self.born])
+
+    def recursive_delete(self, ref):
+        self.deleted.append(ref.id)
+
+
+def test_prune_keeps_the_newest_snapshots_and_never_the_current_one():
+    db = _DatasetsDb({"old": 1, "partial": None, "prev": 8, "prev2": 9, "current": 16})
+
+    deleted = prune_datasets(db, "current", keep=3)
+
+    assert sorted(deleted) == sorted(db.deleted) == ["old", "partial"]
+
+
+def test_prune_never_deletes_the_snapshot_readers_point_at():
+    """Even when it sorts oldest -- here it has no meta/symbols -- meta/latest points there."""
+    db = _DatasetsDb({"current": None, "old": 5})
+
+    assert prune_datasets(db, "current", keep=1) == ["old"]

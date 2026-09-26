@@ -112,7 +112,7 @@ def test_dry_run_mutates_no_remote_state_and_writes_no_keepalive_marker(monkeypa
 
     persisted = []
     monkeypatch.setattr(m, "ensure_securities", lambda *a, persist=True, **kw: persisted.append(persist) or {})
-    for name in ["write_gcs", "write_firestore", "write_last_ingest"]:
+    for name in ["write_gcs", "write_firestore", "write_last_ingest", "prune_datasets"]:
         monkeypatch.setattr(m, name, lambda *a, called=name, **kw: pytest.fail(f"dry run called {called}"))
 
     assert m.main() == 0

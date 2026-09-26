@@ -1208,7 +1208,9 @@ Priority agreed 2026-09-08: recovery, Milestone 14, Milestone 15, then 16A only.
 `meta/symbols` and `meta/holder_counts`. `meta/latest.datasetId` switches only after every
 document succeeds. The browser pins that dataset for its session; old clients can read legacy
 paths until reloaded. Existing legacy documents remain during migration. Successful and partial
-snapshots are retained; garbage collection is deferred until storage volume warrants it.
+snapshots are retained until the next successful publish, which then keeps the newest 3 (the new
+one included, so tabs left open across an ingest still resolve) and deletes the rest,
+`store.prune_datasets` (2026-09-25). A partial snapshot sorts oldest and goes first.
 No publication on a failed manager fetch; `--fund` is preview-only (`--dry-run`).
 Ownership publishes issuer/investor documents, then the feed, then advances its GCS checkpoint.
 

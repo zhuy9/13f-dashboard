@@ -24,7 +24,7 @@ from fetch import (
     resolve_amendments,
 )
 from pipeline import HERE, counts_line, edgar_login, init_firestore, load_config, load_funds, step_summary
-from store import write_firestore, write_gcs
+from store import prune_datasets, write_firestore, write_gcs
 
 
 def load_corporate_actions() -> list[dict]:
@@ -234,11 +234,13 @@ def main() -> int:
         if bucket_name:
             write_gcs(storage.Client().bucket(bucket_name), raw_by_filing, tables)
 
+        pruned: list[str] = []
         if args.dry_run:
             print_dry_run_signals(tables)
         else:
-            write_firestore(db, tables, funds, tables["periods"])
+            dataset_id = write_firestore(db, tables, funds, tables["periods"])
             write_last_ingest(tables, base_by_fund)
+            pruned = prune_datasets(db, dataset_id)
 
         latest = tables["periods"][-1]
         mqs = tables["manager_quarter_summary"]
@@ -251,6 +253,7 @@ def main() -> int:
                 f"{len(base_by_fund)} of {len(funds)} managers filed, {len(holdings):,} holding rows",
                 f"positions: {counts_line(mqs[mqs['period'] == latest]['status'])}",
                 f"unmapped tickers: {holdings['ticker'].isna().mean():.1%}",
+                f"old snapshots deleted: {len(pruned)}",
             ]
             + [f"amendment: {note}" for note in amendment_notes]
             + stale_lines

@@ -22,11 +22,15 @@ This is not investment advice.
 Four things the site is built to do:
 
 1. **Find a crowded stock.** [Patterns](https://13f.darren-zhu.com/patterns) → Consensus Buys. Open a row's *Buyers* to see which managers, and its *Score* to see the arithmetic behind the ranking.
-2. **Inspect who holds it.** Click the symbol. The stock page lists every tracked holder, its weight, and whether it added or trimmed.
-3. **Compare what changed.** A manager's page shows its whole reported book, quarter over quarter, with sector exposure and its most similar managers.
-Stock and manager links keep the selected quarter. Stock pages offer historical holders and explicit unavailable states. Research tables export all displayed rows to CSV with period, source accessions, tracked coverage, and methodology version; ranked tables retain their displayed top-N scope.
-
+2. **Inspect who holds it.** Click the symbol. The stock page lists every tracked holder, its weight, and whether it added or trimmed. It also shows 13D/13G stakes and insider trades. A timeline puts insider trades next to the quarter-end price the 13F filings imply. A "Sellers appearing" strip shows whether managers, big holders, or insiders are selling.
+3. **Compare what changed.** A manager's page shows its whole reported book, quarter over quarter, with sector exposure and its most similar managers. A position the manager also holds puts or calls on gets a badge.
 4. **Verify a filing.** Every manager-quarter links its source filings on EDGAR by accession, so any number here can be traced back to the document it came from.
+
+Stock and manager links keep the selected quarter. You can pick an older quarter on a stock page. If a quarter has no data, the page says so.
+
+Every research table can be exported to CSV. The export has all the table's rows. Each row also carries the period, the source filings, how many managers filed, and the methodology version. Ranked tables keep their top-N cut.
+
+The Managers page also ranks each manager by how easy its 13F is to copy. A manager that trades rarely and holds a few large positions is easier to copy. This says nothing about returns.
 
 ## Filter the research universe
 
@@ -34,7 +38,7 @@ On Patterns, open Research universe to choose a style, individual managers, and 
 
 ## Watchlist
 
-Use "Watch this name" on a stock or manager page, then open Watchlist. Saving establishes a baseline; later visits show new quarterly reports, revisions, and methodology recalculations with filing links. Use "Reload to check latest data" for a fresh dataset. The list and digest live only in this browser; clearing browser storage removes them. If storage is blocked, the list works for the current session.
+Use "Watch this name" on a stock or manager page, then open Watchlist. Saving establishes a baseline; later visits show new quarterly reports, revisions, and methodology recalculations with filing links. Use "Check latest data" to reload the newest dataset. The list and digest live only in this browser; clearing browser storage removes them. If storage is blocked, the list works for the current session.
 
 ## What this is
 
@@ -44,7 +48,9 @@ This site shows what big investors own. The data comes from SEC Form 13F filings
 
 - **34 managers**, listed below, chosen by hand for being well known and running concentrated books. Adding or removing one changes every count and average on the site. "Consensus" always means consensus among this list, not the market.
 - **12 quarters** of history. Older filings reported values in thousands rather than dollars, which would need separate handling.
-- **13F holdings** update monthly, on the 16th; a quarter's filings are not due until 45 days after it ends. **13D/13G ownership** updates daily, from 2024-12-18 onward, when the SEC's structured format became mandatory.
+- **13F holdings** update monthly, on the 16th. A quarter's filings are not due until 45 days after it ends.
+- **13D/13G ownership** updates daily, from 2024-12-18 onward. That is when the SEC's structured format became mandatory.
+- **Form 4 insider trades** update daily, from 2025-09-01 onward. They cover only companies a tracked manager holds.
 - **Long US-listed equity positions only.** No shorts, cash, bonds, foreign listings, or private holdings. For an endowment, most of the real portfolio is invisible here.
 - A missing filing is shown as missing, never as a manager holding nothing.
 
@@ -159,6 +165,8 @@ The site computes these signals once per quarter.
 11. **Ownership Change.** How the number of managers holding a stock changed over time.
 12. **Position-Weight Trend.** How the average portfolio weight of a stock changed over time.
 13. **Put / Call Exposure.** Which managers report puts or calls on a stock. This is kept separate from stock holdings.
+14. **Copyability.** How well a copy of a manager's last 13F can track it. It uses turnover, how concentrated the book is, and how many new positions are still held a year later. It is not a measure of returns.
+15. **Implied Quarter-End Price.** The price the filings imply: each holder's reported value divided by its shares, then the median. A 13F carries no other price.
 
 ## How it works
 
@@ -167,7 +175,7 @@ GitHub Actions (once a month, or by hand)
   └─ ingest/ingest.py (Python)
        ├─ fetch   : SEC EDGAR → last 12 quarters of 13F filings per manager
        ├─ enrich  : CUSIP → ticker (OpenFIGI) → sector (SEC industry code)
-       ├─ derive  : all 13 signals
+       ├─ derive  : every signal listed above
        └─ store   : Google Cloud Storage (files) + Firestore (documents the site reads)
 
 GitHub Actions (once a day, or by hand)
@@ -186,9 +194,16 @@ GitHub Actions (on every push to main)
   └─ build the site → Firebase Hosting → your domain
 ```
 
-A script runs once a month. It downloads the latest filings and computes every signal. It writes the results to Firestore. The website only reads and displays them. Default views need no live computation; custom manager/style filters recompute their selected universe in the browser.
+A script runs once a month. It downloads the latest filings and computes every signal. It writes the results to Firestore as a new snapshot. The site switches to it only after every document is written. The newest 3 snapshots are kept, so a page left open during an update still works. Older ones are deleted.
 
-Each page reads a small number of whole documents — never a query, never an aggregation. `meta/latest` on every page, plus one document for the page's own data: two reads for Patterns and Ownership, three for a stock, four for a manager (the manager, its quarter, and its 13D/13G filings). The search box loads its symbol list once, the first time you focus it.
+The website only reads and displays the results. Default views need no live computation. Custom manager and style filters recompute their selection in the browser.
+
+Each page reads a few whole documents. It never runs a query or an aggregation. Every page reads `meta/latest`. On top of that:
+
+- Patterns, Ownership, and Insiders read one more document each.
+- A manager page reads three more: the manager, its quarter, and its 13D/13G filings.
+- A stock page reads five more: the stock, its quarter, its 13D/13G filings, its insider trades, and the short list of stocks with cluster buying.
+- The search box loads its symbol list once, the first time you focus it.
 
 A second script runs once a day. It checks for new 13D and 13G filings and turns each one into an event. You can see them on the Ownership page. They also show up on a stock's own page. Every investor gets their own page too — a tracked manager's page, or `/investor/:cik` for everyone else.
 
@@ -248,23 +263,36 @@ Useful flags: `--fund CIK --dry-run` to preview one manager, `--quarters N` to s
 
 ### 3. Backfill 13D/13G ownership
 
-`GCS_BUCKET` is required here — this pipeline keeps its state in the bucket and has no local fallback. The first run has no state to resume from, so give it a start date.
+`GCS_BUCKET` is required here. This pipeline keeps its state in the bucket and has no local fallback. Each run picks up a few days before the newest filing it already has. The first run has nothing yet, so it starts at `start_date` in `signals_config.json` (2024-12-18).
 
 ```bash
 cd ingest
-python ownership.py --dry-run --since 2024-12-18
+python ownership.py --dry-run --since 2025-01-01 --until 2025-03-31
 ```
 
-Drop `--dry-run` to write. Backfill a long window in slices (a quarter at a time) rather than in one run, and use `--rebuild` only when you need every issuer and investor document rewritten.
+Drop `--dry-run` to write. Backfill a long window in slices, a quarter at a time, not in one run. Use `--rebuild` only when you need every issuer and investor document rewritten.
 
-### 4. Validate before pushing
+### 4. Backfill Form 4 insider trades
+
+This also needs `GCS_BUCKET`. It needs a published 13F run too, because it only covers companies a tracked manager holds. Run step 2 for real first.
 
 ```bash
-cd ingest && pytest && ruff format . && ruff check .
-cd web && npm run test && npm run build && npm run lint
+cd ingest
+python insider.py --dry-run --since 2025-09-01 --until 2025-09-30
 ```
 
-### 5. Deploy
+The first run starts at `start_date` in the `insider` block of `signals_config.json` (2025-09-01). The same slicing and `--rebuild` advice applies.
+
+### 5. Validate before pushing
+
+From the repository root:
+
+```bash
+(cd ingest && pytest && ruff format . && ruff check .)
+(cd web && npm run test && npm run build && npm run lint)
+```
+
+### 6. Deploy
 
 Pushing to `main` builds the site and deploys it to Firebase Hosting. Firestore rules are separate and deploy from the repo root:
 
@@ -290,13 +318,14 @@ Edit `ingest/signals_config.json`. Then run the ingest workflow.
 - `high_conviction_min_managers` — how many managers make a high-conviction overlap. Default 3.
 - `sector_move_threshold` — the sector weight change that counts as a move. Default 0.005 (0.5 points).
 - `top_n` — how many rows each ranked table keeps. Default 25.
-- `score` — the constants inside the Conviction Score formula. See `docs/PLAN.md` for the formula.
+- `score` — the constants inside the Conviction Score formula. See [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for the formula.
+- `ownership` and `insider` — the settings for the two daily pipelines, like start dates and event thresholds. After changing a threshold, run that pipeline once with `--rebuild` so every page is rewritten.
 
 ## Sector data
 
 13F filings do not include a sector. We look up each stock's SEC industry code (SIC). Then we map that code to a sector with a table in `ingest/sectors.py`.
 
-SIC is a filing code, not a finance one, so the two do not line up perfectly. We measure how far off we are: `python ingest/reconcile_sectors.py` scores the table against GICS, using the S&P 500 as the answer key. It currently agrees on **84.7%** of 496 names. Run it after changing the table.
+SIC is a filing code, not a finance one, so the two do not line up perfectly. We measure how far off we are: `python ingest/reconcile_sectors.py` scores the table against GICS, using the S&P 500 as the answer key. It agreed on **85.5%** of 497 names when last measured (2026-09-25). Run it after changing the table.
 
 ETFs and index funds are the exception. They are labelled "ETF / Fund" from OpenFIGI, not from the SIC. A fund's own industry code says "investment offices", which would put an S&P 500 fund in the Financials sector.
 

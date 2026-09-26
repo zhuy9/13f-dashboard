@@ -16,7 +16,7 @@ GICS says so and the measurement backs it -- each one below names the companies 
 Considered and rejected as the source: the SEC's own `ownerOrg` ("06 Technology"), which comes
 free in the same submissions response. It has 9 buckets for 11 GICS sectors and they are not
 clean -- "04 Manufacturing" is 30% Industrials, 27% Technology, 20% Consumer Staples. Measured
-over the same S&P 500 names it caps out near 51%, against 84.7% for this table.
+over the same S&P 500 names it caps out near 51%, against 85.5% for this table.
 """
 
 from typing import Optional

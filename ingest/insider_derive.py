@@ -84,7 +84,26 @@ def trades(transactions: pd.DataFrame, cfg: dict, holder_counts: Optional[dict[s
     return out
 
 
+# Every table below is built from a list of row dicts; naming its columns keeps an empty one
+# selectable -- a run whose new rows hold no open-market trade still builds every doc.
 CLUSTER_COLS = ["symbol", "issuer_cik", "issuer_name", "buyer_count", "buyers", "window_days"]
+SUMMARY_COLS = [
+    "symbol", "issuer_cik", "issuer_name", "buyers", "sellers", "boughtShares", "soldShares", "boughtValue",
+    "soldValue", "discretionarySellers", "plannedSellers", "lastTradeAt",
+]  # fmt: skip
+VS_13F_COLS = ["symbol", "issuer_cik", "issuer_name", "buyers", "boughtValue", "holders13f", "hasCluster"]
+PEOPLE_COLS = [
+    "owner_cik",
+    "owner_name",
+    "issuer_cik",
+    "issuer_name",
+    "symbol",
+    "role",
+    "buys",
+    "sells",
+    "net_shares",
+    "last_trade_at",
+]
 
 
 def _window(trades: pd.DataFrame, days: int) -> tuple[pd.Series, pd.Timestamp, pd.Timestamp]:
@@ -144,7 +163,7 @@ def issuer_summary(trades: pd.DataFrame, cfg: dict) -> pd.DataFrame:
                 "lastTradeAt": group["transaction_date"].max(),
             }
         )
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows, columns=SUMMARY_COLS)
 
 
 def vs_13f(trades: pd.DataFrame, clusters: pd.DataFrame, cfg: dict) -> pd.DataFrame:
@@ -153,7 +172,7 @@ def vs_13f(trades: pd.DataFrame, clusters: pd.DataFrame, cfg: dict) -> pd.DataFr
     dates, window_start, as_of = _window(trades, cfg["cluster_window_days"])
     buys = trades[(trades["code"] == "P") & dates.between(window_start, as_of) & (trades["holders13f"] >= 1)]
 
-    clustered_symbols = set(clusters["symbol"]) if len(clusters) else set()
+    clustered_symbols = set(clusters["symbol"])
     rows = []
     for symbol, group in buys.groupby("symbol"):
         meta = group.iloc[0]
@@ -168,10 +187,8 @@ def vs_13f(trades: pd.DataFrame, clusters: pd.DataFrame, cfg: dict) -> pd.DataFr
                 "hasCluster": symbol in clustered_symbols,
             }
         )
-    out = pd.DataFrame(rows)
-    if len(out):
-        out = out.sort_values(["holders13f", "buyers", "boughtValue"], ascending=False).reset_index(drop=True)
-    return out
+    out = pd.DataFrame(rows, columns=VS_13F_COLS)
+    return out.sort_values(["holders13f", "buyers", "boughtValue"], ascending=False).reset_index(drop=True)
 
 
 def people(trades: pd.DataFrame) -> pd.DataFrame:
@@ -197,7 +214,7 @@ def people(trades: pd.DataFrame) -> pd.DataFrame:
                 "last_trade_at": group["transaction_date"].max(),
             }
         )
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows, columns=PEOPLE_COLS)
 
 
 def recent(trades: pd.DataFrame, n: int) -> pd.DataFrame:

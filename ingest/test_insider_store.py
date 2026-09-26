@@ -151,3 +151,16 @@ def test_publish_commits_the_feed_last(tables):
 
 def test_issuer_doc_id_encodes_slash_matching_web_encodeuricomponent():
     assert quote("ABC/U", safe="") == "ABC%2FU"
+
+
+def test_a_log_with_no_open_market_trades_still_builds_every_doc():
+    """Awards, exercises and tax withholding only: the open-market summary tables come out empty,
+    and an empty table must still carry its columns or the doc builders cannot select from it."""
+    transactions = pd.read_csv(FIXTURE, dtype=STR_COLS)
+    tables = derive_all(transactions[~transactions["code"].isin(["P", "S"])], CFG, HOLDER_COUNTS)
+
+    issuer_docs = build_issuer_docs(tables, CFG)
+    feed = build_feed(tables, CFG, UNIVERSE)
+
+    assert issuer_docs and all(doc["summary"] is None for doc in issuer_docs.values())
+    assert feed["vsThirteenF"] == []

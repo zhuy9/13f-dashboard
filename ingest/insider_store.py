@@ -33,7 +33,7 @@ def headline_counts(
     now = now or datetime.now(timezone.utc).date()
     until, since = now.isoformat(), (now - timedelta(days=days)).isoformat()
     in_window = trades[(trades["filed_at"] > since) & (trades["filed_at"] <= until)]
-    clustered_symbols = set(clusters["symbol"]) if len(clusters) else set()
+    clustered_symbols = set(clusters["symbol"])
     cluster_buys = in_window[(in_window["code"] == "P") & in_window["symbol"].isin(clustered_symbols)]
     return {
         "asOf": until,
@@ -61,8 +61,8 @@ def build_feed(tables: dict, cfg: dict, universe: dict, now: Optional[date] = No
         },
         "headline": headline_counts(trades, clusters, cfg["start_date"], now),
         "trades": records(tables["recent"][TRADE_FIELDS]),
-        "clusters": records(clusters) if len(clusters) else [],
-        "vsThirteenF": records(vs_13f) if len(vs_13f) else [],
+        "clusters": records(clusters),
+        "vsThirteenF": records(vs_13f),
     }
 
 

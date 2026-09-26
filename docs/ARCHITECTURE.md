@@ -148,7 +148,7 @@ flowchart LR
     H[("Firestore\nmeta/holder_counts\nwritten by the 13F pipeline")] -->|"read once per run"| C
 
     D -->|"ownership_store.py"| E[("Firestore\nfeed, per-stock, per-investor docs")]
-    D -->|"ownership_store.py"| F[("Cloud Storage\narchive")]
+    D -->|"pipeline.py"| F[("Cloud Storage\narchive")]
 
     E -->|"1 read per page"| G["Website\nOwnership page, stock page,\nmanager/investor page"]
 ```
@@ -170,7 +170,7 @@ flowchart LR
     C -->|"insider_derive.py\npure math, no network calls"| D["Trades: kind, role, priority,\nclusters, vs-13F overlap"]
 
     D -->|"insider_store.py"| E[("Firestore\nfeed, per-issuer, per-person docs")]
-    D -->|"insider_store.py"| F[("Cloud Storage\narchive")]
+    D -->|"pipeline.py"| F[("Cloud Storage\narchive")]
 
     E -->|"1 read per page"| G["Website\nInsiders page, stock page,\ninsider person page"]
 ```

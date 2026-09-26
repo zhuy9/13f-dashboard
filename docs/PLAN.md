@@ -84,6 +84,7 @@ Browser: one Firestore read per page (signals/{period}, manager_quarters/{cik}_{
   ingest/
     requirements.txt  pyproject.toml  funds.json  signals_config.json  .env.example
     ingest.py         # CLI + orchestration only (13F)
+    pipeline.py       # shared by the 3 CLIs: config, credentials, run summary, GCS filing log, fetch loop, publish
     fetch.py          # edgartools fetch + normalize + edgar_ticker_hints
     enrich.py         # OpenFIGI + SEC lookups + securities cache
     api_constants.py  # external API URLs
@@ -94,10 +95,10 @@ Browser: one Firestore read per page (signals/{period}, manager_quarters/{cik}_{
     insider.py             # CLI + orchestration (Form 4, Milestone 17)
     insider_fetch.py       # Form 4/4A listing + XML parsing, scoped by meta/holder_counts
     insider_derive.py      # transaction codes -> trades, clusters, summaries (pure)
-    insider_store.py       # GCS state + Firestore insider docs
+    insider_store.py       # Firestore insider docs (state I/O lives in pipeline.py)
     ownership_fetch.py     # EDGAR index listing + structured 13D/13G parsing → one row per filing
     ownership_derive.py    # 13D/13G events, stakes, recent (pure pandas, no I/O)
-    ownership_store.py     # GCS state parquet + Firestore ownership docs
+    ownership_store.py     # Firestore ownership docs (state I/O lives in pipeline.py)
     test_fetch.py  test_derive.py  test_sectors.py  test_store.py
     test_ownership_fetch.py  test_ownership_derive.py  test_ownership_store.py
     fixtures/holdings_small.csv  fixtures/ownership_small.csv  fixtures/ownership_13d.xml  fixtures/ownership_13g.xml
@@ -368,7 +369,8 @@ Published as `meta/latest.copyability[]`.
 ## Firestore documents (what the browser reads)
 
 13F paths below (except `meta/latest` and `securities/`) are relative to
-`datasets/{meta/latest.datasetId}/`. Legacy datasets without an ID use the original paths.
+`datasets/{meta/latest.datasetId}/`. Every snapshot has an ID; readers no longer fall back to the
+unprefixed pre-snapshot paths (removed 2026-09-25, see "Legacy stock latest").
 
 | Doc | Content | Read by |
 |---|---|---|
@@ -1320,18 +1322,16 @@ and `--ring` is `--color-call`, matching the global `*:focus-visible` outline.
 
 ### Legacy stock latest
 
-`stock_quarters/` first ships in Milestone 14, so any dataset published before that ingest runs
-has no such collection — and `meta/latest` there has no `datasetId` either, which is why
-`fetchDatasetDoc` falls back to unprefixed paths. Those datasets carry the newest quarter's holder
-table on `stocks/{symbol}.latest` instead.
+Removed 2026-09-25. `stock_quarters/` shipped in Milestone 14, and every full ingest since then
+has published it along with every other Milestone 9-16 field (`config`, `priorPositions`,
+`filings`, `coverage`, `raw`/`scorePeak`, the ownership `headline`, ...). A browser pins the
+dataset `meta/latest` points at when the page loads, and the current one (2026-09-16) carries
+all of them, so the `stocks/{symbol}.latest` fallback in `StockPage` and `useWatchlist`, the
+unprefixed-path fallback in `data.ts` and `store.read_holder_counts`, and the "field may be
+missing" branches were dead code. They are gone, and those fields are typed required.
 
-`StockPage` and `useWatchlist.readReport` therefore fall back to `stocks/{symbol}.latest`, and use
-it only when its `period` equals the requested quarter. `Stock.latest` is typed optional for this
-reason alone. Removing either fallback makes every stock page read "Holdings unavailable for this
-quarter" and every stock unwatchable until a full ingest lands — this happened once, in `23e8e94`,
-where the fallback was mistaken for duplicated data. `useWatchlist.test.ts` covers it.
-
-Both may be deleted once no browser can still be pinned to a pre-Milestone-14 dataset.
+Fields added after that ingest stay optional until a full ingest publishes them: Milestone 18's
+`meta/latest.copyability`, `manager_quarters.options` and `stock_trend.impliedPrice`.
 
 ### Deployment order for publication recovery and Milestones 14-16A
 
@@ -1819,6 +1819,29 @@ labelled after the axis fix); `/managers` renders without the section. The copya
 `options` fields appear on the site only after the next full 13F ingest publishes them; until then
 the section and the badges are hidden and the timeline draws without its 13F line.
 
+## Refactor 2026-09-25 (code only, no document shape changed)
+
+A review pass. Every Firestore and GCS shape above is unchanged; only where code lives moved.
+
+- `pipeline.py` holds what the three CLIs had each copied: `.env` + EDGAR identity, Firestore and
+  GCS setup, the run summary, and for ownership/insider the GCS log, the fetch-and-parse loop and
+  the feed-last publish. `ownership.py`/`insider.py` no longer import from `ingest.py`, and the
+  stores no longer import `store`'s private names. Milestone 8/17 specs above name the old
+  per-module `read_state`/`write_state`/`write_firestore`/`to_filing`/`roster_ciks`; the
+  behaviour they specify is what `pipeline.py` now does once.
+- Issuer/investor/person docs are built with one sort and `groupby` instead of a full-table
+  filter per key.
+- One retrying HTTP session (429/5xx, POST included) for SEC and OpenFIGI replaces the one-shot
+  OpenFIGI 429 retry. The securities write-back uses `commit_in_batches`.
+- The Windows console fix (`sys.stdout.reconfigure`) moved from `insider.py` to `edgar_login`,
+  so `ownership.py` and `ingest.py` no longer crash on edgartools' warning on a Windows console.
+- `insider.py` reads sectors with one batched `get_all` instead of one read per symbol.
+- `derive._mean_change` replaces two copies of the same "mean weight change" loop; it now skips
+  an undefined change the way `subsetSignals.ts` always did (parity fixture unchanged).
+- Web: legacy fallbacks removed (see "Legacy stock latest"); `FeedFilters` and `QuarterSelect`
+  replace the copies on Ownership/Insiders and Stock/Manager/Patterns; the `BiggestAdds` and
+  `BiggestTrims` wrappers are gone.
+
 ## Doc specs
 
 ### README.md (humans)
@@ -1855,6 +1878,7 @@ The live site URL lives in the GitHub repo's own "website" field (repo Settings 
 - 13F fetching/parsing: `edgartools`. Aggregation: `pandas`. Cosine: `numpy` (comes with pandas).
 - 13D/13G listing and parsing: `edgartools` (`get_filings`, `edgar.beneficial_ownership.Schedule13D` / `Schedule13G`). XML header fields: stdlib `xml.etree`. No new dependency.
 - Firestore + GCS: `firebase-admin` (Python), `firebase` (JS). Hosting deploy: `FirebaseExtended/action-hosting-deploy`.
+- CLI plumbing shared by `ingest.py`, `ownership.py`, `insider.py`: `pipeline.py` (`edgar_login`, `init_firestore`, `gcs_bucket`, `step_summary`, `counts_line`; for the two daily logs `since`, `read_state`/`write_state`, `unseen`/`extend`, `index_rows`, `fetch_xml_rows`, `newest_first`, `publish`). Firestore batching: `store.commit_in_batches`, `store.records`.
 - UI: shadcn/ui (table, tabs, badge, input, select, button, checkbox). Charts: `recharts`. Heatmap: CSS grid, no library.
 
 ## Verification (end to end)

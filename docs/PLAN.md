@@ -34,7 +34,7 @@ Data changes 4×/year. So: **all derived tables are computed once at ingest in P
 | Serving data | **Firestore**: derived, read-optimized docs only — a handful of whole-document reads per page, never a query or an aggregation. Public-read rules. |
 | File data | **Google Cloud Storage**: raw 13F XML + Parquet of the base table and every derived table. Blaze plan (billing on, $0 within free tier). Gated by `GCS_BUCKET`. |
 | SQL | **No Cloud SQL.** BigQuery external tables over the Parquet later, if wanted. |
-| Ingest | Python (3.12 in CI, 3.10 locally — no 3.11+-only syntax), `edgartools` + `pandas`, run by **GitHub Actions** (cron + manual). |
+| Ingest | Python 3.12 (locally and in CI), `edgartools` + `pandas`, run by **GitHub Actions** (cron + manual). |
 | Signals | All 13 signals computed in `ingest/derive.py`. Formulas and thresholds live in `ingest/signals_config.json`. The browser recomputes only explicit custom subsets (Milestone 16A). |
 | Managers | Tracked list lives in `ingest/funds.json`, all in the signal set. Cluster labels are manual. See "Adding a manager" in `CLAUDE.md` for the (code-free) process. |
 | 13D/13G | Milestone 8: a sibling event pipeline (`ingest/ownership*.py`, daily cron). All `SCHEDULE 13D`/`13D/A` on EDGAR; `SCHEDULE 13G`/`13G/A` only from roster managers (CIK or `aliases`). Structured-XML filings only (from 2024-12-18). Contract in section J. |

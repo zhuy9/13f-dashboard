@@ -15,12 +15,12 @@ A public dashboard of SEC 13F holdings for a tracked list of hedge fund managers
 
 ## Commands
 
-The dev machine is Windows / PowerShell. Local Python is 3.10; CI uses 3.12. Write code that runs on both (no 3.11+-only syntax). Local Node is 24; CI uses 22.
+The dev machine is Windows / PowerShell. Python is 3.12 locally and in CI (`py -3.12 -m venv .venv`). Local Node is 24; CI uses 22.
 
 ```powershell
 # ingest
 cd ingest
-python -m venv .venv
+py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 pytest

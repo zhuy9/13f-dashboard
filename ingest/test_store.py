@@ -13,7 +13,7 @@ from store import (
     _build_stock_quarter_docs,
     _camel,
     _clean,
-    _commit_in_batches,
+    commit_in_batches,
     read_holder_counts,
     write_firestore,
 )
@@ -141,7 +141,7 @@ def test_commit_in_batches_splits_on_size_not_only_on_count():
     db = _CountingDb()
     one_mb = {"blob": "x" * 1_000_000}
 
-    _commit_in_batches(db, [(f"stocks/{i}", one_mb) for i in range(10)])
+    commit_in_batches(db, [(f"stocks/{i}", one_mb) for i in range(10)])
 
     assert sum(db.commits) == 10, "every document is written exactly once"
     assert len(db.commits) > 1, "10 MB cannot go in a single commit"
@@ -155,14 +155,14 @@ def test_stock_doc_id_encodes_slash_matching_web_encodeuricomponent():
     assert quote("BRK.B", safe="") == "BRK.B"  # ordinary tickers are untouched
 
 
-class _OneDocDb:
-    """Just enough Firestore for read_holder_counts: a single document get()."""
+class _ReadDb:
+    """Just enough Firestore for read_holder_counts: document(path).get() over a dict of docs."""
 
-    def __init__(self, doc):
-        self.doc = doc
+    def __init__(self, docs: dict):
+        self.docs = docs
 
     def document(self, path):
-        snap = SimpleNamespace(exists=self.doc is not None, to_dict=lambda: self.doc)
+        snap = SimpleNamespace(exists=path in self.docs, to_dict=lambda: self.docs[path])
         return SimpleNamespace(get=lambda: snap)
 
 
@@ -174,20 +174,21 @@ def test_holder_counts_doc_round_trips_to_the_map_ownership_reads(tables):
     doc = published(db, "meta/holder_counts")
     assert doc["period"] == tables["periods"][-1]
     assert all(row["n"] >= 1 for row in doc["counts"]), "a symbol nobody holds is left out, not stored as 0"
-    assert read_holder_counts(_OneDocDb(doc)) == {row["symbol"]: row["n"] for row in doc["counts"]}
+    assert read_holder_counts(_ReadDb(db.written)) == {row["symbol"]: row["n"] for row in doc["counts"]}
 
 
 def test_read_holder_counts_is_none_not_empty_when_ingest_has_never_run():
     """{} would read as "held by nobody" downstream; the absent doc means "no answer yet"."""
-    assert read_holder_counts(_OneDocDb(None)) is None
+    assert read_holder_counts(_ReadDb({})) is None
 
 
-def test_holder_counts_reads_the_published_snapshot():
-    docs = {"meta/latest": {"datasetId": "ready"}, "datasets/ready/meta/holder_counts": {"counts": [{"symbol": "AAA", "n": 3}]}}
-    db = SimpleNamespace(
-        document=lambda path: SimpleNamespace(get=lambda: SimpleNamespace(exists=True, to_dict=lambda: docs[path]))
-    )
-    assert read_holder_counts(db) == {"AAA": 3}
+def test_holder_counts_reads_the_published_snapshot_not_a_stale_root_doc():
+    docs = {
+        "meta/latest": {"datasetId": "ready"},
+        "datasets/ready/meta/holder_counts": {"counts": [{"symbol": "AAA", "n": 3}]},
+        "meta/holder_counts": {"counts": [{"symbol": "OLD", "n": 9}]},
+    }
+    assert read_holder_counts(_ReadDb(docs)) == {"AAA": 3}
 
 
 def test_manager_quarter_doc_lists_the_symbols_it_holds_options_on(tables):

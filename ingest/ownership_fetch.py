@@ -9,6 +9,8 @@ import edgar
 import pandas as pd
 from edgar.beneficial_ownership.schedule13 import Schedule13D, Schedule13G
 
+from pipeline import fetch_xml_rows, index_rows
+
 FORMS = ["SCHEDULE 13D", "SCHEDULE 13D/A", "SCHEDULE 13G", "SCHEDULE 13G/A"]
 
 # Produced by `parse_filing`. `ticker`/`sector`/`symbol` are attached later by
@@ -20,37 +22,18 @@ FILING_COLUMNS = (
 ).split()
 
 
-def roster_ciks(funds: list[dict]) -> dict[str, str]:
-    """Every roster CIK and alias (unpadded string) -> the roster's primary CIK."""
-    mapping: dict[str, str] = {}
-    for fund in funds:
-        mapping[fund["cik"]] = fund["cik"]
-        for alias in fund.get("aliases", []):
-            mapping[alias] = fund["cik"]
-    return mapping
-
-
 def list_filings(funds: list[dict], since: str, until: str) -> pd.DataFrame:
     """New 13D (universe-wide) + 13G (roster only) filings in `[since, until]`, deduped.
 
     The index lists a filing once per associated CIK (subject company + every filer), so the
     surviving row's `cik` may be the subject company -- `header_fields` finds the real filer."""
-    roster = roster_ciks(funds)
+    roster = {cik for fund in funds for cik in [fund["cik"], *fund.get("aliases", [])]}
     filings = edgar.get_filings(form=FORMS, filing_date=f"{since}:{until}", amendments=True)
     df = filings.to_pandas().drop_duplicates("accession_number")
 
     is_13d = df["form"].str.startswith("SCHEDULE 13D")
     is_roster_13g = df["form"].str.startswith("SCHEDULE 13G") & df["cik"].astype(str).isin(roster)
-    df = df[is_13d | is_roster_13g]
-
-    out = df[["accession_number", "form", "filing_date", "cik", "company"]].copy()
-    out["filing_date"] = out["filing_date"].astype(str)  # to_pandas() gives datetime.date, not str
-    return out.rename(columns={"accession_number": "accession", "form": "form_raw"}).reset_index(drop=True)
-
-
-def to_filing(row) -> "edgar.Filing":
-    # Positional, matching Filing's own (cik, company, form, filing_date, accession_no) order.
-    return edgar.Filing(int(row.cik), row.company, row.form_raw, row.filing_date, row.accession)
+    return index_rows(df[is_13d | is_roster_13g])
 
 
 def filing_url(filer_cik: str, accession: str) -> str:
@@ -132,28 +115,10 @@ def parse_filing(xml: str, form_raw: str, accession: str, filed_at: str, company
 
 
 def fetch_rows(listed: pd.DataFrame, cfg: dict) -> tuple[list[dict], dict[str, str], int]:
-    """(new filing rows, raw XML by accession, failed count). Per-filing try/except: warn and continue."""
-    rows: list[dict] = []
-    raw_by_accession: dict[str, str] = {}
-    failed = 0
+    """(new filing rows, raw XML by accession, failed count)."""
 
-    for row in listed.itertuples():
-        try:
-            xml = to_filing(row).xml()
-        except Exception as e:
-            print(f"WARNING: {row.accession} fetch failed: {e}")
-            failed += 1
-            continue
-        if not xml:
-            print(f"WARNING: {row.accession} has no structured XML; skipping (retried within the refetch window)")
-            failed += 1
-            continue
-        parsed_row = parse_filing(xml, row.form_raw, row.accession, row.filing_date, row.company, cfg)
-        if parsed_row is None:
-            print(f"WARNING: {row.accession} could not be parsed; skipping")
-            failed += 1
-            continue
-        rows.append(parsed_row)
-        raw_by_accession[row.accession] = xml
+    def parse(xml: str, row) -> Optional[list[dict]]:
+        parsed = parse_filing(xml, row.form_raw, row.accession, row.filing_date, row.company, cfg)
+        return [parsed] if parsed else None
 
-    return rows, raw_by_accession, failed
+    return fetch_xml_rows(listed, parse)

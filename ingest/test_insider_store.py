@@ -8,7 +8,8 @@ import pandas as pd
 import pytest
 
 from insider_derive import derive_all
-from insider_store import build_feed, build_issuer_docs, build_people_docs, headline_counts, write_firestore
+from insider_store import build_feed, build_issuer_docs, build_people_docs, headline_counts
+from pipeline import publish
 
 FIXTURE = Path(__file__).parent / "fixtures" / "insider_small.csv"
 
@@ -138,16 +139,14 @@ class _OrderedDb:
         return SimpleNamespace(set=lambda ref, data: docs.append(ref), commit=lambda: self.commit_order.extend(docs))
 
 
-def test_write_firestore_commits_the_feed_last(tables):
+def test_publish_commits_the_feed_last(tables):
     db = _OrderedDb()
-    issuer_docs = build_issuer_docs(tables, CFG)
-    people_docs = build_people_docs(tables, CFG)
-    feed = build_feed(tables, CFG, UNIVERSE)
+    pages = {"insider_issuers": build_issuer_docs(tables, CFG), "insider_people": build_people_docs(tables, CFG)}
 
-    count = write_firestore(db, feed, issuer_docs, people_docs)
+    count = publish(db, pages, "insider/feed", build_feed(tables, CFG, UNIVERSE))
 
     assert db.commit_order[-1] == "insider/feed"
-    assert count == len(issuer_docs) + len(people_docs) + 1
+    assert count == sum(len(docs) for docs in pages.values()) + 1
 
 
 def test_issuer_doc_id_encodes_slash_matching_web_encodeuricomponent():

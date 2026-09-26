@@ -366,13 +366,7 @@ def conviction_score(sqs: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     score_cfg = cfg["score"]
     out = sqs.copy()
 
-    def avg_change(holders: list[dict]) -> float:
-        vals = [
-            h["weight"] if h["status"] == "NEW" else h["change"] for h in holders if h["status"] == "NEW" or pd.notna(h["change"])
-        ]
-        return sum(vals) / len(vals) if vals else 0.0
-
-    out["avg_change"] = out["holders"].apply(avg_change)
+    out["avg_change"] = out["holders"].apply(_mean_change)
     accumulation = (out["avg_change"].clip(lower=0) / score_cfg["accumulation_scale"] + 1).clip(
         upper=score_cfg["accumulation_cap"]
     )
@@ -405,12 +399,15 @@ def _shorts(holders: list[dict], statuses: Optional[set[str]] = None) -> list[st
     return sorted({h["short"] for h in holders if statuses is None or h["status"] in statuses})
 
 
-def _status_change(holders: list[dict], statuses: set[str]) -> float:
-    vals = []
-    for h in holders:
-        if h["status"] not in statuses:
-            continue
-        vals.append(h["weight"] if h["status"] == "NEW" else h["change"])
+def _mean_change(holders: list[dict], statuses: Optional[set[str]] = None) -> float:
+    """Mean weight change over `holders` (those with a status in `statuses`, when given). A NEW
+    position came from zero, so its whole weight is its change; a holder with no defined change
+    -- no prior filing to compare against -- is left out rather than counted as zero."""
+    vals = [
+        h["weight"] if h["status"] == "NEW" else h["change"]
+        for h in holders
+        if (statuses is None or h["status"] in statuses) and (h["status"] == "NEW" or pd.notna(h["change"]))
+    ]
     return sum(vals) / len(vals) if vals else 0.0
 
 
@@ -430,7 +427,7 @@ def consensus_tables(sqs: pd.DataFrame, mqs: pd.DataFrame, trend: pd.DataFrame, 
     buys = sqs[(sqs["new_count"] + sqs["added_count"]) >= cfg["consensus_min_managers"]].copy()
     buys["new_buyers"] = buys["new_count"]
     buys["added"] = buys["added_count"]
-    buys["avg_weight_increase"] = buys["holders"].apply(lambda hs: _status_change(hs, {"NEW", "ADDED"}))
+    buys["avg_weight_increase"] = buys["holders"].apply(lambda hs: _mean_change(hs, {"NEW", "ADDED"}))
     buys["managers"] = buys["holders"].apply(lambda hs: _shorts(hs, {"NEW", "ADDED"}))
     tables["consensus_buys"] = _top_per_period(
         buys[

@@ -1,8 +1,11 @@
+import io
 from types import SimpleNamespace
 
 import pandas as pd
+import urllib3
+from urllib3.connectionpool import HTTPConnectionPool
 
-from enrich import attach, ensure_securities, sec_ticker_to_cik
+from enrich import attach, ensure_securities, openfigi_map, sec_ticker_to_cik
 
 
 class _FakeDb:
@@ -13,6 +16,9 @@ class _FakeDb:
 
     def collection(self, _name):
         return SimpleNamespace(document=lambda cusip: cusip)
+
+    def document(self, path):
+        return path.removeprefix("securities/")
 
     def get_all(self, _refs):
         return [SimpleNamespace(exists=True, id=c, to_dict=lambda doc=doc: doc) for c, doc in self.cached.items()]
@@ -113,7 +119,7 @@ def test_a_deregistered_ticker_still_resolves_to_its_cik(monkeypatch):
             return _Resp(text="ea\t712515\naapl\t320193\n")  # ticker.txt keeps EA
         return _Resp(payload={"0": {"ticker": "AAPL", "cik_str": 320193}})  # json dropped it
 
-    monkeypatch.setattr("enrich._SEC.get", fake_get)
+    monkeypatch.setattr("enrich._HTTP.get", fake_get)
 
     mapping = sec_ticker_to_cik("a@b.com")
 
@@ -140,20 +146,14 @@ def test_the_maintained_list_wins_when_a_ticker_appears_in_both(monkeypatch):
             return _Resp(text="xyz\t111\n")
         return _Resp(payload={"0": {"ticker": "XYZ", "cik_str": 999}})
 
-    monkeypatch.setattr("enrich._SEC.get", fake_get)
+    monkeypatch.setattr("enrich._HTTP.get", fake_get)
 
     assert sec_ticker_to_cik("a@b.com")["XYZ"] == "0000000999"
 
 
-def test_a_transient_sec_503_is_retried_instead_of_failing_the_run(monkeypatch):
-    """SEC's ticker.txt returned one 503 and the whole Insider run died. The same URL answered
-    200 moments later, so a brief outage must be retried, not fatal."""
-    import io
-
-    import urllib3
-    from urllib3.connectionpool import HTTPConnectionPool
-
-    replies = iter([(503, b""), (200, b"aapl\t320193\n"), (200, b'{"0": {"ticker": "AAPL", "cik_str": 320193}}')])
+def _serve(monkeypatch, replies):
+    """Answer HTTP requests from `replies` below requests/urllib3, so the real retry policy runs."""
+    replies = iter(replies)
 
     def fake_make_request(self, conn, method, url, **kwargs):
         status, body = next(replies)
@@ -162,4 +162,17 @@ def test_a_transient_sec_503_is_retried_instead_of_failing_the_run(monkeypatch):
     monkeypatch.setattr(HTTPConnectionPool, "_make_request", fake_make_request)
     monkeypatch.setattr("urllib3.util.retry.time.sleep", lambda s: None)
 
+
+def test_a_transient_sec_503_is_retried_instead_of_failing_the_run(monkeypatch):
+    """SEC's ticker.txt returned one 503 and the whole Insider run died. The same URL answered
+    200 moments later, so a brief outage must be retried, not fatal."""
+    _serve(monkeypatch, [(503, b""), (200, b"aapl\t320193\n"), (200, b'{"0": {"ticker": "AAPL", "cik_str": 320193}}')])
+
     assert sec_ticker_to_cik("a@b.com")["AAPL"] == "0000320193"
+
+
+def test_an_openfigi_rate_limit_is_retried_on_the_post(monkeypatch):
+    """OpenFIGI's mapping call is a POST, which urllib3 does not retry unless told to."""
+    _serve(monkeypatch, [(429, b""), (200, b'[{"data": [{"ticker": "AAPL", "exchCode": "US"}]}]')])
+
+    assert openfigi_map(["037833100"])["037833100"]["ticker"] == "AAPL"

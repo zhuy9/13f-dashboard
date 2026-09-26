@@ -87,20 +87,16 @@ def events(filings: pd.DataFrame, funds: list[dict], cfg: dict, holder_counts: O
     imap = investor_map(funds)
     out = filings.copy()
 
-    canon = out.apply(lambda r: _canonicalize(r, imap), axis=1, result_type="expand")
-    out["investor_cik"], out["is_roster"], out["investor_name"], out["short"], out["cluster"] = (
-        canon[0],
-        canon[1],
-        canon[2],
-        canon[3],
-        canon[4],
-    )
+    canon = ["investor_cik", "is_roster", "investor_name", "short", "cluster"]
+    out[canon] = out.apply(lambda r: _canonicalize(r, imap), axis=1, result_type="expand")
     out["is_activist"] = out["is_roster"] & out["cluster"].fillna("").str.contains("Activist")
 
-    sort_amendment = out["amendment_no"].fillna(0)
-    out = out.assign(_sort_amendment=sort_amendment)
-    out = out.sort_values(["investor_cik", "cusip", "filed_at", "_sort_amendment", "accession"]).drop(columns="_sort_amendment")
-    out = out.reset_index(drop=True)
+    out = (
+        out.assign(_amendment=out["amendment_no"].fillna(0))
+        .sort_values(["investor_cik", "cusip", "filed_at", "_amendment", "accession"])
+        .drop(columns="_amendment")
+        .reset_index(drop=True)
+    )
 
     grouped = out.groupby(["investor_cik", "cusip"], sort=False)
     out["prev_pct"] = grouped["pct"].shift(1)

@@ -2,13 +2,13 @@
 on this edgartools version) -- call `parse_xml`, same trap as Schedule13D in Milestone 8."""
 
 import re
-from typing import Optional
 
 import edgar
 import pandas as pd
 from edgar.ownership import Form4
 
 from ownership_fetch import filing_url
+from pipeline import fetch_xml_rows, index_rows
 
 FORMS = ["4", "4/A"]
 
@@ -22,14 +22,9 @@ TRANSACTION_COLUMNS = (
 ).split()
 
 
-def universe_ciks(holder_counts: Optional[dict], ticker_to_cik: dict[str, str], cfg: dict) -> tuple[set[int], dict[str, str]]:
+def universe_ciks(holder_counts: dict[str, int], ticker_to_cik: dict[str, str], cfg: dict) -> tuple[set[int], dict[str, str]]:
     """Issuer CIKs (int) for symbols held by >= `universe_min_holders` tracked managers at the
-    latest 13F quarter, plus the `{cik10: symbol}` map `parse_filing` resolves symbols with.
-
-    `holder_counts is None` means ingest has never run -- that is not an empty universe."""
-    if holder_counts is None:
-        raise ValueError("meta/holder_counts is missing; run ingest.py before insider.py")
-
+    latest 13F quarter, plus the `{cik10: symbol}` map `parse_filing` resolves symbols with."""
     min_holders = cfg["universe_min_holders"]
     ciks: set[int] = set()
     symbol_by_cik: dict[str, str] = {}
@@ -50,17 +45,8 @@ def list_filings(issuer_ciks: set[int], since: str, until: str) -> pd.DataFrame:
     The index lists a filing once per associated CIK (issuer + every reporting owner), so
     filtering on the issuer CIK *before* `drop_duplicates` selects exactly our universe's
     filings in one listing request."""
-    filings = edgar.get_filings(form=FORMS, filing_date=f"{since}:{until}")
-    df = filings.to_pandas()
-    df = df[df["cik"].isin(issuer_ciks)].drop_duplicates("accession_number")
-
-    out = df[["accession_number", "form", "filing_date", "cik", "company"]].copy()
-    out["filing_date"] = out["filing_date"].astype(str)
-    return out.rename(columns={"accession_number": "accession", "form": "form_raw"}).reset_index(drop=True)
-
-
-def to_filing(row) -> "edgar.Filing":
-    return edgar.Filing(int(row.cik), row.company, row.form_raw, row.filing_date, row.accession)
+    df = edgar.get_filings(form=FORMS, filing_date=f"{since}:{until}").to_pandas()
+    return index_rows(df[df["cik"].isin(issuer_ciks)].drop_duplicates("accession_number"))
 
 
 def _footnote_text(footnotes, ids: str, max_chars: int) -> str:
@@ -143,30 +129,7 @@ def parse_filing(
 
 
 def fetch_rows(listed: pd.DataFrame, symbol_by_cik: dict[str, str], cfg: dict) -> tuple[list[dict], dict[str, str], int]:
-    """(new transaction rows, raw XML by accession, failed count). Per-filing try/except:
-    warn and continue, same contract as `ownership_fetch.fetch_rows`."""
-    rows: list[dict] = []
-    raw_by_accession: dict[str, str] = {}
-    failed = 0
-
-    for row in listed.itertuples():
-        try:
-            xml = to_filing(row).xml()
-        except Exception as e:
-            print(f"WARNING: {row.accession} fetch failed: {e}")
-            failed += 1
-            continue
-        if not xml:
-            print(f"WARNING: {row.accession} has no structured XML; skipping (retried within the refetch window)")
-            failed += 1
-            continue
-        try:
-            parsed_rows = parse_filing(xml, row.form_raw, row.accession, row.filing_date, row.company, symbol_by_cik, cfg)
-        except Exception as e:
-            print(f"WARNING: {row.accession} could not be parsed; skipping ({e})")
-            failed += 1
-            continue
-        rows += parsed_rows
-        raw_by_accession[row.accession] = xml
-
-    return rows, raw_by_accession, failed
+    """(new transaction rows, raw XML by accession, failed count)."""
+    return fetch_xml_rows(
+        listed, lambda xml, row: parse_filing(xml, row.form_raw, row.accession, row.filing_date, row.company, symbol_by_cik, cfg)
+    )

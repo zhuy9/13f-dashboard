@@ -41,6 +41,11 @@ BY_INDUSTRY: dict[int, str] = {
     6798: "Real Estate",  # REITs -- 26 of the S&P's 29 real estate names sit here
     7320: "Financials",  # credit reporting and ratings: SPGI, MCO
     7370: "Communication",  # the group says Technology; every S&P name here is media: GOOG, META
+    # 7389 "Business Services, NEC" is a catch-all the payment networks fall into: Visa, Mastercard,
+    # PayPal, FIS, Fiserv, Global Payments, Corpay and MSCI are GICS Financials, 8 of the 16 S&P
+    # names carrying it. Accenture and Akamai land here too and stay wrong; the code is genuinely
+    # mixed and a plurality is the best it supports.
+    7389: "Financials",
     7900: "Communication",  # amusement and recreation: LYV, TKO
     8731: "Health Care",  # commercial biological research: IQV, CRL, INCY
 }
@@ -106,12 +111,6 @@ BY_MAJOR: dict[int, str] = {
     81: "Industrials", 82: "Industrials", 83: "Industrials", 84: "Industrials",
     86: "Industrials", 87: "Industrials", 89: "Industrials",
 }  # fmt: skip
-
-# 7389 "Services-Business Services, NEC" is a catch-all the payment networks fall into: Visa,
-# Mastercard, PayPal, FIS, Fiserv, Global Payments, Corpay and MSCI are all GICS Financials, 8 of
-# the 16 S&P names carrying it. Accenture and Akamai land here too and stay wrong; the code is
-# genuinely mixed and a plurality is the best it supports.
-BY_INDUSTRY[7389] = "Financials"
 
 
 def sic_to_sector(sic: Optional[int], security_type: Optional[str] = None) -> str:

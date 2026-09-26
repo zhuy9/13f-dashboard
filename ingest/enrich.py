@@ -10,12 +10,16 @@ from urllib3.util.retry import Retry
 
 from api_constants import OPENFIGI_URL, SEC_SUBMISSIONS_URL, SEC_TICKER_TXT_URL, SEC_TICKERS_URL
 from sectors import sic_to_sector
+from store import commit_in_batches
 
-# SEC's endpoints throw the odd 429/5xx; retry with backoff (~2+4+8+16s) instead of failing the run.
-_SEC = requests.Session()
-_SEC.mount(
+# SEC and OpenFIGI both throw the odd 429/5xx; retry after 0, 4, 8 and 16 s (or the server's
+# Retry-After) instead of failing the run. POST included: an OpenFIGI mapping is a pure lookup.
+_HTTP = requests.Session()
+_HTTP.mount(
     "https://",
-    HTTPAdapter(max_retries=Retry(total=4, backoff_factor=2, status_forcelist=(429, 500, 502, 503, 504))),
+    HTTPAdapter(
+        max_retries=Retry(total=4, backoff_factor=2, status_forcelist=(429, 500, 502, 503, 504), allowed_methods=("GET", "POST"))
+    ),
 )
 
 
@@ -32,10 +36,7 @@ def openfigi_map(cusips: list[str], api_key: Optional[str] = None) -> dict[str, 
     for i in range(0, len(cusips), batch_size):
         batch = cusips[i : i + batch_size]
         body = [{"idType": "ID_CUSIP", "idValue": c} for c in batch]
-        resp = requests.post(OPENFIGI_URL, json=body, headers=headers, timeout=30)
-        if resp.status_code == 429:
-            time.sleep(6)
-            resp = requests.post(OPENFIGI_URL, json=body, headers=headers, timeout=30)
+        resp = _HTTP.post(OPENFIGI_URL, json=body, headers=headers, timeout=30)
         resp.raise_for_status()
         for cusip, item in zip(batch, resp.json()):
             data = item.get("data") or []
@@ -58,7 +59,7 @@ def sec_ticker_to_cik(identity: str) -> dict[str, str]:
     """
     headers = {"User-Agent": identity}
 
-    txt = _SEC.get(SEC_TICKER_TXT_URL, headers=headers, timeout=30)
+    txt = _HTTP.get(SEC_TICKER_TXT_URL, headers=headers, timeout=30)
     txt.raise_for_status()
     mapping = {}
     for line in txt.text.splitlines():
@@ -66,7 +67,7 @@ def sec_ticker_to_cik(identity: str) -> dict[str, str]:
         if ticker and cik.strip().isdigit():
             mapping[ticker.strip().upper()] = cik.strip().zfill(10)
 
-    resp = _SEC.get(SEC_TICKERS_URL, headers=headers, timeout=30)
+    resp = _HTTP.get(SEC_TICKERS_URL, headers=headers, timeout=30)
     resp.raise_for_status()
     mapping.update({row["ticker"]: str(row["cik_str"]).zfill(10) for row in resp.json().values()})
     return mapping
@@ -76,7 +77,7 @@ def sec_sic(cik10: str, identity: str) -> tuple[Optional[int], Optional[str]]:
     """(sic, sicDescription) for a 10-digit CIK, from SEC's submissions API."""
     headers = {"User-Agent": identity}
     url = SEC_SUBMISSIONS_URL.format(cik10=cik10)
-    resp = _SEC.get(url, headers=headers, timeout=30)
+    resp = _HTTP.get(url, headers=headers, timeout=30)
     time.sleep(0.11)
     if resp.status_code == 404:
         return None, None
@@ -126,7 +127,7 @@ def ensure_securities(
         # Every CUSIP, not just the unhinted ones: a hint carries a ticker but no security type,
         # and edgartools hints ETFs too (SPY, IWM), so filtering here hid every fund from the
         # ETP rule. The hint still wins for the ticker itself, where its coverage is better.
-        matches = openfigi_map(to_enrich, api_key) if to_enrich else {}
+        matches = openfigi_map(to_enrich, api_key)
         ticker_to_cik = sec_ticker_to_cik(identity)
         for cusip in to_enrich:
             match = matches.get(cusip, {})
@@ -148,11 +149,7 @@ def ensure_securities(
             }
 
         if persist:
-            for i in range(0, len(to_enrich), 400):
-                batch = db.batch()
-                for cusip in to_enrich[i : i + 400]:
-                    batch.set(collection.document(cusip), cached[cusip])
-                batch.commit()
+            commit_in_batches(db, [(f"securities/{cusip}", cached[cusip]) for cusip in to_enrich])
 
     return {c: cached[c] for c in cusips}
 

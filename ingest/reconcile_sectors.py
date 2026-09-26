@@ -1,6 +1,6 @@
 """Dev tool: score `sectors.py` against GICS, using the S&P 500 as ground truth.
 
-Not part of the pipeline and not imported by it. Run it after editing SIC_RANGES:
+Not part of the pipeline and not imported by it. Run it after editing sectors.py:
 
     python reconcile_sectors.py            # score, and list what still disagrees
     python reconcile_sectors.py --propose  # suggest carves the evidence supports
@@ -9,7 +9,7 @@ SIC is an SEC filing code, GICS is what the finance world means by "sector", and
 not line up: one SIC can hold Ametek, Keysight and Danaher. So this reports an agreement rate,
 not a pass/fail, and a `--propose` carve is only offered where every S&P member of a code
 disagrees with us, or where our answer is right for almost none of them. Codes that are
-genuinely mixed are left to their range on purpose.
+genuinely mixed are left to their group or major group on purpose.
 
 Reads the live `securities/` cache for the SIC codes we assigned, so it needs no credentials
 (the collection is world-readable) but does need the network.
@@ -18,9 +18,6 @@ Reads the live `securities/` cache for the SIC codes we assigned, so it needs no
 import argparse
 import collections
 import io
-import json
-import urllib.parse
-import urllib.request
 
 import pandas as pd
 import requests
@@ -53,7 +50,7 @@ def cached_securities() -> pd.DataFrame:
         query = [("pageSize", "300")] + [("mask.fieldPaths", f) for f in ("sic", "ticker", "cik", "sicDescription")]
         if token:
             query.append(("pageToken", token))
-        page = json.load(urllib.request.urlopen(f"{FIRESTORE}/securities?{urllib.parse.urlencode(query)}"))
+        page = requests.get(f"{FIRESTORE}/securities", params=query, timeout=30).json()
         docs += page.get("documents", [])
         token = page.get("nextPageToken")
         if not token:
@@ -103,7 +100,7 @@ def report(df: pd.DataFrame) -> None:
 
 
 def propose(df: pd.DataFrame) -> None:
-    print("carves the evidence supports (paste above the broad ranges in sectors.py):")
+    print("4-digit exceptions the evidence supports (paste into BY_INDUSTRY in sectors.py):")
     for sic, grp in sorted(df.groupby("sic"), key=lambda kv: int(kv[0])):
         truths, ours = collections.Counter(grp["truth"]), grp["ours"].iloc[0]
         unanimous = len(truths) == 1 and len(grp) >= 2 and list(truths)[0] != ours
@@ -114,7 +111,7 @@ def propose(df: pd.DataFrame) -> None:
         if best == ours:
             continue
         why = "unanimous" if unanimous else f"we are right for {grp['ok'].sum()}/{len(grp)}"
-        print(f'    ({sic}, {sic}, "{best}"),  # {why}: {", ".join(str(t) for t in grp["ticker"].head(4))}')
+        print(f'    {sic}: "{best}",  # {why}: {", ".join(str(t) for t in grp["ticker"].head(4))}')
 
 
 if __name__ == "__main__":

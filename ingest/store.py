@@ -85,11 +85,11 @@ def _clean(obj):
     return obj
 
 
-def _records(df: pd.DataFrame) -> list[dict]:
+def records(df: pd.DataFrame) -> list[dict]:
     return _clean(df.to_dict("records"))
 
 
-def _commit_in_batches(db, writes: list[tuple[str, dict]]) -> None:
+def commit_in_batches(db, writes: list[tuple[str, dict]]) -> None:
     """Flush on whichever ceiling comes first, operation count or total size."""
     batch, count, size = db.batch(), 0, 0
     for path, data in writes:
@@ -115,7 +115,7 @@ def _build_meta(tables: dict, funds: list[dict], periods: list[str]) -> dict:
         # Which roster managers have a filing per quarter, so the site can say "no filing"
         # instead of rendering a missing filer as a manager holding zero of everything.
         "coverage": _clean(tables["coverage"]),
-        "copyability": _records(tables["copyability"]),
+        "copyability": records(tables["copyability"]),
         "methodologyVersion": tables["methodology_version"],
         "updatedAt": firestore.SERVER_TIMESTAMP,
     }
@@ -150,7 +150,7 @@ def _build_manager_quarter_docs(tables: dict, funds: list[dict]) -> dict[str, di
         similar = similarity.get(period, {}).get("most_similar", {}).get(cik, [])
         mine = options[options["period"] == period]
         docs[f"{cik}_{period}"] = {
-            "priorPositions": _records(
+            "priorPositions": records(
                 mqs[(mqs["cik"] == cik) & (mqs["period"] < period) & (mqs["kind"] == "EQUITY")]
                 .sort_values("period")
                 .drop_duplicates("symbol", keep="last")
@@ -172,8 +172,8 @@ def _build_manager_quarter_docs(tables: dict, funds: list[dict]) -> dict[str, di
             # Carried once per document, not per position: one filing usually reports every
             # position, and a position's `accession` joins to this list.
             "filings": _filing_records(filings, cik, period),
-            "positions": _records(grp.drop(columns=["cik", "period"])),
-            "sectors": _records(mse[(mse["cik"] == cik) & (mse["period"] == period)].drop(columns=["cik", "period"])),
+            "positions": records(grp.drop(columns=["cik", "period"])),
+            "sectors": records(mse[(mse["cik"] == cik) & (mse["period"] == period)].drop(columns=["cik", "period"])),
             "mostSimilar": [
                 {"cik": s["cik"], "short": short_by_cik.get(s["cik"], s["cik"]), "score": s["score"]} for s in similar
             ],
@@ -196,7 +196,7 @@ def _filing_records(filings, cik: str, period: str) -> list[dict]:
     if filings is None or not len(filings):
         return []
     mine = filings[(filings["cik"] == cik) & (filings["period"] == period)]
-    return _records(mine.drop(columns=["cik", "period"]).sort_values("accession"))
+    return records(mine.drop(columns=["cik", "period"]).sort_values("accession"))
 
 
 def _build_stock_docs(tables: dict) -> dict[str, dict]:
@@ -209,7 +209,7 @@ def _build_stock_docs(tables: dict) -> dict[str, dict]:
             "name": meta["name"],
             "sector": meta["sector"],
             "kind": meta["kind"],
-            "trend": _records(trend[trend["symbol"] == symbol].drop(columns=["symbol"])),
+            "trend": records(trend[trend["symbol"] == symbol].drop(columns=["symbol"])),
         }
         for symbol, meta in tables["symbols"].set_index("symbol").iterrows()
     }
@@ -236,7 +236,7 @@ def _build_stock_quarter_docs(tables: dict, funds: list[dict]) -> dict[str, dict
 def _build_signals_docs(tables: dict, periods: list[str]) -> dict[str, dict]:
     # (Firestore field name, source table name) -- table names stay snake_case (Python side);
     # doc field names are camelCase (JS side), converted explicitly since these are top-level
-    # document keys, not row fields that flow through _records()/_clean()'s recursive _camel().
+    # document keys, not row fields that flow through records()/_clean()'s recursive _camel().
     e_tables = [
         ("consensusBuys", "consensus_buys"),
         ("consensusExits", "consensus_exits"),
@@ -249,22 +249,21 @@ def _build_signals_docs(tables: dict, periods: list[str]) -> dict[str, dict]:
     docs = {}
     for period in periods:
         doc = {
-            field: _records(tables[table][tables[table]["period"] == period].drop(columns=["period"]))
-            for field, table in e_tables
+            field: records(tables[table][tables[table]["period"] == period].drop(columns=["period"])) for field, table in e_tables
         }
-        doc["fastestGrowing"] = _records(tables["fastest_growing"]) if period == periods[-1] else []
+        doc["fastestGrowing"] = records(tables["fastest_growing"]) if period == periods[-1] else []
 
         rotation = tables["sector_rotation"]
-        doc["sectorRotation"] = _records(rotation[rotation["period"] == period].drop(columns=["period"]))
+        doc["sectorRotation"] = records(rotation[rotation["period"] == period].drop(columns=["period"]))
 
         sim = tables["manager_similarity"].get(period, {"ciks": [], "matrix": [], "most_similar": {}})
         # Firestore forbids arrays nested directly inside arrays, so each row is a {values: [...]} map.
         doc["managerSimilarity"] = {"ciks": sim["ciks"], "matrix": [{"values": row} for row in sim["matrix"]]}
 
         opts = tables["options_exposure"]
-        doc["optionsExposure"] = _records(opts[opts["period"] == period].drop(columns=["period"]))
+        doc["optionsExposure"] = records(opts[opts["period"] == period].drop(columns=["period"]))
         filings = tables.get("filings")
-        doc["filings"] = _records(filings[filings["period"] == period]) if filings is not None else []
+        doc["filings"] = records(filings[filings["period"] == period]) if filings is not None else []
         doc["config"] = _clean(tables["signal_config"])
         docs[period] = doc
     return docs
@@ -278,18 +277,23 @@ def _build_holder_counts(tables: dict, latest_period: str) -> dict:
     sqs = tables["stock_quarter_summary"]
     held = sqs[(sqs["period"] == latest_period) & (sqs["manager_count"] > 0)]
     counts = held[["symbol", "manager_count"]].rename(columns={"manager_count": "n"})
-    return {"period": latest_period, "counts": _records(counts)}
+    return {"period": latest_period, "counts": records(counts)}
+
+
+def read_published(db) -> tuple[Optional[dict], str]:
+    """meta/latest, and the `datasets/{id}/` prefix the snapshot it points at lives under.
+    (None, "") before the first ingest has published anything."""
+    snap = db.document("meta/latest").get()
+    meta = snap.to_dict() if snap.exists else None
+    return meta, f"datasets/{meta['datasetId']}/" if meta else ""
 
 
 def read_holder_counts(db) -> Optional[dict[str, int]]:
-    """The other side of `_build_holder_counts`, for `ownership.py`. None -- not {} -- when the
-    doc is absent because ingest has never run: no answer is not the same answer as zero."""
-    meta = db.document("meta/latest").get()
-    dataset = (meta.to_dict() or {}).get("datasetId") if meta.exists else None
-    path = f"datasets/{dataset}/meta/holder_counts" if dataset else "meta/holder_counts"
-    snap = db.document(path).get()
-    doc = snap.to_dict() if snap.exists else None
-    return {r["symbol"]: r["n"] for r in doc["counts"]} if doc else None
+    """The other side of `_build_holder_counts`, for ownership.py and insider.py. None -- not {} --
+    before ingest has ever run: no answer is not the same answer as zero."""
+    meta, prefix = read_published(db)
+    snap = db.document(f"{prefix}meta/holder_counts").get() if meta else None
+    return {r["symbol"]: r["n"] for r in snap.to_dict()["counts"]} if snap and snap.exists else None
 
 
 def write_firestore(db, tables: dict, funds: list[dict], periods: list[str]) -> None:
@@ -307,11 +311,11 @@ def write_firestore(db, tables: dict, funds: list[dict], periods: list[str]) -> 
     # symbols is its own doc: every page reads meta/latest, but only the search box needs the
     # ~2,300-entry symbol list, which is most of what meta/latest would otherwise weigh.
     writes: list[tuple[str, dict]] = [
-        ("meta/symbols", {"symbols": _records(tables["symbols"][["symbol", "name", "sector"]])}),
+        ("meta/symbols", {"symbols": records(tables["symbols"][["symbol", "name", "sector"]])}),
         ("meta/holder_counts", _build_holder_counts(tables, periods[-1])),
     ]
     for collection, docs in owned.items():
         writes += [(f"{collection}/{doc_id}", doc) for doc_id, doc in docs.items()]
-    _commit_in_batches(db, [(f"datasets/{dataset_id}/{path}", doc) for path, doc in writes])
-    _commit_in_batches(db, [("meta/latest", {**_build_meta(tables, funds, periods), "datasetId": dataset_id})])
+    commit_in_batches(db, [(f"datasets/{dataset_id}/{path}", doc) for path, doc in writes])
+    commit_in_batches(db, [("meta/latest", {**_build_meta(tables, funds, periods), "datasetId": dataset_id})])
     # ponytail: retain snapshots for pinned readers; add age-based cleanup if storage grows.

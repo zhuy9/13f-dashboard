@@ -6,14 +6,10 @@ import os
 import sys
 from datetime import datetime, timezone
 from itertools import groupby
-from pathlib import Path
 from typing import NamedTuple
 
-import edgar
-import firebase_admin
 import pandas as pd
-from dotenv import load_dotenv
-from firebase_admin import firestore
+from google.cloud import storage
 
 from derive import derive_all
 from enrich import attach, ensure_securities
@@ -27,17 +23,8 @@ from fetch import (
     normalize,
     resolve_amendments,
 )
+from pipeline import HERE, counts_line, edgar_login, init_firestore, load_config, load_funds, step_summary
 from store import write_firestore, write_gcs
-
-HERE = Path(__file__).parent
-
-
-def load_funds() -> list[dict]:
-    return json.loads((HERE / "funds.json").read_text())
-
-
-def load_config() -> dict:
-    return json.loads((HERE / "signals_config.json").read_text())
 
 
 def load_corporate_actions() -> list[dict]:
@@ -169,38 +156,7 @@ def stale_manager_lines(base_by_fund: list[tuple[dict, pd.DataFrame]], latest: s
     return lines
 
 
-def counts_line(series: pd.Series) -> str:
-    """Render a value_counts as one readable line: 3 new / 8 added / 1 exited."""
-    parts = [
-        f"{n} {'unclassified' if pd.isna(k) else str(k).lower().replace('_', ' ')}"
-        for k, n in series.value_counts(dropna=False).items()
-    ]
-    return " · ".join(parts) or "none"
-
-
-def step_summary(title: str, lines: list[str]) -> None:
-    """Put the run's numbers on the GitHub Actions run page, so a green check is readable
-    without opening the log. No-op outside Actions."""
-    path = os.environ.get("GITHUB_STEP_SUMMARY")
-    if not path:
-        return
-    with open(path, "a", encoding="utf-8") as f:
-        print("###", title, file=f)
-        for line in lines:
-            print("-", line, file=f)
-        print(file=f)
-
-
-def init_firestore():
-    try:
-        firebase_admin.get_app()
-    except ValueError:
-        firebase_admin.initialize_app()
-    return firestore.client()
-
-
 def main() -> int:
-    load_dotenv(HERE / ".env")
     config = load_config()
 
     parser = argparse.ArgumentParser()
@@ -212,12 +168,7 @@ def main() -> int:
     if args.fund and not args.dry_run:
         parser.error("--fund requires --dry-run; publish the full roster to preserve consensus")
 
-    identity = os.environ.get("EDGAR_IDENTITY")
-    if not identity:
-        print("ERROR: EDGAR_IDENTITY is not set. Copy ingest/.env.example to ingest/.env and fill it in.", file=sys.stderr)
-        return 1
-    edgar.set_identity(identity)
-
+    identity = edgar_login()
     funds = load_funds()
     if args.fund:
         funds = [f for f in funds if f["cik"] == args.fund]
@@ -225,12 +176,7 @@ def main() -> int:
             print(f"ERROR: no fund with CIK {args.fund} in funds.json", file=sys.stderr)
             return 1
 
-    try:
-        db = init_firestore()
-    except Exception as e:
-        print(f"ERROR: could not initialize Firestore credentials: {e}", file=sys.stderr)
-        return 1
-
+    db = init_firestore()
     api_key = os.environ.get("OPENFIGI_API_KEY")
 
     base_by_fund: list[tuple[dict, pd.DataFrame]] = []
@@ -286,10 +232,7 @@ def main() -> int:
         # A dry run must not touch remote state, and the GCS archive is remote state.
         bucket_name = None if args.dry_run else os.environ.get("GCS_BUCKET")
         if bucket_name:
-            from google.cloud import storage
-
-            bucket = storage.Client().bucket(bucket_name)
-            write_gcs(bucket, raw_by_filing, tables)
+            write_gcs(storage.Client().bucket(bucket_name), raw_by_filing, tables)
 
         if args.dry_run:
             print_dry_run_signals(tables)

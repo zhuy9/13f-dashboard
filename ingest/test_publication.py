@@ -1,5 +1,4 @@
 from types import SimpleNamespace
-from unittest.mock import Mock
 
 import pytest
 
@@ -56,31 +55,28 @@ def test_ownership_checkpoint_waits_for_publication_and_retry_repairs_pages(monk
     filings = ownership_tables.__wrapped__()["filings"]
     saved, attempts = [], []
 
-    def publish(db, feed, issuers, investors):
-        attempts.append((feed, issuers, investors))
+    def publish(db, pages, feed_path, feed):
+        attempts.append((feed, pages))
         if len(attempts) == 1:
             raise RuntimeError("interrupted")
-        return 1 + len(issuers) + len(investors)
+        return 1 + sum(len(docs) for docs in pages.values())
 
     replacements = {
-        "load_dotenv": lambda *a: None,
+        "edgar_login": lambda: "fixture",
+        "gcs_bucket": lambda pipeline: object(),
         "load_config": lambda: {"ownership": {**CFG, "refetch_overlap_days": 3}},
         "load_funds": lambda: FUNDS,
         "init_firestore": lambda: object(),
-        "read_state": lambda bucket: saved[-1] if saved else None,
+        "read_state": lambda bucket, blob: saved[-1] if saved else None,
         "list_filings": lambda *a: filings[["accession"]].copy(),
         "fetch_rows": lambda listed, cfg: (filings[filings.accession.isin(listed.accession)].to_dict("records"), {}, 0),
         "_enrich": lambda df, *a, **kw: filings[filings.accession.isin(df.accession)].copy(),
         "read_holder_counts": lambda db: None,
-        "write_state": lambda bucket, rows, raw: saved.append(rows.copy()),
-        "write_firestore": publish,
+        "write_state": lambda bucket, blob, prefix, rows, raw: saved.append(rows.copy()),
+        "publish": publish,
         "step_summary": lambda *a: None,
     }
-    monkeypatch.setenv("EDGAR_IDENTITY", "fixture")
-    monkeypatch.setenv("GCS_BUCKET", "fixture")
     monkeypatch.setattr(ownership.sys, "argv", ["ownership.py"])
-    monkeypatch.setattr("edgar.set_identity", lambda *a: None)
-    monkeypatch.setattr("google.cloud.storage.Client", Mock())
     for name, replacement in replacements.items():
         monkeypatch.setattr(ownership, name, replacement)
     with pytest.raises(RuntimeError, match="interrupted"):
@@ -88,5 +84,5 @@ def test_ownership_checkpoint_waits_for_publication_and_retry_repairs_pages(monk
     assert not saved
     assert ownership.main() == 0
     assert attempts[0] == attempts[1]
-    assert attempts[1][1] and attempts[1][2]
+    assert attempts[1][1]["ownership_issuers"] and attempts[1][1]["ownership_investors"]
     assert len(saved[-1]) == len(filings)

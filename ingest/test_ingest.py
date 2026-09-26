@@ -1,7 +1,8 @@
 import pandas as pd
 import pytest
 
-from ingest import counts_line, stale_manager_lines, step_summary
+from ingest import stale_manager_lines
+from pipeline import counts_line, step_summary
 
 
 def _one_manager(periods: list[str]) -> list[tuple[dict, pd.DataFrame]]:
@@ -80,11 +81,9 @@ def test_dry_run_mutates_no_remote_state_and_writes_no_keepalive_marker(monkeypa
     calls none of them -- with a cache miss and GCS_BUCKET set, the case that used to write."""
     import ingest as m
 
-    monkeypatch.setenv("EDGAR_IDENTITY", "a@b.com")
     monkeypatch.setenv("GCS_BUCKET", "some-bucket")
     monkeypatch.setattr(m.sys, "argv", ["ingest.py", "--dry-run"])
-    monkeypatch.setattr(m, "load_dotenv", lambda path: None)
-    monkeypatch.setattr("edgar.set_identity", lambda identity: None)
+    monkeypatch.setattr(m, "edgar_login", lambda: "a@b.com")
     monkeypatch.setattr(m, "load_funds", lambda: [{"cik": "1336528", "short": "Pershing"}])
     monkeypatch.setattr(m, "init_firestore", lambda: object())
     holdings = pd.DataFrame(

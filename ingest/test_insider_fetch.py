@@ -80,11 +80,6 @@ def test_parse_filing_no_reporting_owner_returns_empty_and_warns(capsys):
     assert "no reporting owners" in capsys.readouterr().out
 
 
-def test_universe_ciks_raises_when_holder_counts_missing():
-    with pytest.raises(ValueError):
-        ifetch.universe_ciks(None, {}, {"universe_min_holders": 1})
-
-
 def test_universe_ciks_honours_min_holders():
     holder_counts = {"AAPL": 5, "MSFT": 0}
     ticker_to_cik = {"AAPL": "0000320193", "MSFT": "0000789019"}

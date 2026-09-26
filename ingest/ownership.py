@@ -3,30 +3,30 @@
 import argparse
 import os
 import sys
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from datetime import datetime, timezone
 
-import edgar
 import pandas as pd
-from dotenv import load_dotenv
 
 from enrich import attach, ensure_securities, sec_ticker_to_cik
-from ingest import counts_line, init_firestore, load_config, load_funds, step_summary
 from ownership_derive import derive_all
 from ownership_fetch import FILING_COLUMNS, fetch_rows, list_filings
-from ownership_store import build_feed, build_investor_docs, build_issuer_docs, read_state, write_firestore, write_state
+from ownership_store import RAW_PREFIX, STATE_BLOB, build_feed, build_investor_docs, build_issuer_docs
+from pipeline import (
+    counts_line,
+    edgar_login,
+    extend,
+    gcs_bucket,
+    init_firestore,
+    load_config,
+    load_funds,
+    publish,
+    read_state,
+    since,
+    step_summary,
+    unseen,
+    write_state,
+)
 from store import read_holder_counts
-
-HERE = Path(__file__).parent
-
-
-def _since(args_since: str | None, state: pd.DataFrame | None, cfg: dict) -> str:
-    if args_since:
-        return args_since
-    if state is not None and len(state):
-        latest = datetime.strptime(state["filed_at"].max(), "%Y-%m-%d")
-        return (latest - timedelta(days=cfg["refetch_overlap_days"])).date().isoformat()
-    return cfg["start_date"]
 
 
 def _ticker_hints(rows: list[dict], identity: str) -> dict[str, str]:
@@ -75,7 +75,6 @@ def _print_dry_run(new_df: pd.DataFrame, touched_events: pd.DataFrame, recent: p
 
 
 def main() -> int:
-    load_dotenv(HERE / ".env")
     cfg = load_config()["ownership"]
 
     parser = argparse.ArgumentParser()
@@ -85,59 +84,34 @@ def main() -> int:
     parser.add_argument("--rebuild", action="store_true")
     args = parser.parse_args()
 
-    identity = os.environ.get("EDGAR_IDENTITY")
-    if not identity:
-        print("ERROR: EDGAR_IDENTITY is not set. Copy ingest/.env.example to ingest/.env and fill it in.", file=sys.stderr)
-        return 1
-    edgar.set_identity(identity)
-
-    bucket_name = os.environ.get("GCS_BUCKET")
-    if not bucket_name:
-        print("ERROR: GCS_BUCKET is required for the ownership pipeline.", file=sys.stderr)
-        return 1
-    from google.cloud import storage
-
-    bucket = storage.Client().bucket(bucket_name)
-
+    identity = edgar_login()
+    bucket = gcs_bucket("ownership")
     funds = load_funds()
-    try:
-        db = init_firestore()
-    except Exception as e:
-        print(f"ERROR: could not initialize Firestore credentials: {e}", file=sys.stderr)
-        return 1
+    db = init_firestore()
 
-    state = read_state(bucket)
-    since = _since(args.since, state, cfg)
+    state = read_state(bucket, STATE_BLOB)
+    start = since(args.since, state, cfg)
     until = args.until or datetime.now(timezone.utc).date().isoformat()
-    print(f"window: {since} .. {until}")
+    print(f"window: {start} .. {until}")
 
-    listed = list_filings(funds, since, until)
-    if state is not None and len(state):
-        listed = listed[~listed["accession"].isin(set(state["accession"]))]
-
-    rows, raw, failed = fetch_rows(listed, cfg)
+    rows, raw, failed = fetch_rows(unseen(list_filings(funds, start, until), state), cfg)
     print(f"fetched {len(rows)} new filings ({failed} failed)")
 
     new_df = pd.DataFrame(rows, columns=FILING_COLUMNS)
     if len(new_df):
         new_df = _enrich(new_df, rows, db, identity, os.environ.get("OPENFIGI_API_KEY"), persist=not args.dry_run)
 
-    have_state = state is not None and len(state)
-    if have_state and len(new_df):
-        filings = pd.concat([state, new_df], ignore_index=True)
-    else:
-        filings = state if have_state else new_df
+    filings = extend(state, new_df)
     if not len(filings):
         print("No filings in the window and no prior state; nothing to do.")
-        step_summary(f"Ownership {since} .. {until}", ["no filings in the window"])
+        step_summary(f"Ownership {start} .. {until}", ["no filings in the window"])
         return 1 if failed else 0
 
     # The 13F side of the join: how many tracked managers already held what these filings land on.
     holder_counts = read_holder_counts(db)
 
     tables = derive_all(filings, funds, cfg, holder_counts)
-    new_accessions = set(new_df["accession"]) if len(new_df) else set()
-    touched = tables["events"][tables["events"]["accession"].isin(new_accessions)]
+    touched = tables["events"][tables["events"]["accession"].isin(set(new_df["accession"]))]
 
     summary = [
         f"{len(new_df)} new filings, {failed} failed",
@@ -149,18 +123,18 @@ def main() -> int:
     if args.dry_run:
         _print_dry_run(new_df, touched, tables["recent"], funds)
     else:
-        only_symbols = None if args.rebuild else set(touched["symbol"].unique())
-        only_ciks = None if args.rebuild else set(touched["investor_cik"].unique())
-        feed = build_feed(tables, cfg)
-        issuer_docs = build_issuer_docs(tables, cfg, only_symbols)
-        investor_docs = build_investor_docs(tables, funds, cfg, only_ciks)
-
-        count = write_firestore(db, feed, issuer_docs, investor_docs)
-        write_state(bucket, filings, raw)
+        only_symbols = None if args.rebuild else set(touched["symbol"])
+        only_ciks = None if args.rebuild else set(touched["investor_cik"])
+        pages = {
+            "ownership_issuers": build_issuer_docs(tables, cfg, only_symbols),
+            "ownership_investors": build_investor_docs(tables, funds, cfg, only_ciks),
+        }
+        count = publish(db, pages, "ownership/feed", build_feed(tables, cfg))
+        write_state(bucket, STATE_BLOB, RAW_PREFIX, filings, raw)
         print(f"wrote {count} Firestore documents")
         summary.append(f"{count} Firestore documents written")
 
-    step_summary(f"Ownership {since} .. {until}" + (" (dry run)" if args.dry_run else ""), summary)
+    step_summary(f"Ownership {start} .. {until}" + (" (dry run)" if args.dry_run else ""), summary)
     return 1 if failed else 0
 
 

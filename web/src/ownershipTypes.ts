@@ -77,7 +77,7 @@ export interface OwnershipFeed {
   }
   // Counted in the pipeline over every event on file. The `events` list below is only the
   // newest slice, so counting these in the browser meant "among the last N events".
-  headline?: {
+  headline: {
     asOf: string
     windowDays: number
     windowSince: string

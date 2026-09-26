@@ -9,7 +9,6 @@ const changes = (rows: Row[]) => rows.flatMap(r => r.status === 'NEW' ? [r.weigh
 const round = (n: number) => n % 1 === 0.5 ? Math.floor(n) + Math.floor(n) % 2 : Math.round(n)
 
 export function subsetSignals(published: Signals, inputs: SubsetQuarter[], latest: boolean, minimum?: number): Signals {
-  if (!published.config) throw new Error('Filtering is available after the next full data refresh.')
   const cfg = { ...published.config, ...(minimum == null ? {} : { consensusMinManagers: minimum, highConvictionMinManagers: minimum }) }
   const rows: Row[] = inputs.flatMap(({ cik, quarter }) => quarter.positions.filter(p => p.kind === 'EQUITY').map(p => ({ ...p, cik })))
     .sort((a, b) => a.cik.localeCompare(b.cik) || a.symbol.localeCompare(b.symbol))
@@ -54,7 +53,7 @@ export function subsetSignals(published: Signals, inputs: SubsetQuarter[], lates
     avgWeight: s.avgWeight, avgChange: s.avgChange, newCount: s.newCount, addedCount: s.addedCount, managers: names(s.holders),
   })).sort((a, b) => b.score - a.score).slice(0, cfg.topN)
 
-  const prior = inputs.flatMap(({ cik, quarter }) => (quarter.priorPositions ?? []).map(p => ({ ...p, cik })))
+  const prior = inputs.flatMap(({ cik, quarter }) => quarter.priorPositions.map(p => ({ ...p, cik })))
   const fastestGrowing = latest ? stocks.map(s => {
     const history = prior.filter(p => p.symbol === s.symbol)
     const period = history.map(p => p.period).sort().at(-1)
@@ -82,6 +81,6 @@ export function subsetSignals(published: Signals, inputs: SubsetQuarter[], lates
     equityHolders: r.equityHolders.filter(c => selected.has(c)), callHolders: r.callHolders.filter(c => selected.has(c)),
     putHolders: r.putHolders.filter(c => selected.has(c)),
   })).filter(r => r.callHolders.length || r.putHolders.length)
-  return { config: cfg, filings: inputs.flatMap(i => i.quarter.filings ?? []), consensusBuys, consensusExits, highConviction,
+  return { config: cfg, filings: inputs.flatMap(i => i.quarter.filings), consensusBuys, consensusExits, highConviction,
     biggestNew, biggestAdds, biggestTrims, topSignals, fastestGrowing, sectorRotation, managerSimilarity, optionsExposure }
 }

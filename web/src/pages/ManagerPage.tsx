@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
+import { useParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStates'
 import { WatchButton } from '@/components/WatchButton'
 import { CsvExport } from '@/components/CsvExport'
@@ -10,14 +10,15 @@ import { PositionsTable } from '@/components/manager/PositionsTable'
 import { SectorQoQTable } from '@/components/manager/SectorQoQTable'
 import { SimilarManagers } from '@/components/manager/SimilarManagers'
 import { SourceFilings } from '@/components/manager/SourceFilings'
+import { QuarterSelect } from '@/components/QuarterSelect'
 import { SectorBars } from '@/components/SectorBars'
 import { StatTile } from '@/components/StatTile'
 import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useMeta } from '@/context/MetaContext'
 import { getManager, getManagerQuarter } from '@/data'
 import { filedDate, money, quarterLabel } from '@/format'
 import { useAsyncData } from '@/hooks/useAsyncData'
+import { usePeriodParam } from '@/hooks/useSearchParam'
 
 // Recharts is the heaviest dependency in the app and only three views draw a chart.
 const PositionsTreemap = lazy(() =>
@@ -26,26 +27,17 @@ const PositionsTreemap = lazy(() =>
 
 export function ManagerPage() {
   const { cik = '' } = useParams<{ cik: string }>()
-  const [searchParams, setSearchParams] = useSearchParams()
-
   const { meta } = useMeta()
   const managerState = useAsyncData(() => getManager(cik), [cik])
   const manager = managerState.data
-  const urlPeriod = searchParams.get('period')
-  const period = urlPeriod ?? manager?.periods.at(-1) ?? null
-
-  useEffect(() => {
-    if (manager && !urlPeriod) {
-      setSearchParams({ period: manager.periods.at(-1) ?? '' }, { replace: true })
-    }
-  }, [manager, urlPeriod, setSearchParams])
+  const [period, setPeriod] = usePeriodParam(manager?.periods.at(-1))
 
   const mqState = useAsyncData(
     () => (cik && period ? getManagerQuarter(cik, period) : Promise.resolve(null)),
     [cik, period],
   )
 
-  const missingThisQuarter = meta?.coverage?.find((c) => c.period === period)?.missing.includes(cik) ?? false
+  const missingThisQuarter = meta?.coverage.find((c) => c.period === period)?.missing.includes(cik) ?? false
 
   if (managerState.loading) return <LoadingState />
   if (managerState.error) return <ErrorState message={managerState.error} />
@@ -59,18 +51,7 @@ export function ManagerPage() {
           <Badge variant="secondary">{manager.cluster}</Badge>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <Select value={period ?? undefined} onValueChange={(value) => setSearchParams({ period: value })}>
-            <SelectTrigger>
-              <SelectValue placeholder="Period" />
-            </SelectTrigger>
-            <SelectContent>
-              {manager.periods.map((p) => (
-                <SelectItem key={p} value={p}>
-                  {quarterLabel(p)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <QuarterSelect periods={manager.periods} value={period} onChange={setPeriod} />
           {/* The quarter the holdings describe and the day the filing appeared are different
               dates; the last pipeline refresh is a third, stated once in the bar at the top. */}
           {mqState.data && (
@@ -122,7 +103,7 @@ export function ManagerPage() {
             </div>
             <div>
               <h2 className="mb-2 text-lg font-medium">Sector QoQ</h2>
-              <CsvExport rows={mqState.data.sectors} name={`${manager.short}-sectors`} accessions={mqState.data.filings?.map(f => f.accession)} />
+              <CsvExport rows={mqState.data.sectors} name={`${manager.short}-sectors`} accessions={mqState.data.filings.map(f => f.accession)} />
               <SectorQoQTable sectors={mqState.data.sectors} />
             </div>
           </section>
@@ -147,11 +128,11 @@ export function ManagerPage() {
                 that option side on the same name, so the long may be hedged. Put exposure is not a short.
               </p>
             </Explain>
-            <CsvExport rows={mqState.data.positions} name={`${manager.short}-positions`} accessions={mqState.data.filings?.map(f => f.accession)} />
+            <CsvExport rows={mqState.data.positions} name={`${manager.short}-positions`} accessions={mqState.data.filings.map(f => f.accession)} />
             <PositionsTable positions={mqState.data.positions} options={mqState.data.options} />
           </section>
 
-          {mqState.data.filings && mqState.data.filings.length > 0 && (
+          {mqState.data.filings.length > 0 && (
             <section>
               <h2 className="mb-1 text-lg font-medium">Source Filings</h2>
               <Explain summary="Why more than one filing?">

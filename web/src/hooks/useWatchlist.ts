@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { getManagerQuarter, getStock, getStockQuarter } from '@/data'
+import { getManagerQuarter, getStockQuarter } from '@/data'
 import { reconcile, type Watched, type WatchKind, type WatchState } from '@/watchlist'
 import type { Meta } from '@/types'
 
@@ -31,12 +31,9 @@ function update(next: WatchState) {
 
 export async function readReport(kind: WatchKind, id: string, label: string, meta: Meta): Promise<Watched> {
   const period = meta.latestPeriod
-  // Same legacy fallback as StockPage: stock_quarters/ is absent from pre-Milestone-14 datasets.
-  const data = kind === 'manager' ? await getManagerQuarter(id, period)
-    : await getStockQuarter(id, period) ?? (await getStock(id))?.latest
-  // The fallback is whatever quarter that dataset last published, which need not be this one.
-  if (!data || ('period' in data && data.period !== period)) throw new Error(`No current report for ${label}.`)
-  const sources = [...new Set(data.filings?.map(f => f.url) ?? [])].sort()
+  const data = kind === 'manager' ? await getManagerQuarter(id, period) : await getStockQuarter(id, period)
+  if (!data) throw new Error(`No current report for ${label}.`)
+  const sources = [...new Set(data.filings.map(f => f.url))].sort()
   const rows = 'positions' in data ? data.positions : data.holders
   const counts = 'counts' in data ? data.counts : { new: data.newCount, added: data.addedCount, trimmed: data.trimmedCount, soldOut: data.soldOutCount }
   const summary = `${counts.new} new · ${counts.added} added · ${counts.trimmed} trimmed · ${counts.soldOut} sold out`

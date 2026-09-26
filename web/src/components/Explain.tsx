@@ -53,10 +53,7 @@ export function InfoPopover({ label, heading, children }: { label: ReactNode; he
 
 // The managers behind one ranked row. A consensus row that cannot show its own evidence is
 // only an assertion, so the count doubles as the control that reveals them.
-export function ManagerList({ names, label, heading }: { names?: string[]; label?: string; heading: string }) {
-  // An absent list is not an empty one: documents published before this field existed carry no
-  // names, and claiming "no managers" there would be a fact invented from a missing field.
-  if (!names) return <span className="font-tabular">{label ?? '—'}</span>
+export function ManagerList({ names, label, heading }: { names: string[]; label?: string; heading: string }) {
   if (names.length === 0) return <span className="text-ink-muted">—</span>
   return (
     <InfoPopover label={label ?? names.length} heading={heading}>

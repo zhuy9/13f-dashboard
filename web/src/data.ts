@@ -32,7 +32,8 @@ const cached = new Map<string, Promise<unknown>>()
 
 async function fetchDatasetDoc<T>(path: string): Promise<T | null> {
   const meta = await getMeta()
-  const full = meta?.datasetId ? `datasets/${meta.datasetId}/${path}` : path
+  if (!meta) return null // nothing has been published yet
+  const full = `datasets/${meta.datasetId}/${path}`
   if (!cached.has(full)) {
     // A cached rejection would be permanent, where an uncached read retries on the next render.
     cached.set(full, fetchDoc<T>(full).catch((e: unknown) => { cached.delete(full); throw e }))

@@ -38,12 +38,12 @@ export interface Copyability {
 }
 
 export interface Meta {
-  datasetId?: string
+  datasetId: string
   latestPeriod: string
   periods: string[]
   managers: ManagerRef[]
   clusters: ClusterSummary[]
-  coverage?: QuarterCoverage[]
+  coverage: QuarterCoverage[]
   // Optional: datasets published before Milestone 18 do not carry it.
   copyability?: Copyability[]
   methodologyVersion: number
@@ -75,16 +75,16 @@ export interface Position {
   disclosedByAmendment: boolean
   // Comma-joined when an aliases13f book was reported under more than one filing. Null on a
   // SOLD_OUT row: no current filing mentions the position at all.
-  accession?: string | null
+  accession: string | null
   value: number
   shares: number
   weight: number
   prevValue: number | null
   prevShares: number | null
   // prevShares as filed; adjPrevShares restated onto the current share basis across a split.
-  adjPrevShares?: number | null
-  shareChange?: number | null
-  splitUnverified?: boolean | null
+  adjPrevShares: number | null
+  shareChange: number | null
+  splitUnverified: boolean | null
   prevWeight: number | null
   change: number | null
   status: PositionStatus | null
@@ -113,11 +113,11 @@ export interface SourceFiling {
 }
 
 export interface ManagerQuarter {
-  priorPositions?: { symbol: string; period: string; held: boolean }[]
+  priorPositions: { symbol: string; period: string; held: boolean }[]
   filedAt: string
   totalValue: number
   equityValue: number
-  filings?: SourceFiling[]
+  filings: SourceFiling[]
   count: number
   counts: {
     new: number
@@ -148,7 +148,7 @@ export interface StockTrendPoint {
 }
 
 export interface Holder {
-  accession?: string | null
+  accession: string | null
   cik: string
   short: string
   value: number
@@ -156,8 +156,7 @@ export interface Holder {
   weight: number
   prevWeight: number | null
   change: number | null
-  // Optional: documents published before this field existed do not carry it.
-  shareChange?: number | null
+  shareChange: number | null
   status: PositionStatus | null
 }
 
@@ -173,7 +172,7 @@ export interface OptionHolderRef {
 }
 
 export interface StockLatest {
-  filings?: SourceFiling[]
+  filings: SourceFiling[]
   period: string
   managerCount: number
   managersTotal: number
@@ -201,10 +200,6 @@ export interface Stock {
   sector: string
   kind: SecurityKind
   trend: StockTrendPoint[]
-  // Only in datasets published before Milestone 14 introduced stock_quarters/. Current ingests
-  // omit it, and the readers below treat it as a fallback. Delete both once no legacy dataset
-  // is reachable -- see "Legacy stock latest" in docs/PLAN.md.
-  latest?: StockLatest | null
 }
 
 // signals/{period}
@@ -217,11 +212,9 @@ export interface ConsensusBuyRow {
   avgWeightIncrease: number
   score: number
   // score = round(100 * raw / scorePeak); scorePeak is the quarter's highest raw score.
-  // Optional because a document published before this field existed will not carry it, and
-  // the web app deploys on push while the pipeline republishes on its own schedule.
-  raw?: number
-  scorePeak?: number
-  managers?: string[]
+  raw: number
+  scorePeak: number
+  managers: string[]
 }
 
 export interface ConsensusExitRow {
@@ -230,7 +223,7 @@ export interface ConsensusExitRow {
   soldOut: number
   trimmed: number
   avgReduction: number
-  managers?: string[]
+  managers: string[]
 }
 
 export interface HighConvictionRow {
@@ -241,7 +234,7 @@ export interface HighConvictionRow {
   maxWeight: number
   new: number
   added: number
-  managerNames?: string[]
+  managerNames: string[]
 }
 
 export interface BiggestNewRow {
@@ -314,8 +307,8 @@ export interface SignalConfig {
 }
 
 export interface Signals {
-  config?: SignalConfig
-  filings?: SourceFiling[]
+  config: SignalConfig
+  filings: SourceFiling[]
   consensusBuys: ConsensusBuyRow[]
   consensusExits: ConsensusExitRow[]
   highConviction: HighConvictionRow[]

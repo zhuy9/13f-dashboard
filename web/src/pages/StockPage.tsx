@@ -1,13 +1,13 @@
-import { lazy, Suspense, useEffect } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
+import { useParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStates'
 import { WatchButton } from '@/components/WatchButton'
 import { CsvExport } from '@/components/CsvExport'
 import { Explain } from '@/components/Explain'
 import { SourceFilings } from '@/components/manager/SourceFilings'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useMeta } from '@/context/MetaContext'
 import { KindBadge } from '@/components/KindBadge'
+import { QuarterSelect } from '@/components/QuarterSelect'
 import { ManagerLink } from '@/components/ManagerLink'
 import { HoldersTable } from '@/components/stock/HoldersTable'
 import { InsiderActivity } from '@/components/stock/InsiderActivity'
@@ -18,6 +18,7 @@ import { StatTile } from '@/components/StatTile'
 import { getInsiderIssuer, getOwnershipIssuer, getStock, getStockQuarter } from '@/data'
 import { pct, quarterLabel } from '@/format'
 import { useAsyncData } from '@/hooks/useAsyncData'
+import { usePeriodParam } from '@/hooks/useSearchParam'
 import { isUnresolvedSymbol } from '@/ownership'
 
 const ActivityTimeline = lazy(() => import('@/components/stock/ActivityTimeline').then((m) => ({ default: m.ActivityTimeline })))
@@ -27,11 +28,7 @@ export function StockPage() {
   const { symbol: rawSymbol = '' } = useParams<{ symbol: string }>()
   const symbol = decodeURIComponent(rawSymbol)
   const { meta } = useMeta()
-  const [params, setParams] = useSearchParams()
-  const period = params.get('period') ?? meta?.latestPeriod ?? null
-  useEffect(() => {
-    if (period && !params.has('period')) setParams({ period }, { replace: true })
-  }, [period, params, setParams])
+  const [period, setPeriod] = usePeriodParam(meta?.latestPeriod)
   const quarterState = useAsyncData(() => period ? getStockQuarter(symbol, period) : Promise.resolve(null), [symbol, period])
   const stockState = useAsyncData(() => getStock(symbol), [symbol])
   const issuerState = useAsyncData(() => getOwnershipIssuer(symbol), [symbol])
@@ -49,9 +46,7 @@ export function StockPage() {
     return message ? <ErrorState message={message} /> : <EmptyState message="Stock not found." />
   }
 
-  // A dataset published before stock_quarters/ existed carries the newest quarter on the stock
-  // doc instead. Without this the whole page reads "unavailable" until the next full ingest.
-  const latest = quarterState.data ?? (stock?.latest?.period === period ? stock.latest : null)
+  const latest = quarterState.data
   const name = stock?.name ?? issuer?.issuerName ?? symbol
   const sector = stock?.sector ?? issuer?.sector ?? 'Unknown'
   const unresolved = !stock && isUnresolvedSymbol(symbol)
@@ -81,10 +76,7 @@ export function StockPage() {
             and the watch control are the two things you act on here. */}
         <div className="flex flex-col items-end gap-1">
           {period && meta && (
-            <Select value={period} onValueChange={p => setParams({ period: p })}>
-              <SelectTrigger aria-label="Stock quarter"><SelectValue /></SelectTrigger>
-              <SelectContent>{meta.periods.map(p => <SelectItem key={p} value={p}>{quarterLabel(p)}</SelectItem>)}</SelectContent>
-            </Select>
+            <QuarterSelect periods={meta.periods} value={period} onChange={setPeriod} />
           )}
           {/* The 13D/G section below carries its own filing dates; this says what the quarter scopes. */}
           {period && <span className="text-xs text-ink-muted">13F holdings as of {quarterLabel(period)}</span>}
@@ -107,11 +99,11 @@ export function StockPage() {
 
             <section>
               <h2 className="mb-2 text-lg font-medium">Holders</h2>
-              <CsvExport rows={latest.holders} name={`${symbol}-holders`} accessions={latest.filings?.map(f => f.accession)} />
+              <CsvExport rows={latest.holders} name={`${symbol}-holders`} accessions={latest.filings.map(f => f.accession)} />
               <HoldersTable holders={latest.holders} />
               {/* Collapsed: one accession per holder is provenance, not something to read past on
                   the way down the page. Same native <details> as the Explain above the table. */}
-              {latest.filings && latest.filings.length > 0 && (
+              {latest.filings.length > 0 && (
                 <div className="mt-4">
                   <Explain summary={`Source filings (${latest.filings.length})`}>
                     <SourceFilings filings={latest.filings} cik="" />

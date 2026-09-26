@@ -1,9 +1,8 @@
 import { lazy, type ReactNode } from 'react'
 import { SharesVsWeight, WeightBasis } from '@/components/Explain'
 import { pct, pp } from '@/format'
-import { BiggestAdds } from '@/pages/patterns/BiggestAdds'
+import { BiggestChangeTable } from '@/pages/patterns/BiggestChangeTable'
 import { BiggestNew } from '@/pages/patterns/BiggestNew'
-import { BiggestTrims } from '@/pages/patterns/BiggestTrims'
 import { ConsensusBuys } from '@/pages/patterns/ConsensusBuys'
 import { ConsensusExits } from '@/pages/patterns/ConsensusExits'
 import { FastestGrowing } from '@/pages/patterns/FastestGrowing'
@@ -36,7 +35,7 @@ export function buildSections(data: Signals, labelByCik: Map<string, string>): S
       help: (
         <>
           <p>
-            Stocks that at least {data.config?.consensusMinManagers ?? 3} selected managers opened or added to this quarter. <em>New Buyers</em> and{' '}
+            Stocks that at least {data.config.consensusMinManagers} selected managers opened or added to this quarter. <em>New Buyers</em> and{' '}
             <em>Added</em> count managers; open <em>Buyers</em> to see which ones.
           </p>
           <p>
@@ -63,7 +62,7 @@ export function buildSections(data: Signals, labelByCik: Map<string, string>): S
       help: (
         <>
           <p>
-            Stocks that at least {data.config?.consensusMinManagers ?? 3} selected managers trimmed or sold out of. <em>Avg Reduction</em> averages the
+            Stocks that at least {data.config.consensusMinManagers} selected managers trimmed or sold out of. <em>Avg Reduction</em> averages the
             weight change over those sellers only.
           </p>
           <p>
@@ -82,7 +81,7 @@ export function buildSections(data: Signals, labelByCik: Map<string, string>): S
       help: (
         <>
           <p>
-            Stocks where at least {data.config?.highConvictionMinManagers ?? 3} managers each hold {pct(data.config?.highConvictionMinWeight ?? 0.03)} or more of their reported equity book.{' '}
+            Stocks where at least {data.config.highConvictionMinManagers} managers each hold {pct(data.config.highConvictionMinWeight)} or more of their reported equity book.{' '}
             <em>Managers</em> counts only those qualifying managers — open it to see them.
           </p>
           <p>
@@ -108,7 +107,7 @@ export function buildSections(data: Signals, labelByCik: Map<string, string>): S
     {
       id: 'biggest-adds',
       label: 'Biggest Adds',
-      node: <BiggestAdds rows={data.biggestAdds} />,
+      node: <BiggestChangeTable rows={data.biggestAdds} emptyMessage="No additions this quarter." defaultDirection="desc" />,
       rows: data.biggestAdds,
       help: (
         <>
@@ -121,7 +120,7 @@ export function buildSections(data: Signals, labelByCik: Map<string, string>): S
     {
       id: 'biggest-trims',
       label: 'Biggest Trims',
-      node: <BiggestTrims rows={data.biggestTrims} />,
+      node: <BiggestChangeTable rows={data.biggestTrims} emptyMessage="No trims this quarter." defaultDirection="asc" />,
       rows: data.biggestTrims,
       help: (
         <>
@@ -140,7 +139,7 @@ export function buildSections(data: Signals, labelByCik: Map<string, string>): S
           <p>
             Averages run over managers with a comparable prior quarter — a manager that did not file last quarter is
             left out rather than counted as zero. <em>Increasing</em> and <em>Decreasing</em> count managers whose
-            sector weight moved by more than {pp(data.config?.sectorMoveThreshold ?? 0.005)}.
+            sector weight moved by more than {pp(data.config.sectorMoveThreshold)}.
           </p>
           <p>Sectors come from the issuer's SEC SIC code, not GICS, and an ETF is its own sector.</p>
         </>

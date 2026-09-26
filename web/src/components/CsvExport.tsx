@@ -27,7 +27,7 @@ export function CsvExport({ rows, name, accessions = [], period: explicitPeriod,
     // and spelling out 34 CIKs twice per row buried the data under ~1,400 characters of identical
     // boilerplate. The managers behind a ranked row are already in that row's own column.
     const inUniverse = (cik: string) => !universe || universe.includes(cik)
-    const coverage = meta?.coverage?.find(c => c.period === period)
+    const coverage = meta?.coverage.find(c => c.period === period)
     const text = csv(rows, {
       period,
       sourceAccessions: accessions.length ? accessions.join(' ') : undefined,

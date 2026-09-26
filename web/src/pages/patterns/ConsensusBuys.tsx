@@ -35,7 +35,7 @@ export function ConsensusBuys({ rows }: { rows: ConsensusBuyRow[] }) {
             <TableCell className="font-tabular text-right">{pct(r.avgWeight)}</TableCell>
             <TableCell className="font-tabular text-right">{pp(r.avgWeightIncrease)}</TableCell>
             <TableCell className="font-tabular text-right">
-              {r.raw != null && r.scorePeak ? (
+              {r.scorePeak ? (
                 <InfoPopover label={r.score} heading={`${r.symbol} conviction score`}>
                   <p>
                     {r.raw.toFixed(1)} raw ÷ {r.scorePeak.toFixed(1)} highest raw score this quarter × 100 ={' '}

@@ -1,23 +1,20 @@
-import { STATUS_COLORS } from './format'
+import { NEUTRAL_COLOR, STATUS_COLORS } from './format'
 import type { OwnershipEventKind, OwnershipEvent, OwnershipFilter, OwnershipForm } from './ownershipTypes'
 
-export function filterEvents(events: OwnershipEvent[], filter: OwnershipFilter, query: string): OwnershipEvent[] {
-  let out = events
-  if (filter === '13d') out = out.filter((e) => e.form === '13D')
-  else if (filter === '13g') out = out.filter((e) => e.form === '13G')
-  else if (filter === 'new') out = out.filter((e) => e.event === 'NEW')
-  else if (filter === 'increased') out = out.filter((e) => e.event === 'INCREASED')
-  else if (filter === 'decreased') out = out.filter((e) => e.event === 'DECREASED')
-  else if (filter === 'activists') out = out.filter((e) => e.isActivist)
+export const EVENT_FILTERS: { value: OwnershipFilter; label: string; test: (e: OwnershipEvent) => boolean }[] = [
+  { value: 'all', label: 'All', test: () => true },
+  { value: '13d', label: '13D', test: (e) => e.form === '13D' },
+  { value: '13g', label: '13G', test: (e) => e.form === '13G' },
+  { value: 'new', label: 'New', test: (e) => e.event === 'NEW' },
+  { value: 'increased', label: 'Increased', test: (e) => e.event === 'INCREASED' },
+  { value: 'decreased', label: 'Decreased', test: (e) => e.event === 'DECREASED' },
+  { value: 'activists', label: 'Activists', test: (e) => e.isActivist },
+]
 
+export function filterEvents(events: OwnershipEvent[], filter: string, query: string): OwnershipEvent[] {
+  const test = EVENT_FILTERS.find((f) => f.value === filter)?.test ?? (() => true)
   const q = query.trim().toLowerCase()
-  if (!q) return out
-  return out.filter(
-    (e) =>
-      e.symbol.toLowerCase().includes(q) ||
-      (e.issuerName ?? '').toLowerCase().includes(q) ||
-      e.investorName.toLowerCase().includes(q),
-  )
+  return events.filter((e) => test(e) && (!q || [e.symbol, e.issuerName ?? '', e.investorName].some((s) => s.toLowerCase().includes(q))))
 }
 
 export function eventLabel(event: OwnershipEventKind, form: OwnershipForm): string {
@@ -44,8 +41,6 @@ export function changePpLabel(value: number | null): string {
   return `${sign}${Math.abs(value).toFixed(1)} pp`
 }
 
-const NEUTRAL = '#6b6759'
-
 export const EVENT_COLORS: Record<Exclude<OwnershipEventKind, null>, string> = {
   NEW: STATUS_COLORS.NEW,
   INCREASED: STATUS_COLORS.NEW,
@@ -53,12 +48,12 @@ export const EVENT_COLORS: Record<Exclude<OwnershipEventKind, null>, string> = {
   EXITED: STATUS_COLORS.SOLD_OUT,
   SWITCHED_TO_13D: '#0969da',
   SWITCHED_TO_13G: '#0969da',
-  UPDATED: NEUTRAL,
+  UPDATED: NEUTRAL_COLOR,
 }
 
 export const FORM_COLORS: Record<OwnershipForm, string> = {
   '13D': '#cf222e',
-  '13G': NEUTRAL,
+  '13G': NEUTRAL_COLOR,
 }
 
 export function investorHref(e: { investorCik: string; isRoster: boolean }): string {

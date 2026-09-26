@@ -1,49 +1,17 @@
-import { useSearchParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '@/components/AsyncStates'
+import { Explain } from '@/components/Explain'
+import { FeedFilters } from '@/components/FeedFilters'
 import { ClusterTable, VsThirteenFTable } from '@/components/insider/ClusterTable'
 import { TradesTable } from '@/components/insider/TradesTable'
-import { Explain } from '@/components/Explain'
 import { StatTile } from '@/components/StatTile'
-import { Input } from '@/components/ui/input'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { getInsiderFeed } from '@/data'
 import { useAsyncData } from '@/hooks/useAsyncData'
-import { filterTrades } from '@/insider'
-import type { InsiderFilter } from '@/insiderTypes'
-
-const FILTERS: { value: InsiderFilter; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'buys', label: 'Buys' },
-  { value: 'sells', label: 'Sells' },
-  { value: 'planned', label: 'Planned' },
-  { value: 'discretionary', label: 'Discretionary' },
-  { value: 'awards', label: 'Awards' },
-  { value: 'exercises', label: 'Exercises' },
-]
+import { useFeedFilter } from '@/hooks/useSearchParam'
+import { filterTrades, TRADE_FILTERS } from '@/insider'
 
 export function InsiderPage() {
-  const [searchParams, setSearchParams] = useSearchParams()
   const feedState = useAsyncData(getInsiderFeed, [])
-
-  const filter = (searchParams.get('filter') as InsiderFilter | null) ?? 'all'
-  const query = searchParams.get('q') ?? ''
-
-  function setFilter(value: string) {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev)
-      next.set('filter', value)
-      return next
-    })
-  }
-
-  function setQuery(value: string) {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev)
-      if (value) next.set('q', value)
-      else next.delete('q')
-      return next
-    })
-  }
+  const { filter, query } = useFeedFilter()
 
   if (feedState.loading) return <LoadingState />
   if (feedState.error) return <ErrorState message={feedState.error} />
@@ -78,23 +46,7 @@ export function InsiderPage() {
         />
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Tabs value={filter} onValueChange={setFilter} className="min-w-0">
-          <TabsList className="flex-wrap group-data-horizontal/tabs:h-auto">
-            {FILTERS.map((f) => (
-              <TabsTrigger key={f.value} value={f.value}>
-                {f.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-        <Input
-          placeholder="Search ticker, issuer, or insider…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="sm:w-64"
-        />
-      </div>
+      <FeedFilters filters={TRADE_FILTERS} placeholder="Search ticker, issuer, or insider…" />
 
       <Explain>
         <p>

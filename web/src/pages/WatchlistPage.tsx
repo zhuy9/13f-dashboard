@@ -6,15 +6,15 @@ import { Button } from '@/components/ui/button'
 import { useMeta } from '@/context/MetaContext'
 import { useWatchlist } from '@/hooks/useWatchlist'
 import { eventId, type WatchEvent } from '@/watchlist'
-import { quarterLabel } from '@/format'
+import { CALL_COLOR, NEUTRAL_COLOR, quarterLabel, STATUS_COLORS } from '@/format'
 
 // A revision to a quarter already published is a different thing from a new quarter, and a
 // recalculation is a change in our arithmetic rather than in anyone's holdings. Colour says
 // which before the text does.
 const CHANGE_COLORS: Record<WatchEvent['change'], string> = {
-  'New quarterly report': '#1a7f37',
-  'Revised quarterly report': '#9a6700',
-  'Methodology recalculation': '#6b6759',
+  'New quarterly report': STATUS_COLORS.NEW,
+  'Revised quarterly report': STATUS_COLORS.TRIMMED,
+  'Methodology recalculation': NEUTRAL_COLOR,
 }
 
 export function WatchlistPage() {
@@ -69,7 +69,7 @@ export function WatchlistPage() {
           <ul className="border-b border-line">
             {state.items.map((i) => (
               <li key={`${i.kind}:${i.id}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line py-2">
-                <ColorBadge color={i.kind === 'stock' ? '#0969da' : '#6b6759'} label={i.kind === 'stock' ? 'Stock' : 'Manager'} />
+                <ColorBadge color={i.kind === 'stock' ? CALL_COLOR : NEUTRAL_COLOR} label={i.kind === 'stock' ? 'Stock' : 'Manager'} />
                 <Link
                   className="font-medium text-call hover:underline"
                   to={`/${i.kind}/${encodeURIComponent(i.id)}?period=${i.report.period}`}

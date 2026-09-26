@@ -1,23 +1,20 @@
-import { STATUS_COLORS } from './format'
+import { NEUTRAL_COLOR, STATUS_COLORS } from './format'
 import type { InsiderFilter, InsiderKind, InsiderTrade } from './insiderTypes'
 
-export function filterTrades(trades: InsiderTrade[], filter: InsiderFilter, query: string): InsiderTrade[] {
-  let out = trades
-  if (filter === 'buys') out = out.filter((t) => t.kind === 'BUY')
-  else if (filter === 'sells') out = out.filter((t) => t.kind === 'SELL')
-  else if (filter === 'planned') out = out.filter((t) => t.isPlanned)
-  else if (filter === 'discretionary') out = out.filter((t) => t.isDiscretionarySale)
-  else if (filter === 'awards') out = out.filter((t) => t.kind === 'AWARD')
-  else if (filter === 'exercises') out = out.filter((t) => t.kind === 'EXERCISE')
+export const TRADE_FILTERS: { value: InsiderFilter; label: string; test: (t: InsiderTrade) => boolean }[] = [
+  { value: 'all', label: 'All', test: () => true },
+  { value: 'buys', label: 'Buys', test: (t) => t.kind === 'BUY' },
+  { value: 'sells', label: 'Sells', test: (t) => t.kind === 'SELL' },
+  { value: 'planned', label: 'Planned', test: (t) => t.isPlanned },
+  { value: 'discretionary', label: 'Discretionary', test: (t) => t.isDiscretionarySale },
+  { value: 'awards', label: 'Awards', test: (t) => t.kind === 'AWARD' },
+  { value: 'exercises', label: 'Exercises', test: (t) => t.kind === 'EXERCISE' },
+]
 
+export function filterTrades(trades: InsiderTrade[], filter: string, query: string): InsiderTrade[] {
+  const test = TRADE_FILTERS.find((f) => f.value === filter)?.test ?? (() => true)
   const q = query.trim().toLowerCase()
-  if (!q) return out
-  return out.filter(
-    (t) =>
-      t.symbol.toLowerCase().includes(q) ||
-      t.issuerName.toLowerCase().includes(q) ||
-      t.ownerName.toLowerCase().includes(q),
-  )
+  return trades.filter((t) => test(t) && (!q || [t.symbol, t.issuerName, t.ownerName].some((s) => s.toLowerCase().includes(q))))
 }
 
 // Never "Bought" for a grant/exercise, never "Sold" for a tax withholding/gift -- the whole
@@ -44,18 +41,16 @@ export function roleLabel(role: string): string {
   return role.replace(/\s*\(.*\)$/, '')
 }
 
-const NEUTRAL = '#6b6759'
-
 export const KIND_COLORS: Record<InsiderKind, string> = {
   BUY: STATUS_COLORS.NEW,
   SELL: STATUS_COLORS.SOLD_OUT,
-  AWARD: NEUTRAL,
-  EXERCISE: NEUTRAL,
-  TAX: NEUTRAL,
-  GIFT: NEUTRAL,
-  CONVERSION: NEUTRAL,
-  DISPOSITION_TO_ISSUER: NEUTRAL,
-  OTHER: NEUTRAL,
+  AWARD: NEUTRAL_COLOR,
+  EXERCISE: NEUTRAL_COLOR,
+  TAX: NEUTRAL_COLOR,
+  GIFT: NEUTRAL_COLOR,
+  CONVERSION: NEUTRAL_COLOR,
+  DISPOSITION_TO_ISSUER: NEUTRAL_COLOR,
+  OTHER: NEUTRAL_COLOR,
 }
 
 export function personHref(cik: string): string {

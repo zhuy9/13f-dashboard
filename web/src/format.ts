@@ -80,11 +80,13 @@ export function sectorColor(sector: string): string {
   return SECTOR_COLORS[sector] ?? DEFAULT_SECTOR_COLOR
 }
 
+export const NEUTRAL_COLOR = '#6b6759'
+
 export const STATUS_COLORS: Record<PositionStatus, string> = {
   NEW: '#1a7f37',
   ADDED: '#1a7f37',
   TRIMMED: '#9a6700',
-  UNCHANGED: '#6b6759',
+  UNCHANGED: NEUTRAL_COLOR,
   SOLD_OUT: '#cf222e',
 }
 

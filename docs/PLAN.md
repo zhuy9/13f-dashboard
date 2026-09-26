@@ -81,6 +81,7 @@ Browser: one Firestore read per page (signals/{period}, manager_quarters/{cik}_{
   data/last_ingest.json          # written and committed by the ingest workflow
   firebase.json  .firebaserc  firestore.rules
   .github/workflows/ingest.yml  .github/workflows/deploy.yml  .github/workflows/ownership.yml  .github/workflows/insider.yml
+  .github/actions/setup-ingest/action.yml   # Python 3.12 + deps + pytest + SA key, shared by the 3 ingest workflows
   ingest/
     requirements.txt  pyproject.toml  funds.json  signals_config.json  .env.example
     ingest.py         # CLI + orchestration only (13F)

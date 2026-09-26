@@ -32,20 +32,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v7
+      - uses: ./.github/actions/setup-ingest
         with:
-          python-version: "3.12"
-          cache: pip
-
-      - run: pip install -r ingest/requirements.txt
-
-      - run: python -m pytest -q
-        working-directory: ingest
-
-      - name: Write service account key
-        env:
-          SA_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: echo "$SA_JSON" > "$RUNNER_TEMP/sa.json"
+          service-account: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
       - name: Run ingest
         env:

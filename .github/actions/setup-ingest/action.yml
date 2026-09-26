@@ -1,0 +1,28 @@
+name: Set up ingest
+description: Python 3.12 with the pinned deps, the test suite, and the service-account key at $RUNNER_TEMP/sa.json.
+
+inputs:
+  service-account:
+    description: The FIREBASE_SERVICE_ACCOUNT secret. A composite action cannot read secrets itself.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v7
+      with:
+        python-version: "3.12"
+        cache: pip
+
+    - run: pip install -r ingest/requirements.txt
+      shell: bash
+
+    - run: python -m pytest -q
+      shell: bash
+      working-directory: ingest
+
+    - name: Write service account key
+      shell: bash
+      env:
+        SA_JSON: ${{ inputs.service-account }}
+      run: echo "$SA_JSON" > "$RUNNER_TEMP/sa.json"

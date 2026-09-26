@@ -5,9 +5,18 @@ from typing import Optional
 
 import pandas as pd
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from api_constants import OPENFIGI_URL, SEC_SUBMISSIONS_URL, SEC_TICKER_TXT_URL, SEC_TICKERS_URL
 from sectors import sic_to_sector
+
+# SEC's endpoints throw the odd 429/5xx; retry with backoff (~2+4+8+16s) instead of failing the run.
+_SEC = requests.Session()
+_SEC.mount(
+    "https://",
+    HTTPAdapter(max_retries=Retry(total=4, backoff_factor=2, status_forcelist=(429, 500, 502, 503, 504))),
+)
 
 
 def openfigi_map(cusips: list[str], api_key: Optional[str] = None) -> dict[str, dict]:
@@ -49,7 +58,7 @@ def sec_ticker_to_cik(identity: str) -> dict[str, str]:
     """
     headers = {"User-Agent": identity}
 
-    txt = requests.get(SEC_TICKER_TXT_URL, headers=headers, timeout=30)
+    txt = _SEC.get(SEC_TICKER_TXT_URL, headers=headers, timeout=30)
     txt.raise_for_status()
     mapping = {}
     for line in txt.text.splitlines():
@@ -57,7 +66,7 @@ def sec_ticker_to_cik(identity: str) -> dict[str, str]:
         if ticker and cik.strip().isdigit():
             mapping[ticker.strip().upper()] = cik.strip().zfill(10)
 
-    resp = requests.get(SEC_TICKERS_URL, headers=headers, timeout=30)
+    resp = _SEC.get(SEC_TICKERS_URL, headers=headers, timeout=30)
     resp.raise_for_status()
     mapping.update({row["ticker"]: str(row["cik_str"]).zfill(10) for row in resp.json().values()})
     return mapping
@@ -67,7 +76,7 @@ def sec_sic(cik10: str, identity: str) -> tuple[Optional[int], Optional[str]]:
     """(sic, sicDescription) for a 10-digit CIK, from SEC's submissions API."""
     headers = {"User-Agent": identity}
     url = SEC_SUBMISSIONS_URL.format(cik10=cik10)
-    resp = requests.get(url, headers=headers, timeout=30)
+    resp = _SEC.get(url, headers=headers, timeout=30)
     time.sleep(0.11)
     if resp.status_code == 404:
         return None, None

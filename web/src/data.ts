@@ -5,7 +5,7 @@ import { doc, getDoc } from 'firebase/firestore/lite'
 import { db } from './firebase'
 import type { Manager, ManagerQuarter, Meta, Signals, Stock, StockLatest, SymbolIndex } from './types'
 import type { OwnershipFeed, OwnershipInvestor, OwnershipIssuer } from './ownershipTypes'
-import type { InsiderFeed, InsiderIssuer, InsiderPerson } from './insiderTypes'
+import type { InsiderClusters, InsiderFeed, InsiderIssuer, InsiderPerson } from './insiderTypes'
 
 async function fetchDoc<T>(path: string): Promise<T | null> {
   const snap = await getDoc(doc(db, path))
@@ -83,6 +83,11 @@ export function getStockQuarter(symbol: string, period: string): Promise<StockLa
 // fetchDatasetDoc, which would pin a stale dataset-relative snapshot for the session.
 export function getInsiderFeed(): Promise<InsiderFeed | null> {
   return fetchDoc<InsiderFeed>('insider/feed')
+}
+
+// A few bytes, where the feed is ~900 KB: all the stock page's cluster badge needs.
+export function getInsiderClusters(): Promise<InsiderClusters | null> {
+  return fetchDoc<InsiderClusters>('insider/clusters')
 }
 
 export function getInsiderIssuer(symbol: string): Promise<InsiderIssuer | null> {

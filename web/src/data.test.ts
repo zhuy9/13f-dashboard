@@ -76,3 +76,13 @@ it('does not cache the ownership documents that each run overwrites', async () =
 
   expect(reads).toEqual(['ownership/feed', 'ownership/feed'])
 })
+
+// insider/clusters is rewritten in place by the daily insider run, so it must neither be read
+// through a pinned dataset nor cached for the session.
+it('reads the insider cluster list live, outside the pinned dataset', async () => {
+  const { getInsiderClusters } = await import('./data')
+  await getInsiderClusters()
+  await getInsiderClusters()
+
+  expect(reads).toEqual(['insider/clusters', 'insider/clusters'])
+})

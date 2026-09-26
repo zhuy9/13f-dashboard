@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from insider_derive import derive_all
-from insider_store import build_feed, build_issuer_docs, build_people_docs, headline_counts
+from insider_store import build_cluster_doc, build_feed, build_issuer_docs, build_people_docs, headline_counts
 from pipeline import publish
 
 FIXTURE = Path(__file__).parent / "fixtures" / "insider_small.csv"
@@ -164,3 +164,11 @@ def test_a_log_with_no_open_market_trades_still_builds_every_doc():
 
     assert issuer_docs and all(doc["summary"] is None for doc in issuer_docs.values())
     assert feed["vsThirteenF"] == []
+
+
+def test_the_cluster_doc_names_exactly_the_feed_clusters(tables):
+    """The stock page's cluster badge reads this doc instead of the whole feed, so the two must agree."""
+    assert len(tables["clusters"]), "the fixture must hold a cluster for this test to mean anything"
+    feed_symbols = {c["symbol"] for c in build_feed(tables, CFG, UNIVERSE)["clusters"]}
+
+    assert build_cluster_doc(tables) == {"symbols": sorted(feed_symbols)}

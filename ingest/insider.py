@@ -10,7 +10,7 @@ import pandas as pd
 from enrich import sec_ticker_to_cik
 from insider_derive import derive_all
 from insider_fetch import TRANSACTION_COLUMNS, fetch_rows, list_filings, universe_ciks
-from insider_store import RAW_PREFIX, STATE_BLOB, build_feed, build_issuer_docs, build_people_docs
+from insider_store import RAW_PREFIX, STATE_BLOB, build_cluster_doc, build_feed, build_issuer_docs, build_people_docs
 from pipeline import (
     counts_line,
     edgar_login,
@@ -108,6 +108,7 @@ def main() -> int:
         pages = {
             "insider_issuers": build_issuer_docs(tables, cfg, only_symbols),
             "insider_people": build_people_docs(tables, cfg, only_ciks),
+            "insider": {"clusters": build_cluster_doc(tables)},
         }
         count = publish(db, pages, "insider/feed", build_feed(tables, cfg, universe))
         write_state(bucket, STATE_BLOB, RAW_PREFIX, transactions, raw)

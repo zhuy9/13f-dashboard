@@ -66,6 +66,12 @@ def build_feed(tables: dict, cfg: dict, universe: dict, now: Optional[date] = No
     }
 
 
+def build_cluster_doc(tables: dict) -> dict:
+    """`insider/clusters`: just the clustered symbols, so a stock page's badge does not have to
+    download the whole feed. Rewritten with the feed every run, so it is never staler than it."""
+    return {"symbols": sorted(tables["clusters"]["symbol"])}
+
+
 def build_issuer_docs(tables: dict, cfg: dict, only_symbols: Optional[set] = None) -> dict[str, dict]:
     summary = dict(tuple(tables["issuer_summary"].groupby("symbol")))
     people = tables["people"]

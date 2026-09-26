@@ -387,6 +387,7 @@ unprefixed pre-snapshot paths (removed 2026-09-25, see "Legacy stock latest").
 | `ownership_issuers/{symbol}` | `symbol, issuerCik, issuerName, sector, holders[J stake rows with is_current], events[newest first, ≤ max_events_per_doc]` | stock page (second read; absent ⇒ section hidden) |
 | `ownership_investors/{cik}` | `cik, name, short\|null, cluster\|null, isRoster, isActivist, stakes[current], events[newest first, ≤ max_events_per_doc]` | investor page; manager page (second read) |
 | `insider/feed` | `updatedAt, startDate, lastFiledAt, universe{symbols, asOfPeriod}, counts{filings, trades, issuers, people}, headline{asOf, windowDays, windowSince, openMarketBuys, discretionarySales, clusterBuys}, trades[K rows, newest first, ≤ recent_trades], clusters[], vsThirteenF[]` | insiders page |
+| `insider/clusters` | `symbols[]` — the symbols in `insider/feed.clusters`, rewritten with it every run | stock page cluster badge (so a stock page does not download the whole feed) |
 | `insider_issuers/{symbol}` | `symbol, issuerCik, issuerName, sector, summary{K issuer_summary}, people[{ownerCik, ownerName, role, buys, sells, netShares, lastTradeAt}], trades[newest first, ≤ max_trades_per_doc]` | stock page (third read; absent ⇒ section hidden) |
 | `insider_people/{cik}` | `cik, name, roles[], issuers[{symbol, issuerName, role, netShares}], trades[newest first, ≤ max_trades_per_doc]` | insider person page |
 
@@ -1729,6 +1730,7 @@ the Python-side doc (a backend change this milestone was not scoped to make), `I
 makes a second, independent `getInsiderFeed()` read alongside the issuer read and checks
 `feed.clusters` for the symbol -- both reads are equally uncoupled from `StockPage`'s loading
 gate, so this costs one extra small Firestore read per stock page view, not extra risk.
+(Superseded 2026-09-25: the feed is ~900 KB, so the badge now reads the few-byte `insider/clusters`.)
 
 **Verification note (same limitation as 17.6):** no headless browser or React Testing Library is
 set up in this project, so "the 13F sections still render when the insider read fails" is a

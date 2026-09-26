@@ -77,6 +77,11 @@ export interface InsiderIssuerSummary {
   lastTradeAt: string
 }
 
+// insider/clusters -- the symbols in insider/feed.clusters, rewritten with it every run.
+export interface InsiderClusters {
+  symbols: string[]
+}
+
 // insider/feed
 export interface InsiderFeed {
   updatedAt: Timestamp

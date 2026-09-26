@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { ColorBadge } from '@/components/ColorBadge'
 import { TradesTable } from '@/components/insider/TradesTable'
 import { StatTile } from '@/components/StatTile'
-import { getInsiderFeed } from '@/data'
+import { getInsiderClusters } from '@/data'
 import type { InsiderIssuer } from '@/insiderTypes'
 import { money, STATUS_COLORS } from '@/format'
 import { useAsyncData } from '@/hooks/useAsyncData'
@@ -11,11 +11,11 @@ import { useAsyncData } from '@/hooks/useAsyncData'
 // insider read must never hold up the 13F sections above it -- useAsyncData already catches into
 // an error string rather than throwing, so a rejection just leaves this section absent.
 export function InsiderActivity({ symbol, issuer }: { symbol: string; issuer: InsiderIssuer | null }) {
-  const feedState = useAsyncData(getInsiderFeed, [])
+  const clustersState = useAsyncData(getInsiderClusters, [])
 
   if (!issuer) return null
   const { summary } = issuer
-  const hasCluster = feedState.data?.clusters.some((c) => c.symbol === symbol) ?? false
+  const hasCluster = clustersState.data?.symbols.includes(symbol) ?? false
 
   return (
     <section className="flex flex-col gap-3">

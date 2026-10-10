@@ -7,7 +7,7 @@ import pandas as pd
 from firebase_admin import firestore
 
 from pipeline import newest_first
-from store import records
+from store import _clean, records
 
 STATE_BLOB = "parquet/insider_transactions.parquet"
 RAW_PREFIX = "raw_insider/"
@@ -81,9 +81,9 @@ def build_issuer_docs(tables: dict, cfg: dict, only_symbols: Optional[set] = Non
         meta = trades.iloc[0]
         docs[symbol] = {
             "symbol": symbol,
-            "issuerCik": meta["issuer_cik"],
-            "issuerName": meta["issuer_name"],
-            "sector": meta.get("sector") or "Unknown",
+            "issuerCik": _clean(meta["issuer_cik"]),
+            "issuerName": _clean(meta["issuer_name"]),
+            "sector": _clean(meta.get("sector")) or "Unknown",
             "summary": records(summary[symbol])[0] if symbol in summary else None,
             "people": records(people_by_symbol.get(symbol, people.iloc[:0])[ISSUER_PEOPLE_FIELDS]),
             "trades": records(trades.head(cfg["max_trades_per_doc"])[TRADE_FIELDS]),
@@ -99,7 +99,7 @@ def build_people_docs(tables: dict, cfg: dict, only_ciks: Optional[set] = None) 
         mine = people_by_cik.get(cik, people.iloc[:0])
         docs[cik] = {
             "cik": cik,
-            "name": trades.iloc[0]["owner_name"],
+            "name": _clean(trades.iloc[0]["owner_name"]),
             "roles": sorted(mine["role"].unique()),
             "issuers": records(mine[PERSON_ISSUER_FIELDS]),
             "trades": records(trades.head(cfg["max_trades_per_doc"])[TRADE_FIELDS]),

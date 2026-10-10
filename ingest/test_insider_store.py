@@ -172,3 +172,16 @@ def test_the_cluster_doc_names_exactly_the_feed_clusters(tables):
     feed_symbols = {c["symbol"] for c in build_feed(tables, CFG, UNIVERSE)["clusters"]}
 
     assert build_cluster_doc(tables) == {"symbols": sorted(feed_symbols)}
+
+
+def test_missing_issuer_and_owner_fields_publish_null_not_nan():
+    """pandas 3 stores a None in a string column as NaN, which Firestore writes as a number."""
+    transactions = pd.read_csv(FIXTURE, dtype=STR_COLS).assign(sector="Technology").astype(object)
+    owner = transactions.loc[transactions["symbol"] == "TSTA", "owner_cik"].iloc[0]
+    transactions.loc[transactions["symbol"] == "TSTA", ["issuer_cik", "issuer_name", "sector"]] = None
+    transactions.loc[transactions["owner_cik"] == owner, "owner_name"] = None
+    tables = derive_all(pd.DataFrame(transactions.to_dict("records")), CFG, HOLDER_COUNTS)
+
+    issuer = build_issuer_docs(tables, CFG)["TSTA"]
+    assert issuer["issuerCik"] is None and issuer["issuerName"] is None and issuer["sector"] == "Unknown"
+    assert build_people_docs(tables, CFG)[owner]["name"] is None

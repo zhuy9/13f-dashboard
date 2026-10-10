@@ -126,12 +126,15 @@ def test_every_headline_count_states_its_window_and_scope(tables):
     assert headline["startDate"] == CFG["start_date"]
 
 
-def test_a_missing_issuer_field_publishes_null_not_nan():
+def test_a_missing_issuer_or_investor_field_publishes_null_not_nan():
     """pandas 3 stores a None in a string column as NaN, which Firestore writes as a number."""
     filings = pd.read_csv(FIXTURE, dtype=STR_COLS)
     filings["symbol"] = "_" + filings["cusip"]
     filings["sector"] = "Unknown"
     filings = filings.astype(object)
     filings.loc[filings["cusip"] == "AAA000000", ["issuer_cik", "issuer_name"]] = None  # others stay strings
-    doc = build_issuer_docs(derive_all(pd.DataFrame(filings.to_dict("records")), FUNDS, CFG), CFG)["_AAA000000"]
+    filings.loc[filings["investor_name"] == "Filer A", "investor_name"] = None
+    tables = derive_all(pd.DataFrame(filings.to_dict("records")), FUNDS, CFG)
+    doc = build_issuer_docs(tables, CFG)["_AAA000000"]
     assert doc["issuerCik"] is None and doc["issuerName"] is None
+    assert build_investor_docs(tables, FUNDS, CFG)["9999999999"]["name"] is None

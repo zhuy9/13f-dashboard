@@ -198,6 +198,18 @@ def test_an_additive_amendment_that_re_reports_a_held_position_counts_it_once():
     assert "counted once" in notes[0]
 
 
+def test_a_missing_put_call_does_not_hide_an_additive_amendments_positions():
+    """pandas 3 keeps a missing PutCall as NaN, and NaN keys all match each other in `isin`."""
+    original = _filing("acc1", holdings=_holdings("AAA").assign(PutCall=None))
+    added = _filing(
+        "acc2", is_amendment=True, amendment_type="NEW HOLDINGS", amendment_no=1, holdings=_holdings("CCC").assign(PutCall=None)
+    )
+
+    kept, _ = resolve_amendments([original, added])
+
+    assert _kept_cusips(kept) == ["AAA", "CCC"]
+
+
 def test_resolving_the_same_accessions_twice_is_idempotent():
     """The pipeline is stateless and refetches every window, so the same filings are resolved
     on every run. A duplicate accession also arrives for real when two aliases13f CIKs list

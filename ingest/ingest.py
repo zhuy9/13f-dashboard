@@ -24,7 +24,7 @@ from fetch import (
     resolve_amendments,
 )
 from pipeline import HERE, counts_line, edgar_login, init_firestore, load_config, load_funds, step_summary
-from store import prune_datasets, write_firestore, write_gcs
+from store import _clean, prune_datasets, write_firestore, write_gcs
 
 
 def load_corporate_actions() -> list[dict]:
@@ -98,8 +98,8 @@ def print_dry_run_summary(short: str, enriched: pd.DataFrame) -> None:
         print(f"{short} {period}: {len(group)} rows, ${total_value:,} total value, PUT={put_count} CALL={call_count}")
         top10 = group.sort_values("value", ascending=False).head(10)
         for _, row in top10.iterrows():
-            ticker = row["ticker"] or "?"
-            sector = row["sector"] or "?"
+            ticker = _clean(row["ticker"]) or "?"
+            sector = _clean(row["sector"]) or "?"
             print(f"  {row['name']:<30} {ticker:<6} {sector:<24} ${row['value']:,}")
 
 

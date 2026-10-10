@@ -98,7 +98,7 @@ def build_investor_docs(tables: dict, funds: list[dict], cfg: dict, only_ciks: O
         meta = events.iloc[0]
         docs[cik] = {
             "cik": cik,
-            "name": name_by_cik.get(cik, meta["investor_name"]),
+            "name": name_by_cik.get(cik, _clean(meta["investor_name"])),
             "short": meta["short"] if meta["is_roster"] else None,
             "cluster": meta["cluster"] if meta["is_roster"] else None,
             "isRoster": bool(meta["is_roster"]),

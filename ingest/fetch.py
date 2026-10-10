@@ -131,7 +131,9 @@ def resolve_amendments(parsed: list[Filing]) -> tuple[list[tuple[Filing, pd.Data
 
 def _row_keys(df: pd.DataFrame) -> pd.Series:
     """The identity of a holding within one filing, for spotting a re-reported position."""
-    return df["Cusip"].astype(str).str.strip() + "|" + df["PutCall"].astype(str).str.strip().str.upper()
+    # pandas 3 keeps a missing PutCall as NaN through astype(str), and a NaN key matches every other
+    # NaN key in `isin` -- so one blank-PutCall row would hide all of an amendment's others.
+    return df["Cusip"].astype(str).str.strip() + "|" + df["PutCall"].astype(str).str.strip().str.upper().fillna("")
 
 
 def _held_keys(kept: list[tuple[Filing, pd.DataFrame]]) -> set[str]:

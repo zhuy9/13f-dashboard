@@ -133,6 +133,13 @@ def test_collapse_sums_one_book_split_across_two_filer_ciks():
     assert out.iloc[0]["value"] == 1192581569 + 569340000
 
 
+def test_a_lowercase_cusip_is_the_same_security():
+    """KKR filed as 48251w104 was published as its own unresolved stock beside 48251W104."""
+    rows = normalize(_holdings("48251W104", "48251w104"), "1", "X", _filing())
+    assert rows["cusip"].tolist() == ["48251W104"] and rows["shares"].tolist() == [20]
+    assert edgar_ticker_hints(pd.DataFrame([{"Cusip": "48251w104", "Ticker": "KKR"}])) == {"48251W104": "KKR"}
+
+
 def test_edgar_ticker_hints_skips_blanks_missing_cusips_and_stringified_nulls():
     """A stringified null must never become a hint. A hint suppresses the OpenFIGI lookup and
     then becomes the symbol, so every CUSIP sharing one merges into a single fake stock -- live,

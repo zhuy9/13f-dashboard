@@ -105,7 +105,7 @@ def parse_filing(xml: str, form_raw: str, accession: str, filed_at: str, company
         "investor_name": investor_name,
         "issuer_cik": issuer_cik,
         "issuer_name": obj.issuer_info.name or None,
-        "cusip": obj.issuer_info.cusip or None,
+        "cusip": (obj.issuer_info.cusip or "").strip().upper() or None,  # some filers type it lowercase
         "shares": shares,
         "pct": pct,
         "purpose": purpose,

@@ -129,11 +129,17 @@ def resolve_amendments(parsed: list[Filing]) -> tuple[list[tuple[Filing, pd.Data
     return kept, notes
 
 
+def _cusips(df: pd.DataFrame) -> pd.Series:
+    """Raw `Cusip`, uppercased: some filers type it in lowercase (KKR as 48251w104), which split
+    the holding off into an unresolved `_48251w104` stock beside the real one."""
+    return df["Cusip"].astype(str).str.strip().str.upper()
+
+
 def _row_keys(df: pd.DataFrame) -> pd.Series:
     """The identity of a holding within one filing, for spotting a re-reported position."""
     # pandas 3 keeps a missing PutCall as NaN through astype(str), and a NaN key matches every other
     # NaN key in `isin` -- so one blank-PutCall row would hide all of an amendment's others.
-    return df["Cusip"].astype(str).str.strip() + "|" + df["PutCall"].astype(str).str.strip().str.upper().fillna("")
+    return _cusips(df) + "|" + df["PutCall"].astype(str).str.strip().str.upper().fillna("")
 
 
 def _held_keys(kept: list[tuple[Filing, pd.DataFrame]]) -> set[str]:
@@ -187,7 +193,7 @@ def normalize(df: pd.DataFrame, cik: str, short: str, filing: Filing) -> pd.Data
             # The filing that first disclosed the holding, not when it was bought. A position
             # revealed by an amendment was held all along -- often it was confidential, not new.
             "disclosed_by_amendment": filing.is_amendment,
-            "cusip": df["Cusip"].astype(str).str.strip(),
+            "cusip": _cusips(df),
             "name": df["Issuer"],
             "cls": df["Class"],
             "value": df["Value"].astype(int),
@@ -210,6 +216,6 @@ def edgar_ticker_hints(df: pd.DataFrame) -> dict[str, str]:
     `enrich.attach` makes the ticker the symbol. So one sentinel leaking through merges every
     CUSIP carrying it into a single fake stock -- which is exactly what "NONE" did.
     """
-    cusip = df["Cusip"].astype(str).str.strip()
+    cusip = _cusips(df)
     ticker = df["Ticker"].astype(str).str.strip().str.upper().fillna("")
     return {c: t for c, t in zip(cusip, ticker) if c and t not in _NOT_A_TICKER}

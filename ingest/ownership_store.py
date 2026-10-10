@@ -7,7 +7,7 @@ import pandas as pd
 from firebase_admin import firestore
 
 from pipeline import newest_first
-from store import records
+from store import _clean, records
 
 STATE_BLOB = "parquet/ownership_filings.parquet"
 RAW_PREFIX = "raw_ownership/"
@@ -80,8 +80,8 @@ def build_issuer_docs(tables: dict, cfg: dict, only_symbols: Optional[set] = Non
         meta = events.iloc[0]
         docs[symbol] = {
             "symbol": symbol,
-            "issuerCik": meta["issuer_cik"],
-            "issuerName": meta["issuer_name"],
+            "issuerCik": _clean(meta["issuer_cik"]),
+            "issuerName": _clean(meta["issuer_name"]),
             "sector": meta["sector"],
             "holders": records(current.get(symbol, stakes.iloc[:0])[STAKE_FIELDS]),
             "events": records(events.head(cfg["max_events_per_doc"])[EVENT_FIELDS]),

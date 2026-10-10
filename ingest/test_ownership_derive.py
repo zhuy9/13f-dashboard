@@ -40,7 +40,7 @@ def test_amendment_with_no_prior_is_null_not_new(filings):
     ev = events(filings, FUNDS, CFG)
     row = ev[ev["accession"] == "0000000002-26-000001"].iloc[0]
     assert row["is_amendment"] and pd.isna(row["prev_pct"])
-    assert row["event"] is None
+    assert pd.isna(row["event"])
 
 
 def test_reentry_wins_over_still_below_threshold_rule4_vs_rule5():

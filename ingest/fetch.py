@@ -203,11 +203,11 @@ def edgar_ticker_hints(df: pd.DataFrame) -> dict[str, str]:
     (foreign-domiciled, US-listed issuers like Chubb or ASML), so enrich.py prefers this
     hint and only falls back to OpenFIGI when a CUSIP has none.
 
-    A missing ticker survives `astype(str)` as the literal "NAN" or "NONE", and a hint is
-    believed absolutely: it suppresses the OpenFIGI lookup, and `enrich.attach` makes the
-    ticker the symbol. So one sentinel leaking through merges every CUSIP carrying it into
-    a single fake stock -- which is exactly what "NONE" did.
+    A missing ticker survives `astype(str)` as the literal "NAN" or "NONE" (or, on pandas 3,
+    as NaN itself), and a hint is believed absolutely: it suppresses the OpenFIGI lookup, and
+    `enrich.attach` makes the ticker the symbol. So one sentinel leaking through merges every
+    CUSIP carrying it into a single fake stock -- which is exactly what "NONE" did.
     """
     cusip = df["Cusip"].astype(str).str.strip()
-    ticker = df["Ticker"].astype(str).str.strip().str.upper()
+    ticker = df["Ticker"].astype(str).str.strip().str.upper().fillna("")
     return {c: t for c, t in zip(cusip, ticker) if c and t not in _NOT_A_TICKER}

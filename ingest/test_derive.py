@@ -592,7 +592,7 @@ def test_a_position_carries_the_accession_that_reported_it(out):
     # A SOLD_OUT row has no current filing, so quoting one would point at a filing that does
     # not mention the position.
     fff = _mqs_row(mqs, "1111111111", P2, "FFF")
-    assert fff["status"] == "SOLD_OUT" and fff["accession"] is None
+    assert fff["status"] == "SOLD_OUT" and pd.isna(fff["accession"])
 
 
 def test_the_table_that_displays_a_score_also_carries_its_trace(out):

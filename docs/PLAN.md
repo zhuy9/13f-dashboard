@@ -292,7 +292,8 @@ aff10b5_one footnotes url
 `symbol` resolution, in order: the SEC's own `{cik10: ticker}` map (invert
 `enrich.sec_ticker_to_cik(identity)` — the same map that already hints OpenFIGI for the other two
 pipelines, so the three converge on one symbol space), then the ticker in the Form 4 XML, then
-`"_ISSUER" + issuer_cik`. **Form 4 carries no CUSIP**, so `ensure_securities`/OpenFIGI is not used
+`"_ISSUER" + issuer_cik`. An XML ticker that is a placeholder (`NONE`, `N/A`, `NA`, blank — what
+unlisted funds file) counts as no ticker, or every such issuer merges into one fake stock. **Form 4 carries no CUSIP**, so `ensure_securities`/OpenFIGI is not used
 here at all; `sector` comes from the existing `stocks/{symbol}` doc when one exists, else `Unknown`.
 
 **Derived `insider_trades`** — pure function; adds `kind, role, is_open_market, is_planned,
@@ -334,8 +335,9 @@ authoritative; edgartools' own `Transaction Type` label is not (it reports code 
 `value >= min_open_market_value`); else `LOW`.
 
 **Derived `insider_clusters`** — per symbol, distinct `owner_cik` with a `BUY` whose
-`transaction_date` falls in the last `cluster_window_days`; kept when the count is
-`>= cluster_min_insiders`. Cluster buying is the one insider signal with real published support;
+`transaction_date` falls in the last `cluster_window_days`, counted back from the newest `filed_at`
+on file (not the newest `transaction_date`: one filer's mistyped future date would move the window
+past every real trade); kept when the count is `>= cluster_min_insiders`. Cluster buying is the one insider signal with real published support;
 single buys are noise more often than not, which is why it gets its own table.
 
 **Derived `insider_issuer_summary`** — per symbol: `buyers, sellers, boughtShares, soldShares,

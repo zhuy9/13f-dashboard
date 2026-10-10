@@ -89,6 +89,21 @@ def test_cluster_needs_min_insiders(transactions):
     assert "CLUS2" not in set(c["symbol"])  # only 2 distinct buyers
 
 
+def test_unlisted_issuers_filing_a_placeholder_symbol_stay_apart(transactions):
+    """Private funds file "NONE" or "N/A" as their symbol; ten of them once merged into one stock."""
+    unlisted = transactions.iloc[[0, 1]].assign(symbol=["NONE", "n/a"], issuer_cik=["0000000001", "0000000002"])
+    t = trades(pd.concat([transactions, unlisted], ignore_index=True), CFG, HOLDER_COUNTS)
+    assert t["symbol"].tail(2).tolist() == ["_ISSUER0000000001", "_ISSUER0000000002"]
+
+
+def test_a_future_dated_trade_does_not_move_the_cluster_window(transactions):
+    """ALV reported a 2029 trade in a 2026 filing; anchored on that date, the window held nothing."""
+    typo = transactions.iloc[[0]].assign(accession="TYPO", transaction_date="2029-02-19")
+    t = trades(pd.concat([transactions, typo], ignore_index=True), CFG, HOLDER_COUNTS)
+    assert "CLUS1" in set(clusters(t, CFG)["symbol"])
+    assert "TSTA" in set(vs_13f(t, clusters(t, CFG), CFG)["symbol"])
+
+
 def test_first_buy_is_null_when_log_is_too_short(transactions):
     t = trades(transactions, CFG, HOLDER_COUNTS).set_index("accession")
     assert t.loc["ACC019", "first_buy_in_window"] is None

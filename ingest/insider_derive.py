@@ -19,6 +19,10 @@ CODE_KINDS: dict[str, str] = {
     "D": "DISPOSITION_TO_ISSUER",
 }
 
+# What unlisted issuers (private BDCs, non-traded REITs) file as their trading symbol. Kept as a
+# symbol, every such issuer merges into one fake stock -- 10 under "NONE" in the 2026-10 log.
+_PLACEHOLDER_SYMBOLS = {"", "NONE", "N/A", "NA"}
+
 
 def kind(code: str) -> str:
     return CODE_KINDS.get(code, "OTHER")
@@ -63,6 +67,9 @@ def trades(transactions: pd.DataFrame, cfg: dict, holder_counts: Optional[dict[s
     # A few real filers' transactionDate values carry a trailing UTC offset (e.g. "-05:00") on
     # what is otherwise always a bare calendar date -- keep only the YYYY-MM-DD prefix.
     out["transaction_date"] = pd.to_datetime(out["transaction_date"].astype(str).str[:10], format="%Y-%m-%d")
+    # Here, not in parse_filing, so the rows already in the GCS log are fixed too.
+    placeholder = out["symbol"].str.strip().str.upper().isin(_PLACEHOLDER_SYMBOLS)
+    out.loc[placeholder, "symbol"] = "_ISSUER" + out.loc[placeholder, "issuer_cik"]
 
     out["kind"] = out["code"].map(kind)
     out["role"] = out.apply(_role, axis=1)
@@ -107,9 +114,11 @@ PEOPLE_COLS = [
 
 
 def _window(trades: pd.DataFrame, days: int) -> tuple[pd.Series, pd.Timestamp, pd.Timestamp]:
-    """Dates parsed, plus `[as_of - days, as_of]` anchored to the newest date on file."""
+    """Dates parsed, plus `[as_of - days, as_of]` anchored to the newest filing on file. Not the
+    newest transaction date: one filer's typo (ALV reported a 2029-02-19 trade in March 2026)
+    moved the window past every real trade and emptied clusters and vs_13f."""
     dates = pd.to_datetime(trades["transaction_date"])
-    as_of = dates.max() if len(dates) else pd.Timestamp("1970-01-01")
+    as_of = pd.to_datetime(trades["filed_at"]).max() if len(trades) else pd.Timestamp("1970-01-01")
     return dates, as_of - timedelta(days=days), as_of
 
 

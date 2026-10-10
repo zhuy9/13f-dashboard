@@ -547,7 +547,7 @@ only calls OpenFIGI when a CUSIP has none. Result: 0.0% unmapped on a full 11-ma
 `enrich.py`'s URL constants moved to `ingest/api_constants.py`.
 
 Tasks
-1. `ingest/requirements.txt`: `edgartools pandas pyarrow requests firebase-admin google-cloud-storage python-dotenv pytest`. Pin exact versions after install. Must install on Python 3.10 and 3.12.
+1. `ingest/requirements.txt`: `edgartools pandas pyarrow requests firebase-admin google-cloud-storage python-dotenv pytest`. Pin exact versions after install. Must install on Python 3.12.
 2. `sectors.py` — `SIC_RANGES` (first match wins) and `sic_to_sector(sic, security_type)`: `"ETP"` → `"ETF / Fund"`, `None` → `"Unknown"`, range hit, else `"Other"`. Ranges:
    ```
    (100,999,"Other") (1000,1499,"Energy & Mining") (1500,1799,"Industrials")
@@ -639,7 +639,7 @@ Acceptance criteria
 
 **Tooling addendum (post-M3, dev-only dependency):** `ruff` added to `ingest/requirements.txt` for
 formatting + linting (replaces manual style review). Config in `ingest/pyproject.toml`, target
-Python 3.10 (matches the local/CI compat requirement). Not part of the runtime pipeline; `ruff
+Python 3.12 (matches local and CI). Not part of the runtime pipeline; `ruff
 format` / `ruff check` are run manually before commits, not wired into CI in this MVP.
 
 ### Milestone 4 — Web app shell, manager page, stock page

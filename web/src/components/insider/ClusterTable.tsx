@@ -24,9 +24,7 @@ export function ClusterTable({ clusters }: { clusters: InsiderCluster[] }) {
         <TableBody>
           {sorted.map((c) => (
             <TableRow key={c.symbol}>
-              <TableCell>
-                <StockLink symbol={c.symbol} />
-              </TableCell>
+              <TableCell>{c.symbol.startsWith('_') ? c.symbol : <StockLink symbol={c.symbol} />}</TableCell>
               <TableCell className="max-w-xs truncate">{c.issuerName}</TableCell>
               <TableCell className="font-tabular text-right">{c.buyerCount}</TableCell>
               <TableCell className="font-tabular text-right">{c.windowDays}</TableCell>

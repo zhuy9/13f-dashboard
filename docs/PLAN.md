@@ -49,7 +49,7 @@ Data changes 4×/year. So: **all derived tables are computed once at ingest in P
 GitHub Actions (monthly cron + manual; commits data/last_ingest.json so GitHub keeps the schedule enabled)
   └─ ingest/ingest.py
        ├─ fetch.py   : EDGAR ──► last 12 13F-HR per manager (edgartools) ──► normalized rows
-       ├─ enrich.py  : CUSIP→ticker (OpenFIGI), ticker→CIK→SIC (SEC), SIC→sector (sectors.py); cached in Firestore securities/
+       ├─ enrich.py  : CUSIP→FIGI (OpenFIGI), FIGI→ticker/CIK/SIC/sector (security-master); cached in Firestore securities/
        ├─ derive.py  : base table ──► manager_quarter_summary, manager_sector_exposure, stock_quarter_summary,
        │                            stock_trend, consensus tables, sector_rotation, similarity, options_exposure
        └─ store.py   : GCS (raw XML + Parquet) and Firestore (meta/, managers/, manager_quarters/, stocks/, signals/)
@@ -57,7 +57,7 @@ GitHub Actions (monthly cron + manual; commits data/last_ingest.json so GitHub k
 GitHub Actions (daily cron; Milestone 8)
   └─ ingest/ownership.py
        ├─ ownership_fetch.py  : EDGAR full-index ──► SCHEDULE 13D/13G (structured XML) ──► one row per filing
-       ├─ enrich.py           : same securities/ cache (issuer CIK ──► ticker hint, OpenFIGI fallback)
+       ├─ enrich.py           : same securities/ cache (OpenFIGI FIGI first; issuer CIK ──► ticker hint only without one)
        ├─ ownership_derive.py : filings ──► events (NEW / INCREASED / … per investor × issuer) ──► stakes
        └─ ownership_store.py  : GCS state (parquet/ownership_filings.parquet) + Firestore (ownership/, ownership_issuers/, ownership_investors/)
 
@@ -87,9 +87,7 @@ Browser: one Firestore read per page (signals/{period}, manager_quarters/{cik}_{
     ingest.py         # CLI + orchestration only (13F)
     pipeline.py       # shared by the 3 CLIs: config, credentials, run summary, GCS filing log, fetch loop, publish
     fetch.py          # edgartools fetch + normalize + edgar_ticker_hints
-    enrich.py         # OpenFIGI + SEC lookups + securities cache
-    api_constants.py  # external API URLs
-    sectors.py        # SIC → sector
+    enrich.py         # OpenFIGI (CUSIP→FIGI) + security-master lookups + securities cache
     derive.py         # all 13F derived tables (pure pandas, no I/O)
     store.py          # GCS + Firestore writes (13F)
     ownership.py           # CLI + orchestration (13D/13G, Milestone 8)
@@ -100,7 +98,7 @@ Browser: one Firestore read per page (signals/{period}, manager_quarters/{cik}_{
     ownership_fetch.py     # EDGAR index listing + structured 13D/13G parsing → one row per filing
     ownership_derive.py    # 13D/13G events, stakes, recent (pure pandas, no I/O)
     ownership_store.py     # Firestore ownership docs (state I/O lives in pipeline.py)
-    test_fetch.py  test_derive.py  test_sectors.py  test_store.py
+    test_fetch.py  test_derive.py  test_enrich.py  test_store.py  conftest.py
     test_ownership_fetch.py  test_ownership_derive.py  test_ownership_store.py
     fixtures/holdings_small.csv  fixtures/ownership_small.csv  fixtures/ownership_13d.xml  fixtures/ownership_13g.xml
   web/
@@ -1852,6 +1850,61 @@ A review pass. Every Firestore and GCS shape above is unchanged; only where code
   replace the copies on Ownership/Insiders and Stock/Manager/Patterns; the `BiggestAdds` and
   `BiggestTrims` wrappers are gone.
 
+## Milestone 19 — security-master cutover
+
+Status: in progress
+
+Ticker, CIK, SIC and sector now come from [security-master](https://github.com/zhuy9/security-master),
+the user's open dataset of US-listed stocks, ETFs and closed-end funds keyed by composite FIGI,
+through its Python client. It replaces SEC's ticker lists (`company_tickers.json` and the frozen
+`ticker.txt`), the per-CIK `submissions` calls, and `sectors.py`, which moved to security-master.
+
+**New dependency:** `security-master`, installed from GitHub and pinned to a commit in
+`ingest/requirements.txt`. Standard library only; it caches the dataset in memory and under
+`~/.cache/security-master`, and refreshes it from GitHub at most hourly.
+
+Decisions (confirmed by the user):
+- Full cutover, no fallback to the SEC path. CUSIP -> composite FIGI stays on OpenFIGI: CUSIPs
+  are licensed, so they never leave this repo's private `securities/` cache. FIGI -> everything
+  else is security-master.
+- Tickers are in SEC form: `BRK-B`, not `BRKB`. Share-class symbols, their `stocks/{symbol}` doc
+  ids and their page URLs change on the next full ingest. No document shape changes.
+- The `securities/` cache is history. security-master only knows securities listed since
+  2026-10-19, so an entry is overwritten only when security-master knows that exact security. A
+  holding acquired or delisted before then (Hess, Activision, Pioneer, ...) keeps its cached entry.
+- Lookup order: composite FIGI. Ticker (edgartools hint, then OpenFIGI's) only when OpenFIGI has
+  no FIGI, which is its gap for CINS CUSIPs (Chubb, ASML), since a dead security's ticker may
+  belong to another company by now. A note or warrant takes its issuer's CIK and sector through
+  the ticker part before the space or slash, and keeps its own symbol.
+- `ETP` and `Closed-End Fund` are "ETF / Fund" (closed-end funds used to read Unknown).
+- `ownership.py` (issuer CIK -> ticker hint) and `insider.py` (symbol -> CIK for the universe)
+  use security-master's lists through `enrich.cik_to_ticker()` and `enrich.ticker_to_cik()`. A hint
+  is ignored when OpenFIGI's own ticker marks a note, preferred or warrant ("WHLR 8.75 PERP D"), so
+  an issuer-level hint never relabels one as the stock.
+- The 13D/13G and Form 4 logs in GCS store each row's symbol from fetch time. `ownership.py
+  --rebuild` re-keys the whole log from the (re-resolved) cache; `insider.py` re-stamps symbols
+  from today's universe on every run, and an issuer with several held share classes is labelled
+  with its most-held one (Lennar stays `LEN`). Without this, a changed ticker splits a stock's
+  ownership and insider history from its page.
+- Saved browser watchlist items under an old share-class symbol (`BRKB`) stop resolving; remove
+  and re-add them.
+
+Measured before the switch, over all 12 quarters (2,795 equity CUSIPs): 97.1% (2023-09-30) to
+99.1% (2026-06-30) of holdings value resolves through security-master; the rest is history the
+frozen cache keeps. A dry `--refresh all` over all 5,647 cached entries (the production ingest
+re-resolves only the CUSIPs in its 12-quarter window; `ownership --rebuild` the 13D/13G ones)
+rewrites 453: tickers to
+SEC form and current names; about 10 share classes the old SEC path had collapsed onto one ticker
+split apart (Wiley A/B, Rush A/B, Kelly A/B, Petrobras common/preferred ADRs); and sectors brought
+up to the current SIC table, since cached sectors were never revisited.
+
+- [ ] `enrich.py` resolves through security-master. `sec_ticker_to_cik`, `sec_sic`, `api_constants.py`, `sectors.py`, `test_sectors.py` and `reconcile_sectors.py` are gone.
+- [ ] `ownership.py` and `insider.py` use `enrich.cik_to_ticker()` / `enrich.ticker_to_cik()`.
+- [ ] Tests fake security-master, and `conftest.py` fails any test that reaches its network. No real CUSIPs in `test_enrich.py`.
+- [ ] `pytest` green, `ruff check` clean. `ingest.py --dry-run --refresh all`, `ownership.py --dry-run` and `insider.py --dry-run` run end to end.
+- [ ] README, ARCHITECTURE, METHODOLOGY and CLAUDE.md describe the new path. The GICS agreement figure is gone from the README.
+- [ ] Rollout, in order: push; Ingest workflow with `refresh=all` (green, `meta/latest` switched); then Ownership and Insider workflows with `rebuild=true`. `/stock/BRK-B` shows Major Shareholders and `/stock/LEN` shows insider trades.
+
 ## Doc specs
 
 ### README.md (humans)
@@ -1868,7 +1921,7 @@ Sections, in order:
 7. **Run locally** — exact commands for `ingest/` and `web/`. PowerShell first, then bash.
 8. **Add a manager** — edit `ingest/funds.json`, verify the CIK, run the ingest workflow.
 9. **Tuning the signals** — `ingest/signals_config.json`, one line per knob.
-10. **Sector data** — coarse (SIC ranges); where to improve.
+10. **Sector data** — from security-master (SEC SIC codes mapped to sectors); funds are "ETF / Fund"; the cache keeps history from before 2026-10-19.
 11. **License** — MIT.
 
 The live site URL lives in the GitHub repo's own "website" field (repo Settings → homepage), not duplicated in the README.
@@ -1886,6 +1939,7 @@ The live site URL lives in the GitHub repo's own "website" field (repo Settings 
 
 ## Reuse (do not re-implement)
 - 13F fetching/parsing: `edgartools`. Aggregation: `pandas`. Cosine: `numpy` (comes with pandas).
+- CUSIP -> composite FIGI: OpenFIGI (`enrich.openfigi_map`). FIGI or ticker -> ticker, CIK, SIC, sector: `security_master` (Milestone 19).
 - 13D/13G listing and parsing: `edgartools` (`get_filings`, `edgar.beneficial_ownership.Schedule13D` / `Schedule13G`). XML header fields: stdlib `xml.etree`. No new dependency.
 - Firestore + GCS: `firebase-admin` (Python), `firebase` (JS). Hosting deploy: `FirebaseExtended/action-hosting-deploy`.
 - CLI plumbing shared by `ingest.py`, `ownership.py`, `insider.py`: `pipeline.py` (`edgar_login`, `init_firestore`, `gcs_bucket`, `step_summary`, `counts_line`; for the two daily logs `since`, `read_state`/`write_state`, `unseen`/`extend`, `index_rows`, `fetch_xml_rows`, `newest_first`, `publish`). Firestore batching: `store.commit_in_batches`, `store.records`.

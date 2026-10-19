@@ -1852,7 +1852,7 @@ A review pass. Every Firestore and GCS shape above is unchanged; only where code
 
 ## Milestone 19 — security-master cutover
 
-Status: in progress
+Status: done 59dfd06 (ec7e100 also carries the four file deletions; 59dfd06 is the first commit that runs)
 
 Ticker, CIK, SIC and sector now come from [security-master](https://github.com/zhuy9/security-master),
 the user's open dataset of US-listed stocks, ETFs and closed-end funds keyed by composite FIGI,
@@ -1898,12 +1898,24 @@ SEC form and current names; about 10 share classes the old SEC path had collapse
 split apart (Wiley A/B, Rush A/B, Kelly A/B, Petrobras common/preferred ADRs); and sectors brought
 up to the current SIC table, since cached sectors were never revisited.
 
-- [ ] `enrich.py` resolves through security-master. `sec_ticker_to_cik`, `sec_sic`, `api_constants.py`, `sectors.py`, `test_sectors.py` and `reconcile_sectors.py` are gone.
-- [ ] `ownership.py` and `insider.py` use `enrich.cik_to_ticker()` / `enrich.ticker_to_cik()`.
-- [ ] Tests fake security-master, and `conftest.py` fails any test that reaches its network. No real CUSIPs in `test_enrich.py`.
-- [ ] `pytest` green, `ruff check` clean. `ingest.py --dry-run --refresh all`, `ownership.py --dry-run` and `insider.py --dry-run` run end to end.
-- [ ] README, ARCHITECTURE, METHODOLOGY and CLAUDE.md describe the new path. The GICS agreement figure is gone from the README.
-- [ ] Rollout, in order: push; Ingest workflow with `refresh=all` (green, `meta/latest` switched); then Ownership and Insider workflows with `rebuild=true`. `/stock/BRK-B` shows Major Shareholders and `/stock/LEN` shows insider trades.
+- [x] `enrich.py` resolves through security-master. `sec_ticker_to_cik`, `sec_sic`, `api_constants.py`, `sectors.py`, `test_sectors.py` and `reconcile_sectors.py` are gone.
+- [x] `ownership.py` and `insider.py` use `enrich.cik_to_ticker()` / `enrich.ticker_to_cik()`.
+- [x] Tests fake security-master, and `conftest.py` fails any test that reaches its network. No real CUSIPs in `test_enrich.py`.
+- [x] `pytest` green, `ruff check` clean. `ingest.py --dry-run --refresh all`, `ownership.py --dry-run` and `insider.py --dry-run` run end to end.
+- [x] README, ARCHITECTURE, METHODOLOGY and CLAUDE.md describe the new path. The GICS agreement figure is gone from the README.
+- [x] Rollout, in order: push; Ingest workflow with `refresh=all` (green, `meta/latest` switched); then Ownership and Insider workflows with `rebuild=true`. `/stock/BRK-B` shows Major Shareholders and `/stock/LEN` shows insider trades.
+
+Verification: `pytest` 171 green and `ruff check` clean; `npm run test` 81 green, `npm run lint`
+and `npm run build` clean. Dry runs against production (reads only): `ingest.py --refresh all`,
+`ownership.py` and `insider.py`, each with and without `--rebuild`. Production rollout on
+2026-10-19: Ingest `refresh=all` (run 39314824680) published dataset `cb11c7d0...`, with
+`stocks/BRK-B` present and `stocks/BRKB` gone; Ownership `rebuild` (39316886026) wrote
+`ownership_issuers/BRK-A` (4 events, Buffett's own 13D/As) and `BRK-B`, `LEN-B`, `BF-A`; Insider
+`rebuild` (39316890594) kept `insider_issuers/LEN` (162 trades) and moved Alphabet, Super Micro and
+EQR to `GOOGL`, `SMCI` and `VMRK`. Not done: the Form 4 history of issuers new to the insider
+universe (Berkshire, for one) only starts with new filings; backfill with `since`/`until` slices
+if wanted. The old-symbol docs (`ownership_issuers/BRKB`, `insider_issuers/GOOGN`, ...) stay in
+Firestore as orphans nothing links to.
 
 ## Doc specs
 

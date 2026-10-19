@@ -1265,7 +1265,7 @@ latest published dataset. Storage failure leaves the watchlist usable for the cu
 - Outbound email/push stays out of scope; it needs a consent design first.
 
 ### Milestone 16 — Consensus filtering and ownership research  (M7)
-Status: 16A in progress; 16B deferred by user
+Status: 16A done a9b0ac4; 16B deferred by user
 
 16A uses manager checkboxes/style selection and a minimum-manager threshold, encoded in
 the URL (Milestone 16C restyled these controls; the URL contract is unchanged). Custom subsets
@@ -1281,10 +1281,10 @@ Custom filtering requires a full re-ingest to publish config and priorPositions;
 show an explicit unavailable message. The browser-only-rendering rule has this one exception.
 
 16A — manager/style subset filters:
-- [ ] A subset recomputes counts, averages, thresholds, and scores; it does not just hide rows.
-- [ ] Selected universe and threshold are visible and shareable.
-- [ ] Empty and under-threshold subsets show explicit states.
-- [ ] Selecting everything reproduces the published numbers (parity fixture).
+- [x] A subset recomputes counts, averages, thresholds, and scores; it does not just hide rows.
+- [x] Selected universe and threshold are visible and shareable.
+- [x] Empty and under-threshold subsets show explicit states.
+- [x] Selecting everything reproduces the published numbers (parity fixture).
 - The CLAUDE.md exception and this contract are updated before implementing browser subset aggregation.
 
 16B — ownership pagination and purpose changes:
@@ -1295,7 +1295,7 @@ show an explicit unavailable message. The browser-only-rendering rule has this o
 - [ ] Summary failure leaves deterministic ownership data usable.
 
 ### Milestone 16C — Control layer for the research surface  (M8)
-Status: in progress
+Status: done baf5629
 
 Milestones 14-16A added actions — watch a name, export a table, check for updates, drop a name —
 and rendered every one of them as an underlined text link, because the 5 allowed shadcn
@@ -1315,16 +1315,16 @@ shadcn primitive — including the existing table, input and select — draws th
 hairline instead of a cold grey one. Semantic colour is unchanged: `--destructive` is `--color-put`
 and `--ring` is `--color-call`, matching the global `*:focus-visible` outline.
 
-- [ ] Watch, export, refresh and remove read as controls, not as links.
-- [ ] A saved watch states what clicking will do, and its accessible name states the action.
-- [ ] Export confirms in place, since a download leaves no trace in the page.
-- [ ] Watchlist items and digest entries carry kind and change-type badges.
-- [ ] Empty states are composed, not a bare sentence.
-- [ ] The research universe panel states its scope, and its style control reflects the selection
+- [x] Watch, export, refresh and remove read as controls, not as links.
+- [x] A saved watch states what clicking will do, and its accessible name states the action.
+- [x] Export confirms in place, since a download leaves no trace in the page.
+- [x] Watchlist items and digest entries carry kind and change-type badges.
+- [x] Empty states are composed, not a bare sentence.
+- [x] The research universe panel states its scope, and its style control reflects the selection
       rather than resetting to a placeholder after every pick.
-- [ ] The 34 manager checkboxes are sorted by style and carry it as a per-row label, flowing in
+- [x] The 34 manager checkboxes are sorted by style and carry it as a per-row label, flowing in
       CSS columns so uneven style sizes leave no gaps.
-- [ ] No new npm dependency; `package.json` and `package-lock.json` unchanged.
+- [x] No new npm dependency; `package.json` and `package-lock.json` unchanged.
 
 ### Legacy stock latest
 
@@ -1901,7 +1901,6 @@ The live site URL lives in the GitHub repo's own "website" field (repo Settings 
 10. Daily ownership workflow → green; write count stays small (< 300) once caught up; a `--rebuild` run stays under 15,000 writes (Milestone 8.5).
 
 ## Skipped on purpose (add when…)
-- **Per-user manager selection / re-filtering** — signals are precomputed over every tracked manager; add a client-side re-aggregation when someone actually asks to exclude a manager.
 - **Citadel / Millennium** — removed by the user; re-add only as manager pages with an `excludeFromSignals` flag.
 - **Auto-clustering, Jaccard / sector similarity** — cosine + manual labels first.
 - **Auth, Cloud SQL, BigQuery** — public data; BigQuery is one command over the Parquet when SQL is wanted.

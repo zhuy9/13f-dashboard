@@ -25,6 +25,7 @@
   "insider": {
     "start_date": "2025-09-01",
     "universe_min_holders": 1,
+    "predecessor_ciks": {"0002115436": ["0000034088"]},
     "min_open_market_value": 100000,
     "cluster_min_insiders": 3,
     "cluster_window_days": 90,

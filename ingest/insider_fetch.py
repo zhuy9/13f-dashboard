@@ -24,8 +24,13 @@ TRANSACTION_COLUMNS = (
 
 def universe_ciks(holder_counts: dict[str, int], ticker_to_cik: dict[str, str], cfg: dict) -> tuple[set[int], dict[str, str]]:
     """Issuer CIKs (int) for symbols held by >= `universe_min_holders` tracked managers at the
-    latest 13F quarter, plus the `{cik10: symbol}` map `parse_filing` resolves symbols with."""
+    latest 13F quarter, plus the `{cik10: symbol}` map `parse_filing` resolves symbols with.
+
+    `predecessor_ciks` adds the CIKs an issuer filed under before a reorganization gave it a new
+    one (ExxonMobil Holdings Corp took XOM from Exxon Mobil Corp in 2026), under the same symbol,
+    so its Form 4 history is fetched and labelled with today's ticker."""
     min_holders = cfg["universe_min_holders"]
+    predecessors = cfg.get("predecessor_ciks", {})
     ciks: set[int] = set()
     symbol_by_cik: dict[str, str] = {}
     # Most-held share class last, so it wins its issuer's symbol (LEN over LEN-B); ties keep the
@@ -36,8 +41,9 @@ def universe_ciks(holder_counts: dict[str, int], ticker_to_cik: dict[str, str], 
         cik10 = ticker_to_cik.get(symbol)
         if not cik10:
             continue
-        ciks.add(int(cik10))
-        symbol_by_cik[cik10] = symbol
+        for cik in [cik10, *predecessors.get(cik10, [])]:
+            ciks.add(int(cik))
+            symbol_by_cik[cik] = symbol
     return ciks, symbol_by_cik
 
 

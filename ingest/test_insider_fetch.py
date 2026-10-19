@@ -88,6 +88,13 @@ def test_universe_ciks_honours_min_holders():
     assert symbol_by_cik == {"0000320193": "AAPL"}
 
 
+def test_universe_ciks_adds_an_issuers_predecessor_ciks_under_its_current_symbol():
+    cfg = {"universe_min_holders": 1, "predecessor_ciks": {"0002115436": ["0000034088"]}}
+    ciks, symbol_by_cik = ifetch.universe_ciks({"XOM": 4}, {"XOM": "0002115436"}, cfg)
+    assert ciks == {2115436, 34088}
+    assert symbol_by_cik == {"0002115436": "XOM", "0000034088": "XOM"}
+
+
 def test_universe_ciks_labels_an_issuer_with_its_most_held_share_class():
     """Lennar's B shares sort after its A shares; the class more managers hold names the issuer."""
     holder_counts = {"GOOG": 3, "GOOGL": 3, "LEN": 2, "LEN-B": 1}

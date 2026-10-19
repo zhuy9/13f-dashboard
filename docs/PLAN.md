@@ -267,7 +267,9 @@ Config keys (`signals_config.json` → `ownership`): `start_date` (first filing 
 family. Universe-wide Form 4 is not fetchable on this budget. The insider universe is therefore
 **issuers held by at least `universe_min_holders` tracked managers at the latest 13F quarter**,
 read from `meta/holder_counts` — the same document `ownership.py` already reads, so the three
-pipelines share one join key and one notion of "a stock we cover".
+pipelines share one join key and one notion of "a stock we cover". `predecessor_ciks` adds the
+CIKs an issuer filed under before a reorganization gave it a new one, under the same symbol
+(Milestone 19.1).
 
 Consequences to honour, not work around:
 - The universe **moves** each 13F quarter. A stock every manager sold leaves it. Trades already on
@@ -352,7 +354,8 @@ buying something the tracked managers already own" is a statement neither pipeli
 
 Config keys (`signals_config.json` → `insider`): `start_date`, `universe_min_holders`,
 `min_open_market_value`, `cluster_min_insiders`, `cluster_window_days`, `first_buy_lookback_days`,
-`recent_trades`, `max_trades_per_doc`, `refetch_overlap_days`, `footnote_max_chars`.
+`recent_trades`, `max_trades_per_doc`, `refetch_overlap_days`, `footnote_max_chars`,
+`predecessor_ciks` (current issuer CIK -> the CIKs it used to file under).
 
 ### L. Copyability — per manager, from A (Milestone 18)
 
@@ -1916,6 +1919,24 @@ EQR to `GOOGL`, `SMCI` and `VMRK`. Not done: the Form 4 history of issuers new t
 universe (Berkshire, for one) only starts with new filings; backfill with `since`/`until` slices
 if wanted. The old-symbol docs (`ownership_issuers/BRKB`, `insider_issuers/GOOGN`, ...) stay in
 Firestore as orphans nothing links to.
+
+#### Milestone 19.1 — Insider predecessor CIKs
+
+Status: in progress
+
+Exxon Mobil Corp (CIK 0000034088) became ExxonMobil Holdings Corp (CIK 0002115436) in a 2026
+holding-company reorganization; the new company took `XOM`, and the old one filed its 25-NSE on
+2026-07-02. SEC's ticker lists, and so security-master, map `XOM` to the new CIK only, which has no
+Form 4s yet, while 42 Form 4s since 2025-09-01 sit under the old one. Neither the old SEC path nor
+the cutover ever fetched them. `signals_config.json` → `insider.predecessor_ciks` maps a current
+CIK to its predecessors, and `universe_ciks` adds those under the same symbol.
+
+A scan of the 109 issuers new to the universe after Milestone 19 for successor filings (8-K12B,
+8-K12G3) found Exxon plus five foreign private issuers (Alamos, Baytex, B2Gold, Ferrari, Nutrien),
+which file no Form 4s, so Exxon is the only entry.
+
+- [ ] `universe_ciks` adds predecessor CIKs under the current symbol; tested.
+- [ ] One `insider` backfill from `start_date` fetches Exxon's history; `/stock/XOM` shows insider trades.
 
 ## Doc specs
 

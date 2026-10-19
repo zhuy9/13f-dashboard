@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 import pandas as pd
 
-from enrich import attach, ensure_securities, sec_ticker_to_cik
+from enrich import attach, cik_to_ticker, ensure_securities
 from ownership_derive import derive_all
 from ownership_fetch import FILING_COLUMNS, fetch_rows, list_filings
 from ownership_store import RAW_PREFIX, STATE_BLOB, build_feed, build_investor_docs, build_issuer_docs
@@ -29,21 +29,19 @@ from pipeline import (
 from store import read_holder_counts
 
 
-def _ticker_hints(rows: list[dict], identity: str) -> dict[str, str]:
-    cik_to_ticker: dict[str, str] = {}
-    for ticker, cik in sec_ticker_to_cik(identity).items():
-        cik_to_ticker.setdefault(cik, ticker)
-    return {r["cusip"]: cik_to_ticker[r["issuer_cik"]] for r in rows if r["issuer_cik"] in cik_to_ticker}
+def _ticker_hints(rows: list[dict]) -> dict[str, str]:
+    tickers = cik_to_ticker()
+    return {r["cusip"]: tickers[r["issuer_cik"]] for r in rows if r["issuer_cik"] in tickers}
 
 
-def _enrich(new_df: pd.DataFrame, rows: list[dict], db, identity: str, api_key: str | None, persist: bool = True) -> pd.DataFrame:
+def _enrich(
+    new_df: pd.DataFrame, rows: list[dict], db, api_key: str | None, persist: bool = True, refresh: str = "none"
+) -> pd.DataFrame:
     """Some filings (notes, non-standard securities) carry no CUSIP -- give those an
     issuer-scoped fallback symbol instead of routing them through the CUSIP-keyed cache."""
     has_cusip = new_df["cusip"].notna()
     cusips = sorted(new_df.loc[has_cusip, "cusip"].unique())
-    securities = (
-        ensure_securities(db, cusips, identity, api_key, "none", _ticker_hints(rows, identity), persist=persist) if cusips else {}
-    )
+    securities = ensure_securities(db, cusips, api_key, refresh, _ticker_hints(rows), persist=persist) if cusips else {}
     resolved = attach(new_df[has_cusip], securities)
 
     unresolved = new_df[~has_cusip].copy()
@@ -84,7 +82,7 @@ def main() -> int:
     parser.add_argument("--rebuild", action="store_true")
     args = parser.parse_args()
 
-    identity = edgar_login()
+    edgar_login()  # edgartools sends this identity to SEC on every request
     bucket = gcs_bucket("ownership")
     funds = load_funds()
     db = init_firestore()
@@ -99,9 +97,14 @@ def main() -> int:
 
     new_df = pd.DataFrame(rows, columns=FILING_COLUMNS)
     if len(new_df):
-        new_df = _enrich(new_df, rows, db, identity, os.environ.get("OPENFIGI_API_KEY"), persist=not args.dry_run)
+        new_df = _enrich(new_df, rows, db, os.environ.get("OPENFIGI_API_KEY"), persist=not args.dry_run)
 
     filings = extend(state, new_df)
+    if args.rebuild and len(filings):
+        # The log keeps the ticker, sector and symbol each filing got when it was fetched, and
+        # derive groups by that symbol. Re-key it from the cache so a changed ticker (SEC form,
+        # a rename) keeps one history; the rewritten log is saved below.
+        filings = _enrich(filings, filings.to_dict("records"), db, os.environ.get("OPENFIGI_API_KEY"), not args.dry_run, "all")
     if not len(filings):
         print("No filings in the window and no prior state; nothing to do.")
         step_summary(f"Ownership {start} .. {until}", ["no filings in the window"])

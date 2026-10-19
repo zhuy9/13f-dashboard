@@ -141,7 +141,7 @@ export function buildSections(data: Signals, labelByCik: Map<string, string>): S
             left out rather than counted as zero. <em>Increasing</em> and <em>Decreasing</em> count managers whose
             sector weight moved by more than {pp(data.config.sectorMoveThreshold)}.
           </p>
-          <p>Sectors come from the issuer's SEC SIC code, not GICS, and an ETF is its own sector.</p>
+          <p>Sectors come from the issuer's SEC SIC code, not GICS, and a fund is its own sector.</p>
         </>
       ),
     },

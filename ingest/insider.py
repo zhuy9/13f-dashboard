@@ -7,7 +7,7 @@ from urllib.parse import quote
 
 import pandas as pd
 
-from enrich import sec_ticker_to_cik
+from enrich import ticker_to_cik
 from insider_derive import derive_all
 from insider_fetch import TRANSACTION_COLUMNS, fetch_rows, list_filings, universe_ciks
 from insider_store import RAW_PREFIX, STATE_BLOB, build_cluster_doc, build_feed, build_issuer_docs, build_people_docs
@@ -63,7 +63,7 @@ def main() -> int:
     parser.add_argument("--rebuild", action="store_true")
     args = parser.parse_args()
 
-    identity = edgar_login()
+    edgar_login()  # edgartools sends this identity to SEC on every request
     bucket = gcs_bucket("insider")
     db = init_firestore()
 
@@ -72,7 +72,7 @@ def main() -> int:
         sys.exit("ERROR: meta/holder_counts is missing. Run ingest.py before insider.py.")
 
     meta, prefix = read_published(db)
-    issuer_ciks, symbol_by_cik = universe_ciks(holder_counts, sec_ticker_to_cik(identity), cfg)
+    issuer_ciks, symbol_by_cik = universe_ciks(holder_counts, ticker_to_cik(), cfg)
 
     state = read_state(bucket, STATE_BLOB)
     start = since(args.since, state, cfg)
@@ -83,7 +83,12 @@ def main() -> int:
     print(f"fetched {len(rows)} new transaction rows ({failed} failed filings)")
 
     new_df = _enrich_sector(pd.DataFrame(rows, columns=TRANSACTION_COLUMNS), db, prefix)
+    # The log keeps the symbol each row got when it was fetched. Re-stamp it from today's universe
+    # so a changed ticker (SEC form, a rename) keeps one history; issuers that left the universe
+    # keep theirs. The rewritten log is saved below.
     transactions = extend(state, new_df)
+    if len(transactions):
+        transactions["symbol"] = transactions["issuer_cik"].map(symbol_by_cik).fillna(transactions["symbol"])
     if not len(transactions):
         print("No transactions in the window and no prior state; nothing to do.")
         step_summary(f"Insider {start} .. {until}", ["no transactions in the window"])

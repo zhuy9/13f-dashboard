@@ -7,3 +7,4 @@ google-cloud-storage==3.17.1
 python-dotenv==1.2.4
 pytest==9.1.1
 ruff==0.17.1
+security-master @ git+https://github.com/zhuy9/security-master@72b4d6ef562af2ae360bf80519bd7acd5a555242

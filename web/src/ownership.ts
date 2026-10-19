@@ -60,9 +60,9 @@ export function investorHref(e: { investorCik: string; isRoster: boolean }): str
   return e.isRoster ? `/manager/${e.investorCik}` : `/investor/${e.investorCik}`
 }
 
-// A real US ticker is letters only. A digit means OpenFIGI fell back to a foreign/secondary
-// listing code (usually because the company was delisted or acquired, so the SEC dropped it
-// from company_tickers.json), and "_" is our own no-ticker fallback. Either way we could not
+// A real US ticker is letters, with a dash for a share class (BRK-B). A digit means OpenFIGI
+// fell back to a foreign/secondary listing code (usually because the company was delisted or
+// acquired), and "_" is our own no-ticker fallback. Either way we could not
 // match a ticker to the filing, so the issuer's own name is the honest thing to show.
 export function isUnresolvedSymbol(symbol: string): boolean {
   return symbol.startsWith('_') || /\d/.test(symbol)

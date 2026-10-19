@@ -250,9 +250,10 @@ other is current.
 - Sectors come from SEC SIC codes, not GICS. SIC 7389 ("Services-Business Services, NEC") is a
   catch-all mapped to Financials because the payment networks dominate it among S&P 500 names;
   that is wrong for other issuers in the same code, such as Uber, Alibaba, Etsy and Trip.com.
-  See `ingest/sectors.py`, which names the trade-off.
-- A holding whose issuer has deregistered — taken private or acquired — is sectored from the
-  older `ticker.txt` list, which keeps such companies after `company_tickers.json` drops them.
-  Anything that resolves to no SIC at all still reads Unknown.
+  See security-master's `src/sectors.py`, which names the trade-off.
+- Ticker, issuer and sector come from security-master, which starts on 2026-10-19. A holding
+  whose issuer was taken private, acquired or delisted before then keeps the ticker and sector it
+  was first cached with, under the sector rules of that time. Anything that resolves to no SIC
+  at all reads Unknown; funds read "ETF / Fund".
 - Pre-2024-12-18 13D/13G filings are text, not structured XML, and are skipped.
 - 13G coverage is roster-only.

@@ -168,7 +168,7 @@ def main() -> int:
     if args.fund and not args.dry_run:
         parser.error("--fund requires --dry-run; publish the full roster to preserve consensus")
 
-    identity = edgar_login()
+    edgar_login()  # edgartools sends this identity to SEC on every request
     funds = load_funds()
     if args.fund:
         funds = [f for f in funds if f["cik"] == args.fund]
@@ -204,9 +204,7 @@ def main() -> int:
 
     all_cusips = sorted({c for _, base in base_by_fund for c in base["cusip"]})
     securities = (
-        ensure_securities(db, all_cusips, identity, api_key, args.refresh, ticker_hints, persist=not args.dry_run)
-        if all_cusips
-        else {}
+        ensure_securities(db, all_cusips, api_key, args.refresh, ticker_hints, persist=not args.dry_run) if all_cusips else {}
     )
 
     enriched_frames = []

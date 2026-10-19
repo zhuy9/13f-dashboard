@@ -21,7 +21,8 @@ flowchart TB
 
     subgraph EXT["Outside data sources"]
         EDGAR["SEC EDGAR\n13F + 13D/13G + Form 4 filings"]
-        FIGI["OpenFIGI\nCUSIP to ticker"]
+        FIGI["OpenFIGI\nCUSIP to FIGI"]
+        SM["security-master\nFIGI to ticker, issuer, sector"]
     end
 
     subgraph GCP["Google Cloud / Firebase"]
@@ -34,16 +35,19 @@ flowchart TB
 
     REPO -->|triggers| GHA
     ING -->|downloads filings| EDGAR
-    ING -->|looks up tickers| FIGI
+    ING -->|looks up FIGIs| FIGI
+    ING -->|looks up tickers and sectors| SM
     ING -->|writes results| FS
     ING -->|writes archive| GCS
     ING -->|"commits data/last_ingest.json\n(keeps the schedule alive)"| REPO
 
     OWN -->|downloads new 13D/13G filings| EDGAR
+    OWN -->|looks up tickers| SM
     OWN -->|writes events| FS
     OWN -->|writes archive| GCS
 
     INS -->|"downloads new Form 4 filings\n(issuers a tracked manager holds)"| EDGAR
+    INS -->|looks up CIKs| SM
     INS -->|writes trades| FS
     INS -->|writes archive| GCS
 
@@ -59,7 +63,7 @@ flowchart TB
   clock. Four jobs live there: three fetch and process data, the fourth
   builds and publishes the website.
 - The **ingest job** runs once a month (or whenever someone triggers it by
-  hand). It talks to SEC EDGAR and OpenFIGI, then writes its results to
+  hand). It talks to SEC EDGAR, OpenFIGI and security-master, then writes its results to
   Firestore and Cloud Storage.
 - The **ownership job** runs once a day. It checks SEC EDGAR for new
   Schedule 13D/13G filings and writes the events it finds to Firestore and
@@ -93,8 +97,8 @@ flowchart LR
 
     A -->|"fetch.py\ndownload + parse"| B["Base table\none row per manager x\nstock x quarter"]
 
-    C["OpenFIGI\nCUSIP -> ticker"] -->|"enrich.py"| B
-    D["SEC company data\nticker -> sector"] -->|"enrich.py"| B
+    C["OpenFIGI\nCUSIP -> FIGI"] -->|"enrich.py"| B
+    D["security-master\nFIGI -> ticker, issuer, sector"] -->|"enrich.py"| B
 
     B -->|"derive.py\npure math, no network calls"| E["13 signal tables\npositions, sector exposure,\nconsensus buys/exits,\nsimilarity, and more"]
 
@@ -113,10 +117,11 @@ flowchart LR
    rows: manager, quarter, CUSIP, dollar value, share count, and whether
    it's a put, a call, or a normal holding.
 2. **Enrich** (`ingest/enrich.py`) — A CUSIP alone isn't useful to a reader.
-   This step looks up the ticker symbol (via OpenFIGI, with a fallback
-   already built into the SEC data) and the industry sector (via the SEC's
-   own company database), then caches those lookups in Firestore so they're
-   never looked up twice.
+   This step turns the CUSIP into a FIGI (via OpenFIGI), then looks the
+   FIGI up in security-master, an open dataset of US-listed securities, for
+   the ticker, the issuer's SEC identifiers and the sector. It caches those
+   lookups in Firestore so they're never looked up twice, and a stock that
+   left the market before security-master began keeps its cached entry.
 3. **Derive** (`ingest/derive.py`) — This is where every signal on the site
    gets computed: how much a manager's position changed quarter over
    quarter, which stocks multiple managers bought at once, how similar two

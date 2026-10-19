@@ -174,7 +174,7 @@ The site computes these signals once per quarter.
 GitHub Actions (once a month, or by hand)
   └─ ingest/ingest.py (Python)
        ├─ fetch   : SEC EDGAR → last 12 quarters of 13F filings per manager
-       ├─ enrich  : CUSIP → ticker (OpenFIGI) → sector (SEC industry code)
+       ├─ enrich  : CUSIP → FIGI (OpenFIGI) → ticker, issuer, sector (security-master)
        ├─ derive  : every signal listed above
        └─ store   : Google Cloud Storage (files) + Firestore (documents the site reads)
 
@@ -259,7 +259,7 @@ python ingest.py --dry-run
 
 `--dry-run` downloads and computes everything, prints a summary, and writes nothing: no Firestore documents, no `securities/` cache entries, no GCS files. Drop the flag to write for real. A real run rewrites every quarter in the window, so it is safe to repeat.
 
-Useful flags: `--fund CIK --dry-run` to preview one manager, `--quarters N` to shorten the window, `--refresh all` to rebuild the ticker and sector cache after changing a rule.
+Useful flags: `--fund CIK --dry-run` to preview one manager, `--quarters N` to shorten the window, `--refresh all` to re-resolve cached tickers and sectors after security-master changes.
 
 ### 3. Backfill 13D/13G ownership
 
@@ -323,13 +323,15 @@ Edit `ingest/signals_config.json`. Then run the ingest workflow.
 
 ## Sector data
 
-13F filings do not include a sector. We look up each stock's SEC industry code (SIC). Then we map that code to a sector with a table in `ingest/sectors.py`.
+13F filings do not include a ticker or a sector. Both come from [security-master](https://github.com/zhuy9/security-master), an open dataset of US-listed stocks and funds. A filing names each holding by its CUSIP. OpenFIGI turns the CUSIP into a FIGI, another ID for the same security, and security-master looks the FIGI up.
 
-SIC is a filing code, not a finance one, so the two do not line up perfectly. We measure how far off we are: `python ingest/reconcile_sectors.py` scores the table against GICS, using the S&P 500 as the answer key. It agreed on **85.5%** of 497 names when last measured (2026-09-25). Run it after changing the table.
+The sector comes from the company's SEC industry code (SIC). security-master maps that code to a sector with its own table. SIC is a filing code, not a finance one, so some companies land in an odd sector. Tickers are in the SEC's form, so Berkshire's B shares are `BRK-B`.
 
-ETFs and index funds are the exception. They are labelled "ETF / Fund" from OpenFIGI, not from the SIC. A fund's own industry code says "investment offices", which would put an S&P 500 fund in the Financials sector.
+Funds are the exception. ETFs and closed-end funds are labelled "ETF / Fund". A fund's own industry code says "investment offices", which would put an S&P 500 fund in the Financials sector.
 
-Sector lookups are cached per stock and never redone on their own. If you change how sectors are decided, run `python ingest.py --refresh all` once to rebuild the cache. `--refresh unknown` is the cheaper version: it only redoes the stocks whose sector came out "Unknown".
+security-master starts on 2026-10-19. A stock that was bought out or delisted before then is not in it. Those holdings keep the ticker and sector they were first given.
+
+Lookups are cached per stock and never redone on their own. After security-master changes how it sorts stocks, run `python ingest.py --refresh all` once. It updates every stock security-master knows and leaves the older ones as they are. `--refresh unknown` is the cheaper version: it only redoes the stocks whose sector came out "Unknown".
 
 ## Where the docs live
 

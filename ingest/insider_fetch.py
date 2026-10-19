@@ -28,7 +28,9 @@ def universe_ciks(holder_counts: dict[str, int], ticker_to_cik: dict[str, str], 
     min_holders = cfg["universe_min_holders"]
     ciks: set[int] = set()
     symbol_by_cik: dict[str, str] = {}
-    for symbol, n in holder_counts.items():
+    # Most-held share class last, so it wins its issuer's symbol (LEN over LEN-B); ties keep the
+    # alphabetical order holder_counts comes in.
+    for symbol, n in sorted(holder_counts.items(), key=lambda kv: kv[1]):
         if n < min_holders:
             continue
         cik10 = ticker_to_cik.get(symbol)

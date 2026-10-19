@@ -1,19 +1,33 @@
-"""CUSIP -> ticker (OpenFIGI) -> CIK + SIC (SEC) -> sector. Cached in Firestore `securities/`."""
+"""CUSIP -> composite FIGI (OpenFIGI) -> ticker, CIK, SIC and sector (security-master). Cached in
+Firestore `securities/`.
 
-import time
+CUSIPs are licensed, so security-master (https://github.com/zhuy9/security-master) cannot hold
+them; OpenFIGI is the private bridge from a CUSIP to the FIGI it is keyed by. security-master
+only knows securities listed since it started (2026-10-19), so a cached entry is overwritten only
+when it knows that exact security: a holding acquired or delisted before then keeps the entry it
+was cached with.
+"""
+
+import re
 from typing import Optional
 
 import pandas as pd
 import requests
+import security_master as sm
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from api_constants import OPENFIGI_URL, SEC_SUBMISSIONS_URL, SEC_TICKER_TXT_URL, SEC_TICKERS_URL
-from sectors import sic_to_sector
 from store import commit_in_batches
 
-# SEC and OpenFIGI both throw the odd 429/5xx; retry after 0, 4, 8 and 16 s (or the server's
-# Retry-After) instead of failing the run. POST included: an OpenFIGI mapping is a pure lookup.
+OPENFIGI_URL = "https://api.openfigi.com/v3/mapping"
+FUND_TYPES = ("ETP", "Closed-End Fund")
+# OpenFIGI names a note "TSLA 2 05/15/24" and a warrant "NPWR/WS": the issuer's ticker, then a
+# slash or a number. Muni-fund preferreds read "DE MIQGEN 07/02/2026", where "DE" is a state, not
+# Deere, so a word after the space does not count.
+INSTRUMENT_OF = re.compile(r"(\S+?)(?:/|\s\d)")
+
+# OpenFIGI throws the odd 429/5xx; retry after 0, 4, 8 and 16 s (or the server's Retry-After)
+# instead of failing the run. POST included: an OpenFIGI mapping is a pure lookup.
 _HTTP = requests.Session()
 _HTTP.mount(
     "https://",
@@ -25,8 +39,8 @@ _HTTP.mount(
 
 def openfigi_map(cusips: list[str], api_key: Optional[str] = None) -> dict[str, dict]:
     """CUSIP -> its best OpenFIGI match ({} when unmapped). The whole match, not just `ticker`:
-    `securityType` is how an ETF is recognised ("ETP"), and no SIC code can say that. Batches
-    per OpenFIGI's key/no-key limits."""
+    `compositeFIGI` is the security-master key and `securityType` says "ETP". Batches per
+    OpenFIGI's key/no-key limits."""
     batch_size = 100 if api_key else 10
     headers = {"Content-Type": "application/json"}
     if api_key:
@@ -44,53 +58,48 @@ def openfigi_map(cusips: list[str], api_key: Optional[str] = None) -> dict[str, 
     return result
 
 
-def sec_ticker_to_cik(identity: str) -> dict[str, str]:
-    """TICKER -> 10-digit zero-padded CIK, from both of SEC's ticker lists.
+def lookup(hint: Optional[str], match: dict) -> tuple[Optional[dict], bool]:
+    """The security-master row for a holding, and whether it is that same security.
 
-    `company_tickers.json` lists current registrants only. A company that deregisters -- taken
-    private, or acquired -- is dropped from it, and because sector comes from the issuer's SIC
-    code, which needs the CIK, the holding then has no sector at all. That is not a small edge
-    case: a 13F window is 3 years long and an event-driven manager holds acquisition targets on
-    purpose, so the names most likely to vanish are the ones it holds most.
-
-    `ticker.txt` is the older list and keeps them, so it fills the gaps. company_tickers.json
-    still wins where both have a ticker: it is the maintained one, and a recycled ticker should
-    resolve to whoever holds it now, not to the company that used to.
-    """
-    headers = {"User-Agent": identity}
-
-    txt = _HTTP.get(SEC_TICKER_TXT_URL, headers=headers, timeout=30)
-    txt.raise_for_status()
-    mapping = {}
-    for line in txt.text.splitlines():
-        ticker, _, cik = line.partition("\t")
-        if ticker and cik.strip().isdigit():
-            mapping[ticker.strip().upper()] = cik.strip().zfill(10)
-
-    resp = _HTTP.get(SEC_TICKERS_URL, headers=headers, timeout=30)
-    resp.raise_for_status()
-    mapping.update({row["ticker"]: str(row["cik_str"]).zfill(10) for row in resp.json().values()})
-    return mapping
+    By composite FIGI first. By ticker only when OpenFIGI has no FIGI -- its gap for
+    foreign-domiciled issuers (CINS CUSIPs: Chubb, ASML) -- because a dead security's ticker may
+    belong to another company by now. A note ("TSLA 2 05/15/24") or warrant ("NPWR/WS") is not
+    in security-master; the issuer's stock is (INSTRUMENT_OF), and lends the note its CIK and
+    sector but not its symbol."""
+    figi = match.get("compositeFIGI")
+    tickers = [t for t in (hint, match.get("ticker")) if t]
+    row = sm.security(figi) if figi else next((r for t in tickers if (r := sm.security(t))), None)
+    if row:
+        return row, True
+    issuer = next((r for t in tickers if (m := INSTRUMENT_OF.match(t)) and (r := sm.security(m[1]))), None)
+    return issuer, False
 
 
-def sec_sic(cik10: str, identity: str) -> tuple[Optional[int], Optional[str]]:
-    """(sic, sicDescription) for a 10-digit CIK, from SEC's submissions API."""
-    headers = {"User-Agent": identity}
-    url = SEC_SUBMISSIONS_URL.format(cik10=cik10)
-    resp = _HTTP.get(url, headers=headers, timeout=30)
-    time.sleep(0.11)
-    if resp.status_code == 404:
-        return None, None
-    resp.raise_for_status()
-    data = resp.json()
-    sic = data.get("sic")
-    return (int(sic) if sic else None), data.get("sicDescription")
+def entry(cusip: str, hint: Optional[str], match: dict) -> tuple[dict, bool]:
+    """The cache entry for one CUSIP, and whether security-master knew this exact security."""
+    if INSTRUMENT_OF.match(match.get("ticker") or ""):
+        # OpenFIGI says this is a note, preferred or warrant. A hint may be the issuer's own ticker
+        # (ownership's hint is per issuer, not per CUSIP), which would relabel it as the stock.
+        hint = None
+    row, same = lookup(hint, match)
+    issuer = sm.issuer(row["cik"]) if row and row["cik"] else None
+    if (row and row["security_type"] in FUND_TYPES) or (not row and match.get("securityType") in FUND_TYPES):
+        sector = "ETF / Fund"  # a fund's own SIC (investment offices) says nothing about what it holds
+    else:
+        sector = (row or {}).get("sector") or "Unknown"
+    return {
+        "cusip": cusip,
+        "ticker": row["ticker"] if same else hint or match.get("ticker"),
+        "cik": row["cik"] if row and row["cik"] else None,
+        "sic": int(issuer["sic"]) if issuer and issuer["sic"] else None,
+        "sicDescription": issuer["sic_description"] if issuer and issuer["sic_description"] else None,
+        "sector": sector,
+    }, same
 
 
 def ensure_securities(
     db,
     cusips: list[str],
-    identity: str,
     api_key: Optional[str] = None,
     refresh: str = "none",
     ticker_hints: Optional[dict[str, str]] = None,
@@ -102,11 +111,12 @@ def ensure_securities(
     needs, since the cache is remote state a dry run must not advance.
 
     `refresh`: "none" fills gaps only, "unknown" also redoes entries that came back Unknown,
-    "all" rebuilds every entry -- the one to reach for after a rule changes, since a cached
-    sector is never revisited otherwise.
+    "all" re-resolves every entry -- the one to reach for after security-master's rules change.
+    A cached entry is replaced only when security-master knows that exact security, so a refresh
+    never erases what was cached for a holding that left the market before security-master began.
 
-    `ticker_hints` (CUSIP -> ticker, from edgartools' own resolution) is preferred over
-    OpenFIGI, which has coverage gaps for foreign-domiciled US-listed issuers.
+    `ticker_hints` (CUSIP -> ticker, from edgartools' own resolution) is used only where OpenFIGI
+    has no FIGI for the CUSIP.
     """
     cusips = sorted(set(cusips))
     ticker_hints = ticker_hints or {}
@@ -122,36 +132,36 @@ def ensure_securities(
         return refresh == "all" or (refresh == "unknown" and cached[cusip].get("sector") == "Unknown")
 
     to_enrich = [c for c in cusips if c not in cached or stale(c)]
-
     if to_enrich:
-        # Every CUSIP, not just the unhinted ones: a hint carries a ticker but no security type,
-        # and edgartools hints ETFs too (SPY, IWM), so filtering here hid every fund from the
-        # ETP rule. The hint still wins for the ticker itself, where its coverage is better.
         matches = openfigi_map(to_enrich, api_key)
-        ticker_to_cik = sec_ticker_to_cik(identity)
+        written: dict[str, dict] = {}
         for cusip in to_enrich:
-            match = matches.get(cusip, {})
-            ticker = ticker_hints.get(cusip) or match.get("ticker")
-            security_type = match.get("securityType")  # "ETP"; securityType2 says "Mutual Fund"
-            sic, sic_description = (None, None)
-            # OpenFIGI names a bond "TSLA 2 05/15/24", so the first token is the issuer's
-            # own ticker. No real US ticker contains a space, so this is a no-op for equities.
-            issuer_cik = ticker_to_cik.get(ticker.split(" ")[0]) if ticker else None
-            if issuer_cik:
-                sic, sic_description = sec_sic(issuer_cik, identity)
-            cached[cusip] = {
-                "cusip": cusip,
-                "ticker": ticker,
-                "cik": issuer_cik,
-                "sic": sic,
-                "sicDescription": sic_description,
-                "sector": sic_to_sector(sic, security_type),
-            }
-
-        if persist:
-            commit_in_batches(db, [(f"securities/{cusip}", cached[cusip]) for cusip in to_enrich])
+            new, same = entry(cusip, ticker_hints.get(cusip), matches.get(cusip, {}))
+            if cusip in cached and not same:
+                continue  # left the market before security-master began: keep what was cached
+            cached[cusip] = written[cusip] = new
+        if persist and written:
+            commit_in_batches(db, [(f"securities/{cusip}", doc) for cusip, doc in written.items()])
 
     return {c: cached[c] for c in cusips}
+
+
+def ticker_to_cik() -> dict[str, str]:
+    """SEC-form ticker -> 10-digit CIK, for every active security security-master lists."""
+    return {r["ticker"]: r["cik"] for r in sm.securities() if r["cik"]}
+
+
+def cik_to_ticker() -> dict[str, str]:
+    """10-digit CIK -> one ticker per issuer: a common share first, then the shortest ticker, then
+    alphabetical (GOOG before GOOGL, BRK-A before BRK-B)."""
+    rows = sorted(
+        (r for r in sm.securities() if r["cik"]),
+        key=lambda r: (r["security_type"] != "Common Stock", len(r["ticker"]), r["ticker"]),
+    )
+    out: dict[str, str] = {}
+    for r in rows:
+        out.setdefault(r["cik"], r["ticker"])
+    return out
 
 
 def attach(df: pd.DataFrame, securities: dict[str, dict]) -> pd.DataFrame:

@@ -48,9 +48,10 @@ describe('filedDate', () => {
 })
 
 describe('SECTOR_COLORS', () => {
-  // The sector names come from ingest/sectors.py. A sector with no colour here silently falls
+  // The sector names come from security-master's src/sectors.py (11 plus Other) and ingest/enrich.py
+  // (ETF / Fund, Unknown). A sector with no colour here silently falls
   // back to grey, so this count has to move whenever that file gains or loses one.
-  it('colours every sector ingest/sectors.py can emit', () => {
+  it('colours every sector the ingest can emit', () => {
     expect(Object.keys(SECTOR_COLORS)).toHaveLength(13)
     expect(SECTOR_COLORS['Real Estate']).toBeDefined()
   })

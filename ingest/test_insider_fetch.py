@@ -86,3 +86,11 @@ def test_universe_ciks_honours_min_holders():
     ciks, symbol_by_cik = ifetch.universe_ciks(holder_counts, ticker_to_cik, {"universe_min_holders": 1})
     assert ciks == {320193}
     assert symbol_by_cik == {"0000320193": "AAPL"}
+
+
+def test_universe_ciks_labels_an_issuer_with_its_most_held_share_class():
+    """Lennar's B shares sort after its A shares; the class more managers hold names the issuer."""
+    holder_counts = {"GOOG": 3, "GOOGL": 3, "LEN": 2, "LEN-B": 1}
+    ticker_to_cik = {"GOOG": "0001652044", "GOOGL": "0001652044", "LEN": "0000920760", "LEN-B": "0000920760"}
+    _, symbol_by_cik = ifetch.universe_ciks(holder_counts, ticker_to_cik, {"universe_min_holders": 1})
+    assert symbol_by_cik == {"0001652044": "GOOGL", "0000920760": "LEN"}  # a tie keeps the alphabetical last

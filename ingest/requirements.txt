@@ -1,4 +1,4 @@
-edgartools==5.56.0
+edgartools==5.62.0
 pandas==3.0.6
 pyarrow==26.0.0
 requests==2.34.2

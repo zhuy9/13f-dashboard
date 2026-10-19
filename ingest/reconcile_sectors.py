@@ -11,8 +11,9 @@ not a pass/fail, and a `--propose` carve is only offered where every S&P member 
 disagrees with us, or where our answer is right for almost none of them. Codes that are
 genuinely mixed are left to their group or major group on purpose.
 
-Reads the live `securities/` cache for the SIC codes we assigned, so it needs no credentials
-(the collection is world-readable) but does need the network.
+Reads the live `securities/` cache for the SIC codes we assigned, so it needs the network and the
+same service-account credentials as ingest (`GOOGLE_APPLICATION_CREDENTIALS`): the cache maps
+CUSIPs, so it is not public.
 """
 
 import argparse
@@ -22,9 +23,9 @@ import io
 import pandas as pd
 import requests
 
+from pipeline import init_firestore
 from sectors import sic_to_sector
 
-FIRESTORE = "https://firestore.googleapis.com/v1/projects/form-13f-dashboard/databases/(default)/documents"
 SP500_CSV = "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv"
 
 # GICS sector name -> ours. Identical names are listed anyway, so a rename on either side shows up.
@@ -44,32 +45,14 @@ GICS_TO_OURS = {
 
 
 def cached_securities() -> pd.DataFrame:
-    """Every `securities/` doc, as (sic, ticker, cik, desc). Ids only, so this is cheap."""
-    docs, token = [], None
-    while True:
-        query = [("pageSize", "300")] + [("mask.fieldPaths", f) for f in ("sic", "ticker", "cik", "sicDescription")]
-        if token:
-            query.append(("pageToken", token))
-        page = requests.get(f"{FIRESTORE}/securities", params=query, timeout=30).json()
-        docs += page.get("documents", [])
-        token = page.get("nextPageToken")
-        if not token:
-            return pd.DataFrame(
-                [
-                    {
-                        "sic": _value(d, "sic"),
-                        "ticker": _value(d, "ticker"),
-                        "cik": _value(d, "cik"),
-                        "desc": _value(d, "sicDescription"),
-                    }
-                    for d in docs
-                ]
-            )
-
-
-def _value(doc: dict, key: str):
-    field = doc.get("fields", {}).get(key) or {}
-    return field.get("stringValue") or field.get("integerValue")
+    """Every `securities/` doc, as (sic, ticker, cik, desc). Four fields only, so this is cheap."""
+    fields = ("sic", "ticker", "cik", "sicDescription")
+    docs = (snap.to_dict() for snap in init_firestore().collection("securities").select(fields).stream())
+    # object dtype: a missing sic must not turn the int column into floats ("SIC 3571.0").
+    return pd.DataFrame(
+        [{"sic": d.get("sic"), "ticker": d.get("ticker"), "cik": d.get("cik"), "desc": d.get("sicDescription")} for d in docs],
+        dtype=object,
+    )
 
 
 def scored() -> pd.DataFrame:

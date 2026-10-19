@@ -1,9 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read: if true;
-      allow write: if false;
+    // Public read for exactly what web/src/data.ts fetches. Anything else -- notably the
+    // CUSIP-keyed securities/ cache, whose CUSIPs are not ours to redistribute -- is
+    // ingest-only: the admin SDK bypasses these rules. No client writes anywhere.
+    match /{coll}/{rest=**} {
+      allow read: if coll in ['meta', 'datasets', 'ownership', 'ownership_issuers',
+                              'ownership_investors', 'insider', 'insider_issuers', 'insider_people'];
     }
   }
 }

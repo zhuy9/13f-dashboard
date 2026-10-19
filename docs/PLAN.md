@@ -384,7 +384,7 @@ unprefixed pre-snapshot paths (removed 2026-09-25, see "Legacy stock latest").
 | `stocks/{symbol}` | `symbol, name, sector, kind, trend[D rows]` — identity and trend only; every quarter's holder table, newest included, lives in `stock_quarters/` | stock page |
 | `stock_quarters/{symbol}_{period}` | C summary + holders (including accession), soldOut, options, filings[SourceFiling] | selected stock quarter; absent means unavailable |
 | `signals/{period}` | all E tables, F, G (`ciks[]`, `matrix[][]`), H (symbols with options only) | patterns page |
-| `securities/{cusip}` | enrichment cache (ingest only) | — |
+| `securities/{cusip}` | enrichment cache (ingest only; not publicly readable) | — |
 | `meta/holder_counts` | `period, counts[{symbol, n}]` — how many tracked managers held each symbol at `period` | the ownership pipeline, once per run (not the browser) |
 | `ownership/feed` | `updatedAt, startDate, lastFiledAt, counts{filings, investors, issuers}, headline{asOf, windowDays, windowSince, filingsInWindow, startDate, new13dSinceStart, activistEntriesSinceStart}, events[J event rows, newest first, ≤ recent_events]` | ownership page |
 | `ownership_issuers/{symbol}` | `symbol, issuerCik, issuerName, sector, holders[J stake rows with is_current], events[newest first, ≤ max_events_per_doc]` | stock page (second read; absent ⇒ section hidden) |
@@ -396,7 +396,7 @@ unprefixed pre-snapshot paths (removed 2026-09-25, see "Legacy stock latest").
 
 J event row (camelCase): `accession, form, isAmendment, amendmentNo, filedAt, eventDate, investorCik, investorName, short, isRoster, isActivist, issuerCik, issuerName, symbol, sector, shares, pct, prevPct, changePp, event, priority, purpose, url, holders13f`. `holders13f` is the one field that joins the two pipelines: `ingest.py` writes `meta/holder_counts` from C at its latest period, `ownership.py` reads that doc once per run and passes the map into `ownership_derive.events`, which stays pure. It is a count as of the last 13F quarter, always older than the filing it sits beside; `null` means the map was missing (the ownership pipeline ran before ingest ever did), which is not the same as `0`. J stake row: `investorCik, investorName, short, isRoster, isActivist, issuerCik, issuerName, symbol, sector, form, pct, shares, changePp, event, filedAt, accession, url`. `ownership_issuers` ids use `quote(symbol, safe='')` / `encodeURIComponent`, like `stocks/`. Each run rewrites `ownership/feed` and **only** the issuer/investor docs touched by that run's new filings (Firestore free tier: 20K writes/day); `--rebuild` rewrites all.
 
-Every doc stays far under 1 MB (largest: `ownership/feed` ≈ 200 KB, `signals` ≈ 100 KB, `meta/symbols` ≈ 110 KB). `symbols` lives in its own doc because `meta/latest` is read by every page and the symbol list is ~95% of its bytes, while only the search box needs it; `manager_quarter_summary` carries `sector` per row so the treemap does not need the list either. Rules: public read, no client write.
+Every doc stays far under 1 MB (largest: `ownership/feed` ≈ 200 KB, `signals` ≈ 100 KB, `meta/symbols` ≈ 110 KB). `symbols` lives in its own doc because `meta/latest` is read by every page and the symbol list is ~95% of its bytes, while only the search box needs it; `manager_quarter_summary` carries `sector` per row so the treemap does not need the list either. Rules: public read of the browser-read collections above, no client write. `securities/` is not public: CUSIPs are licensed by CUSIP Global Services, which forbids redistributing them, so a world-readable CUSIP→ticker table is exactly what we may not publish. A new top-level collection the browser reads must be added to the `firestore.rules` allow-list, or its page gets permission-denied.
 
 ### GCS layout (when `GCS_BUCKET` is set; required for the ownership pipeline)
 ```
@@ -454,9 +454,12 @@ __pycache__/
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read: if true;
-      allow write: if false;
+    // Public read for exactly what web/src/data.ts fetches. Anything else -- notably the
+    // CUSIP-keyed securities/ cache, whose CUSIPs are not ours to redistribute -- is
+    // ingest-only: the admin SDK bypasses these rules. No client writes anywhere.
+    match /{coll}/{rest=**} {
+      allow read: if coll in ['meta', 'datasets', 'ownership', 'ownership_issuers',
+                              'ownership_investors', 'insider', 'insider_issuers', 'insider_people'];
     }
   }
 }

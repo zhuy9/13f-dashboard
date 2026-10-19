@@ -1922,7 +1922,7 @@ Firestore as orphans nothing links to.
 
 #### Milestone 19.1 — Insider predecessor CIKs
 
-Status: in progress
+Status: done 9e8139c
 
 Exxon Mobil Corp (CIK 0000034088) became ExxonMobil Holdings Corp (CIK 0002115436) in a 2026
 holding-company reorganization; the new company took `XOM`, and the old one filed its 25-NSE on
@@ -1935,8 +1935,12 @@ A scan of the 109 issuers new to the universe after Milestone 19 for successor f
 8-K12G3) found Exxon plus five foreign private issuers (Alamos, Baytex, B2Gold, Ferrari, Nutrien),
 which file no Form 4s, so Exxon is the only entry.
 
-- [ ] `universe_ciks` adds predecessor CIKs under the current symbol; tested.
-- [ ] One `insider` backfill from `start_date` fetches Exxon's history; `/stock/XOM` shows insider trades.
+- [x] `universe_ciks` adds predecessor CIKs under the current symbol; tested.
+- [x] One `insider` backfill from `start_date` fetches Exxon's history; `/stock/XOM` shows insider trades.
+
+Verification: `pytest` 172 green, `ruff check` clean. Insider backfill `2025-09-01 .. 2026-10-19`
+(run 39327472075): universe 1,552 issuers (one more: the predecessor CIK), 51 new transaction rows,
+0 failed filings; `insider_issuers/XOM` holds 51 trades by 23 insiders.
 
 ## Doc specs
 

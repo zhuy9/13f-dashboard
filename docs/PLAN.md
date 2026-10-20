@@ -1864,7 +1864,9 @@ through its Python client. It replaces SEC's ticker lists (`company_tickers.json
 
 **New dependency:** `security-master`, installed from GitHub and pinned to a commit in
 `ingest/requirements.txt`. Standard library only; it caches the dataset in memory and under
-`~/.cache/security-master`, and refreshes it from GitHub at most hourly.
+`~/.cache/security-master`, and refreshes it from GitHub at most hourly. Since its first PyPI
+release it installs from PyPI instead, pinned to a version (`security-master==0.1.0`). The
+version pins the client code only; the data keeps refreshing.
 
 Decisions (confirmed by the user):
 - Full cutover, no fallback to the SEC path. CUSIP -> composite FIGI stays on OpenFIGI: CUSIPs

@@ -15,7 +15,7 @@ A public dashboard of SEC 13F holdings for a tracked list of hedge fund managers
 
 ## Commands
 
-The dev machine is Windows / PowerShell. Python is 3.12 locally and in CI (`py -3.12 -m venv .venv`). Local Node is 24; CI uses 22.
+The dev machine is Windows / PowerShell. Python is 3.12 locally and in CI (`py -3.12 -m venv .venv`). Node is 24 locally and in CI.
 
 ```powershell
 # ingest

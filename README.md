@@ -229,7 +229,7 @@ You need a Google account and a GitHub account. Some values are **secret**. Neve
 
 ## Run locally
 
-Requires **Python 3.12** and **Node 22 or newer**. Every command below says which directory to run it in.
+Requires **Python 3.12** and **Node 24 or newer**. Every command below says which directory to run it in.
 
 ### 1. Preview the site against live data
 

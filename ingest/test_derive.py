@@ -9,11 +9,14 @@ from derive import (
     copyability,
     derive_all,
     manager_quarter_summary,
+    manager_sector_exposure,
     options_exposure,
+    sector_rotation,
     security_kind,
     split_factor,
     stock_trend,
 )
+from enrich import attach
 
 FIXTURE = Path(__file__).parent / "fixtures" / "holdings_small.csv"
 
@@ -229,6 +232,28 @@ def test_sector_rotation_counts(out):
     assert energy["increasing"] == 1  # M2 rose
     assert energy["decreasing"] == 1  # M1 fell (sold FFF out)
     assert energy["avg_change"] == pytest.approx((-4000 / 29000 + 0.3) / 2, abs=1e-4)
+
+
+def test_correcting_every_quarter_does_not_fabricate_sector_rotation():
+    holdings = pd.DataFrame(
+        {
+            "cusip": ["00000X101"] * 2,
+            "cik": ["1111111111"] * 2,
+            "period": [P1, P2],
+            "filed_at": ["2026-05-01", "2026-08-01"],
+            "value": [100, 100],
+            "put_call": [None, None],
+            "kind": ["EQUITY"] * 2,
+        }
+    )
+    corrected = attach(holdings, {"00000X101": {"ticker": "XYZ", "sector": "Technology"}})
+
+    exposure = manager_sector_exposure(corrected, [P1, P2])
+    rotation = sector_rotation(exposure, CFG)
+
+    assert list(exposure["sector"]) == ["Technology", "Technology"]
+    assert list(exposure["weight"]) == [1.0, 1.0]
+    assert rotation.iloc[0][["avg_change", "increasing", "decreasing"]].tolist() == [0.0, 0, 0]
 
 
 def test_similarity_identical_and_orthogonal(out):

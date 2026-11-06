@@ -121,6 +121,7 @@ def _build_meta(tables: dict, funds: list[dict], periods: list[str]) -> dict:
         "coverage": _clean(tables["coverage"]),
         "copyability": records(tables["copyability"]),
         "methodologyVersion": tables["methodology_version"],
+        "securityMaster": tables.get("security_master"),
         "updatedAt": firestore.SERVER_TIMESTAMP,
     }
 

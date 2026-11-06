@@ -9,6 +9,8 @@ from urllib3.connectionpool import HTTPConnectionPool
 import enrich
 from enrich import attach, cik_to_ticker, ensure_securities, openfigi_map, ticker_to_cik
 
+SOURCE = {"commit": "a" * 40, "sectorScheme": "sic11-v2", "built": "2026-11-05"}
+
 # Synthetic CUSIPs and FIGIs throughout: real CUSIPs are licensed and stay out of the repo.
 SECURITIES = [
     {"composite_figi": figi, "ticker": ticker, "security_type": kind, "cik": cik, "sector": sector, "status": "active"}
@@ -42,7 +44,12 @@ def fake_security_master(monkeypatch):
         key = key.strip().upper()
         return by_figi.get(key) or by_ticker.get(key.replace(".", "-").replace("/", "-").replace(" ", "-"))
 
-    fake = SimpleNamespace(security=security, issuer=lambda cik: ISSUERS.get(cik), securities=lambda: list(SECURITIES))
+    fake = SimpleNamespace(
+        security=security,
+        issuer=lambda cik: ISSUERS.get(cik),
+        securities=lambda: list(SECURITIES),
+        meta=lambda: {"commit": SOURCE["commit"], "sector_scheme": SOURCE["sectorScheme"], "built": SOURCE["built"]},
+    )
     monkeypatch.setattr(enrich, "sm", fake)
 
 
@@ -83,6 +90,7 @@ def test_a_security_resolves_by_figi_to_its_sec_form_ticker_cik_sic_and_sector(m
         "sic": 6331,
         "sicDescription": "Fire, Marine & Casualty Insurance",
         "sector": "Financials",
+        "securityMaster": SOURCE,
     }
     assert db.written["00000A101"] == out["00000A101"]
 
@@ -121,6 +129,7 @@ def test_a_figi_security_master_lacks_is_never_matched_by_a_ticker_someone_else_
         "sic": None,
         "sicDescription": None,
         "sector": "Unknown",
+        "securityMaster": SOURCE,
     }
 
 
@@ -160,6 +169,8 @@ def test_refresh_all_rewrites_what_security_master_knows_and_keeps_what_it_canno
         "00000A101": {"cusip": "00000A101", "ticker": "BRKB", "cik": "0001067983", "sic": 6331, "sector": "Financials"},
         "00000H101": {"cusip": "00000H101", "ticker": "HES", "cik": "0000004447", "sic": 2911, "sector": "Energy & Mining"},
     }
+    for doc in cached.values():
+        doc["securityMaster"] = dict(SOURCE)
     matches = {"00000A101": {"compositeFIGI": "BBG000000001"}, "00000H101": {"compositeFIGI": "BBG0000000Z5", "ticker": "HES"}}
     monkeypatch.setattr("enrich.openfigi_map", lambda cusips, key: {c: matches[c] for c in cusips})
 
@@ -179,6 +190,8 @@ def test_refresh_unknown_only_revisits_entries_that_came_back_unknown(monkeypatc
         "H0000C101": {"cusip": "H0000C101", "ticker": "CB", "cik": None, "sic": None, "sector": "Unknown"},
         "00000A101": {"cusip": "00000A101", "ticker": "BRKB", "cik": "0001067983", "sic": 6331, "sector": "Financials"},
     }
+    for doc in cached.values():
+        doc["securityMaster"] = dict(SOURCE)
     matches = {"H0000C101": {}, "00000A101": {"compositeFIGI": "BBG000000001"}}
     monkeypatch.setattr("enrich.openfigi_map", lambda cusips, key: {c: matches[c] for c in cusips})
     db = _FakeDb({c: dict(e) for c, e in cached.items()})
@@ -197,6 +210,63 @@ def test_persist_false_enriches_in_memory_and_writes_no_cache_entry(monkeypatch)
     out = ensure_securities(db, ["00000A101"], None, "none", None, persist=False)
 
     assert out["00000A101"]["ticker"] == "BRK-B" and db.written == {}
+
+
+@pytest.mark.parametrize("old_scheme", [None, "sic11-v1"])
+def test_missing_or_changed_scheme_refreshes_known_entries_and_preserves_legacy(monkeypatch, old_scheme):
+    cached = {
+        "00000X101": {"ticker": "XYZ", "sector": "Financials"},
+        "00000H101": {"ticker": "HES", "sector": "Energy & Mining"},
+    }
+    if old_scheme:
+        for doc in cached.values():
+            doc["securityMaster"] = {**SOURCE, "sectorScheme": old_scheme}
+    matches = {
+        "00000X101": {"compositeFIGI": "BBG000000007"},
+        "00000H101": {"compositeFIGI": "BBG0000000Z5", "ticker": "HES"},
+    }
+    out, db = _enrich(monkeypatch, matches, cached=cached)
+
+    assert out["00000X101"]["sector"] == "Technology"
+    assert out["00000X101"]["securityMaster"] == SOURCE
+    assert out["00000H101"] == cached["00000H101"]
+    assert list(db.written) == ["00000X101"]
+
+
+def test_same_scheme_avoids_refresh_despite_new_data_commit(monkeypatch):
+    cached = {"00000X101": {"sector": "Technology", "securityMaster": {**SOURCE, "commit": "b" * 40}}}
+    monkeypatch.setattr(enrich, "openfigi_map", lambda *args: pytest.fail("daily data commits must not re-resolve entries"))
+
+    out = ensure_securities(_FakeDb(cached), list(cached))
+
+    assert out == cached
+
+
+def test_scheme_refresh_in_a_dry_run_changes_memory_only_and_checks_source(monkeypatch):
+    calls = []
+    meta = enrich.sm.meta()
+    monkeypatch.setattr(enrich.sm, "meta", lambda: calls.append(True) or meta)
+    monkeypatch.setattr(enrich, "openfigi_map", lambda *args: {"00000X101": {"compositeFIGI": "BBG000000007"}})
+    cached = {"00000X101": {"sector": "Financials"}}
+    db = _FakeDb(cached)
+
+    out = ensure_securities(db, list(cached), persist=False)
+
+    assert out["00000X101"]["sector"] == "Technology"
+    assert cached["00000X101"]["sector"] == "Financials" and db.written == {}
+    assert calls == [True, True]  # capture once, then reject snapshot drift before any write
+
+
+def test_source_drift_during_enrichment_refuses_cache_writes(monkeypatch):
+    sources = iter([SOURCE, {**SOURCE, "commit": "b" * 40}])
+    monkeypatch.setattr(enrich, "security_master_source", lambda: next(sources))
+    monkeypatch.setattr(enrich, "openfigi_map", lambda *args: {"00000X101": {"compositeFIGI": "BBG000000007"}})
+    db = _FakeDb({"00000X101": {"sector": "Financials"}})
+
+    with pytest.raises(RuntimeError, match="pin SECURITY_MASTER_REF"):
+        ensure_securities(db, ["00000X101"])
+
+    assert db.written == {}
 
 
 def test_cik_maps_prefer_a_common_share_then_the_shortest_ticker():

@@ -47,6 +47,8 @@ export interface Meta {
   // Optional: datasets published before Milestone 18 do not carry it.
   copyability?: Copyability[]
   methodologyVersion: number
+  // The snapshot used for enrichment; preserved historical cache entries can predate its scheme.
+  securityMaster?: { commit: string; sectorScheme: string; built: string; legacyEntries: number } | null
   updatedAt: Timestamp
 }
 

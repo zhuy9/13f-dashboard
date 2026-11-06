@@ -248,9 +248,10 @@ other is current.
   in the insider universe, not every employee and not every issuer. It is not a complete picture
   of who at a company is trading, and a stock that no tracked manager holds is never fetched.
 - Sectors come from SEC SIC codes, not GICS. SIC 7389 ("Services-Business Services, NEC") is a
-  catch-all mapped to Financials because the payment networks dominate it among S&P 500 names;
-  that is wrong for other issuers in the same code, such as Uber, Alibaba, Etsy and Trip.com.
-  See security-master's `src/sectors.py`, which names the trade-off.
+  catch-all whose default is Financials. security-master can apply reviewed issuer-specific
+  exceptions without changing every issuer sharing the SIC. See its `src/sectors.py` for the
+  current rules. All retained quarters use the same current classification for a security;
+  sector history is restated when classifications change, rather than kept as it was known then.
 - Ticker, issuer and sector come from security-master, which starts on 2026-10-19. A holding
   whose issuer was taken private, acquired or delisted before then keeps the ticker and sector it
   was first cached with, under the sector rules of that time. Anything that resolves to no SIC

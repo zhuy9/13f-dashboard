@@ -86,6 +86,8 @@ def test_dry_run_mutates_no_remote_state_and_writes_no_keepalive_marker(monkeypa
     monkeypatch.setattr(m, "edgar_login", lambda: "a@b.com")
     monkeypatch.setattr(m, "load_funds", lambda: [{"cik": "1336528", "short": "Pershing"}])
     monkeypatch.setattr(m, "init_firestore", lambda: object())
+    source = {"commit": "a" * 40, "sectorScheme": "sic11-v2", "built": "2026-11-05"}
+    monkeypatch.setattr(m, "security_master_source", lambda: source)
     holdings = pd.DataFrame(
         {"period": ["2026-06-30"], "cusip": ["037833100"], "value": [100], "put_call": [None], "ticker": ["AAPL"]}
     )
@@ -107,13 +109,23 @@ def test_dry_run_mutates_no_remote_state_and_writes_no_keepalive_marker(monkeypa
         },
     )
     monkeypatch.setattr(m, "print_dry_run_summary", lambda short, enriched: None)
-    monkeypatch.setattr(m, "print_dry_run_signals", lambda tables: None)
+    calculated = []
+    monkeypatch.setattr(m, "print_dry_run_signals", calculated.append)
     monkeypatch.setattr(m, "stale_manager_lines", lambda base_by_fund, latest: [])
 
     persisted = []
-    monkeypatch.setattr(m, "ensure_securities", lambda *a, persist=True, **kw: persisted.append(persist) or {})
+    sources = []
+
+    def ensure(*args, persist=True, source=None):
+        persisted.append(persist)
+        sources.append(source)
+        return {"037833100": {"sector": "Technology"}}  # preserved historical row without provenance
+
+    monkeypatch.setattr(m, "ensure_securities", ensure)
     for name in ["write_gcs", "write_firestore", "write_last_ingest", "prune_datasets"]:
         monkeypatch.setattr(m, name, lambda *a, called=name, **kw: pytest.fail(f"dry run called {called}"))
 
     assert m.main() == 0
     assert persisted == [False]  # the securities/ cache is remote state too
+    assert sources == [source]
+    assert calculated[0]["security_master"] == {**source, "legacyEntries": 1}

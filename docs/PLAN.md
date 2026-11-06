@@ -378,14 +378,14 @@ unprefixed pre-snapshot paths (removed 2026-09-25, see "Legacy stock latest").
 
 | Doc | Content | Read by |
 |---|---|---|
-| `meta/latest` | `datasetId, latestPeriod, periods[], managers[{cik, short, name, cluster}], clusters[{label, members, commonHoldings, topSector}], coverage[{period, filed[], missing[]}], copyability[L rows], methodologyVersion, updatedAt` | every page, once |
+| `meta/latest` | `datasetId, latestPeriod, periods[], managers[{cik, short, name, cluster}], clusters[{label, members, commonHoldings, topSector}], coverage[{period, filed[], missing[]}], copyability[L rows], methodologyVersion, securityMaster{commit, sectorScheme, built, legacyEntries}, updatedAt` | every page, once |
 | `meta/symbols` | `symbols[{symbol, name, sector}]` | the search box, on first focus only |
 | `managers/{cik}` | `cik, name, short, cluster, periods[]` | manager page |
 | `manager_quarters/{cik}_{period}` | `filedAt, totalValue, equityValue, filings[{accession, url, filedAt, isAmendment, amendmentType, filerCik}], count, counts{new,added,trimmed,unchanged,soldOut}, positions[A rows incl. SOLD_OUT], sectors[B rows], mostSimilar[{cik, short, score}], options{calls[symbol], puts[symbol]} (Milestone 18: symbols this manager reported an option side on, from H)` | manager page |
 | `stocks/{symbol}` | `symbol, name, sector, kind, trend[D rows]` — identity and trend only; every quarter's holder table, newest included, lives in `stock_quarters/` | stock page |
 | `stock_quarters/{symbol}_{period}` | C summary + holders (including accession), soldOut, options, filings[SourceFiling] | selected stock quarter; absent means unavailable |
 | `signals/{period}` | all E tables, F, G (`ciks[]`, `matrix[][]`), H (symbols with options only) | patterns page |
-| `securities/{cusip}` | enrichment cache (ingest only; not publicly readable) | — |
+| `securities/{cusip}` | enrichment cache with `securityMaster{commit, sectorScheme, built}` for new resolutions (ingest only; not publicly readable) | — |
 | `meta/holder_counts` | `period, counts[{symbol, n}]` — how many tracked managers held each symbol at `period` | the ownership pipeline, once per run (not the browser) |
 | `ownership/feed` | `updatedAt, startDate, lastFiledAt, counts{filings, investors, issuers}, headline{asOf, windowDays, windowSince, filingsInWindow, startDate, new13dSinceStart, activistEntriesSinceStart}, events[J event rows, newest first, ≤ recent_events]` | ownership page |
 | `ownership_issuers/{symbol}` | `symbol, issuerCik, issuerName, sector, holders[J stake rows with is_current], events[newest first, ≤ max_events_per_doc]` | stock page (second read; absent ⇒ section hidden) |
@@ -1865,7 +1865,7 @@ through its Python client. It replaces SEC's ticker lists (`company_tickers.json
 **New dependency:** `security-master`, installed from GitHub and pinned to a commit in
 `ingest/requirements.txt`. Standard library only; it caches the dataset in memory and under
 `~/.cache/security-master`, and refreshes it from GitHub at most hourly. Since its first PyPI
-release it installs from PyPI instead, pinned to a version (`security-master==0.1.0`). The
+release it installs from PyPI instead, pinned to a version (`security-master==0.1.1`). The
 version pins the client code only; the data keeps refreshing.
 
 Decisions (confirmed by the user):

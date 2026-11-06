@@ -97,6 +97,12 @@ def entry(cusip: str, hint: Optional[str], match: dict) -> tuple[dict, bool]:
     }, same
 
 
+def security_master_source() -> dict:
+    """The data snapshot used for this run, independently of the installed client version."""
+    meta = sm.meta()
+    return {"commit": meta["commit"], "sectorScheme": meta["sector_scheme"], "built": meta["built"]}
+
+
 def ensure_securities(
     db,
     cusips: list[str],
@@ -104,20 +110,23 @@ def ensure_securities(
     refresh: str = "none",
     ticker_hints: Optional[dict[str, str]] = None,
     persist: bool = True,
+    source: Optional[dict] = None,
 ) -> dict[str, dict]:
     """Read the `securities/` cache, enrich whatever `refresh` asks for, write back, return the full map.
 
     `persist=False` keeps the enriched entries in memory and writes nothing -- what a dry run
     needs, since the cache is remote state a dry run must not advance.
 
-    `refresh`: "none" fills gaps only, "unknown" also redoes entries that came back Unknown,
-    "all" re-resolves every entry -- the one to reach for after security-master's rules change.
+    A missing or changed sector scheme re-resolves a cached entry. Daily data commits alone do not.
+    `refresh`: "none" otherwise fills gaps, "unknown" also redoes Unknown entries, "all" re-resolves
+    every entry. `source` lets the caller use the same snapshot descriptor in its published metadata.
     A cached entry is replaced only when security-master knows that exact security, so a refresh
     never erases what was cached for a holding that left the market before security-master began.
 
     `ticker_hints` (CUSIP -> ticker, from edgartools' own resolution) is used only where OpenFIGI
     has no FIGI for the CUSIP.
     """
+    source = source if source is not None else security_master_source()
     cusips = sorted(set(cusips))
     ticker_hints = ticker_hints or {}
     collection = db.collection("securities")
@@ -129,7 +138,11 @@ def ensure_securities(
             cached[snap.id] = snap.to_dict()
 
     def stale(cusip: str) -> bool:
-        return refresh == "all" or (refresh == "unknown" and cached[cusip].get("sector") == "Unknown")
+        return (
+            cached[cusip].get("securityMaster", {}).get("sectorScheme") != source["sectorScheme"]
+            or refresh == "all"
+            or (refresh == "unknown" and cached[cusip].get("sector") == "Unknown")
+        )
 
     to_enrich = [c for c in cusips if c not in cached or stale(c)]
     if to_enrich:
@@ -139,7 +152,10 @@ def ensure_securities(
             new, same = entry(cusip, ticker_hints.get(cusip), matches.get(cusip, {}))
             if cusip in cached and not same:
                 continue  # left the market before security-master began: keep what was cached
+            new["securityMaster"] = dict(source)
             cached[cusip] = written[cusip] = new
+        if security_master_source() != source:
+            raise RuntimeError("security-master changed during enrichment; pin SECURITY_MASTER_REF and retry")
         if persist and written:
             commit_in_batches(db, [(f"securities/{cusip}", doc) for cusip, doc in written.items()])
 

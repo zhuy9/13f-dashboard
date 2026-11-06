@@ -331,7 +331,21 @@ Funds are the exception. ETFs and closed-end funds are labelled "ETF / Fund". A 
 
 security-master starts on 2026-10-19. A stock that was bought out or delisted before then is not in it. Those holdings keep the ticker and sector they were first given.
 
-Lookups are cached per stock and never redone on their own. After security-master changes how it sorts stocks, run `python ingest.py --refresh all` once. It updates every stock security-master knows and leaves the older ones as they are. `--refresh unknown` is the cheaper version: it only redoes the stocks whose sector came out "Unknown".
+Lookups are cached per stock. A missing or changed security-master `sector_scheme` refreshes a
+cached entry automatically; a daily data commit alone does not. `--refresh all` forces every
+lookup, while `--refresh unknown` also retries Unknown entries. Holdings security-master cannot
+identify keep their old cache entry and provenance.
+
+For a classification migration, set `SECURITY_MASTER_REF` to the approved data commit and run
+`python ingest.py --refresh all --dry-run` from `ingest/` over the full roster first. Compare the
+sector changes before running the same command without `--dry-run`. An unpinned run stops before
+cache writes if security-master changes during enrichment. Every retained quarter is
+recomputed using the approved current classifications, so a correction cannot appear as a trade
+between sectors. This restates history; it does not reconstruct each issuer's historical sector.
+Fresh cache entries record their source commit, scheme and build date. `meta/latest.securityMaster`
+records the snapshot used for enrichment and the count of retained cache entries with an older or
+unknown scheme (`legacyEntries`); same-scheme entries can come from earlier data commits. Keep the
+private enrichment cache alongside filing inputs to reproduce a run exactly.
 
 ## Where the docs live
 

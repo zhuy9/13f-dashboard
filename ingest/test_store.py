@@ -56,12 +56,15 @@ def tables():
 
 
 def test_build_meta_shape(tables):
+    source = {"commit": "a" * 40, "sectorScheme": "sic11-v2", "built": "2026-11-05", "legacyEntries": 1}
+    tables["security_master"] = source
     meta = _build_meta(tables, FUNDS, tables["periods"])
     assert meta["latestPeriod"] == tables["periods"][-1]
     assert len(meta["managers"]) == 3
     assert "symbols" not in meta  # its own doc: every page reads meta/latest, only search needs symbols
     assert meta["clusters"][0]["commonHoldings"]  # camelCase, non-empty at latest period
     assert {"cik", "turnover", "top10Weight", "newHeldAfter4"} <= meta["copyability"][0].keys()
+    assert meta["securityMaster"] == source
 
 
 def test_symbols_get_their_own_doc(tables):

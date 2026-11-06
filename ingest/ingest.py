@@ -12,7 +12,7 @@ import pandas as pd
 from google.cloud import storage
 
 from derive import derive_all
-from enrich import attach, ensure_securities
+from enrich import attach, ensure_securities, security_master_source
 from fetch import (
     BASE_COLUMNS,
     collapse,
@@ -203,8 +203,11 @@ def main() -> int:
         return 1
 
     all_cusips = sorted({c for _, base in base_by_fund for c in base["cusip"]})
+    source = security_master_source() if all_cusips else {}
     securities = (
-        ensure_securities(db, all_cusips, api_key, args.refresh, ticker_hints, persist=not args.dry_run) if all_cusips else {}
+        ensure_securities(db, all_cusips, api_key, args.refresh, ticker_hints, persist=not args.dry_run, source=source)
+        if all_cusips
+        else {}
     )
 
     enriched_frames = []
@@ -226,6 +229,12 @@ def main() -> int:
         filings = pd.concat(filing_frames, ignore_index=True) if filing_frames else pd.DataFrame(columns=FILING_COLUMNS)
         tables = derive_all(holdings, funds, config, load_corporate_actions())
         tables["filings"] = filings
+        tables["security_master"] = {
+            **source,
+            "legacyEntries": sum(
+                row.get("securityMaster", {}).get("sectorScheme") != source["sectorScheme"] for row in securities.values()
+            ),
+        }
 
         # A dry run must not touch remote state, and the GCS archive is remote state.
         bucket_name = None if args.dry_run else os.environ.get("GCS_BUCKET")

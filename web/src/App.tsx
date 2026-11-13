@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { FilingLag } from '@/components/FilingLag'
 import { Footer } from '@/components/Footer'
 import { Header } from '@/components/Header'
@@ -14,23 +15,27 @@ import { WatchlistPage } from '@/pages/WatchlistPage'
 import { StockPage } from '@/pages/StockPage'
 
 export function App() {
+  const { pathname } = useLocation()
   return (
     <MetaProvider>
       <Header />
       <FilingLag />
       <main>
-        <Routes>
-          <Route path="/" element={<Navigate to="/patterns" replace />} />
-          <Route path="/watchlist" element={<WatchlistPage />} />
-          <Route path="/patterns" element={<PatternsPage />} />
-          <Route path="/managers" element={<ManagersPage />} />
-          <Route path="/manager/:cik" element={<ManagerPage />} />
-          <Route path="/stock/:symbol" element={<StockPage />} />
-          <Route path="/ownership" element={<OwnershipPage />} />
-          <Route path="/investor/:cik" element={<InvestorPage />} />
-          <Route path="/insiders" element={<InsiderPage />} />
-          <Route path="/insider/:cik" element={<InsiderPersonPage />} />
-        </Routes>
+        {/* Keyed by path, so opening another page clears a caught error. */}
+        <ErrorBoundary key={pathname}>
+          <Routes>
+            <Route path="/" element={<Navigate to="/patterns" replace />} />
+            <Route path="/watchlist" element={<WatchlistPage />} />
+            <Route path="/patterns" element={<PatternsPage />} />
+            <Route path="/managers" element={<ManagersPage />} />
+            <Route path="/manager/:cik" element={<ManagerPage />} />
+            <Route path="/stock/:symbol" element={<StockPage />} />
+            <Route path="/ownership" element={<OwnershipPage />} />
+            <Route path="/investor/:cik" element={<InvestorPage />} />
+            <Route path="/insiders" element={<InsiderPage />} />
+            <Route path="/insider/:cik" element={<InsiderPersonPage />} />
+          </Routes>
+        </ErrorBoundary>
       </main>
       <Footer />
     </MetaProvider>

@@ -1,7 +1,10 @@
 import re
 from pathlib import Path
+from types import SimpleNamespace
 
-from ownership_fetch import header_fields, parse_filing
+import pandas as pd
+
+from ownership_fetch import header_fields, list_filings, parse_filing
 
 FIXTURES = Path(__file__).parent / "fixtures"
 XML_13D = (FIXTURES / "ownership_13d.xml").read_text(encoding="utf-8")
@@ -10,7 +13,24 @@ XML_13G = (FIXTURES / "ownership_13g.xml").read_text(encoding="utf-8")
 # Small, fixture-scaled config -- not the production signals_config.json values.
 CFG = {"purpose_max_chars": 400}
 
-# list_filings() is untested here -- it's a single edgar.get_filings() network call.
+
+def test_list_filings_keeps_a_roster_13g_even_when_the_subject_company_row_comes_first(monkeypatch):
+    index = pd.DataFrame(
+        [
+            ("acc-roster-13g", "SCHEDULE 13G", 111, "Issuer Inc"),
+            ("acc-roster-13g", "SCHEDULE 13G", 1791786, "Elliott"),
+            ("acc-other-13g", "SCHEDULE 13G", 999, "Index Fund"),
+            ("acc-13d", "SCHEDULE 13D/A", 333, "Issuer Three"),
+            ("acc-13d", "SCHEDULE 13D/A", 888, "Anyone"),
+        ],
+        columns=["accession_number", "form", "cik", "company"],
+    ).assign(filing_date="2026-11-12")
+    monkeypatch.setattr("edgar.get_filings", lambda **kw: SimpleNamespace(to_pandas=lambda: index))
+
+    out = list_filings([{"cik": "1791786"}], "2026-11-01", "2026-11-13")
+
+    assert out["accession"].tolist() == ["acc-roster-13g", "acc-13d"]
+    assert out.loc[0, "cik"] == 1791786
 
 
 def test_header_fields_reads_amendment_and_previous_accession():

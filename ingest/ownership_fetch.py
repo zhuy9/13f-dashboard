@@ -25,15 +25,15 @@ FILING_COLUMNS = (
 def list_filings(funds: list[dict], since: str, until: str) -> pd.DataFrame:
     """New 13D (universe-wide) + 13G (roster only) filings in `[since, until]`, deduped.
 
-    The index lists a filing once per associated CIK (subject company + every filer), so the
-    surviving row's `cik` may be the subject company -- `header_fields` finds the real filer."""
+    The index lists a filing once per associated CIK (subject company + every filer): filter
+    roster 13G rows before `drop_duplicates`, or the subject company's row can win. A 13D's
+    surviving `cik` may be the subject company -- `header_fields` finds the real filer."""
     roster = {cik for fund in funds for cik in [fund["cik"], *fund.get("aliases", [])]}
-    filings = edgar.get_filings(form=FORMS, filing_date=f"{since}:{until}", amendments=True)
-    df = filings.to_pandas().drop_duplicates("accession_number")
+    df = edgar.get_filings(form=FORMS, filing_date=f"{since}:{until}", amendments=True).to_pandas()
 
     is_13d = df["form"].str.startswith("SCHEDULE 13D")
     is_roster_13g = df["form"].str.startswith("SCHEDULE 13G") & df["cik"].astype(str).isin(roster)
-    return index_rows(df[is_13d | is_roster_13g])
+    return index_rows(df[is_13d | is_roster_13g].drop_duplicates("accession_number"))
 
 
 def filing_url(filer_cik: str, accession: str) -> str:

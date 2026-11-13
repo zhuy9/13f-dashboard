@@ -11,7 +11,7 @@ A public dashboard of SEC 13F holdings for a tracked list of hedge fund managers
 - Ingest: Python 3.12, edgartools, pandas, firebase-admin, google-cloud-storage, security-master (ticker, issuer and sector by FIGI; a PyPI release pinned in `ingest/requirements.txt`).
 - Web: Vite, React, TypeScript, react-router-dom, Tailwind v4, shadcn/ui (table, tabs, badge, input, select, button, checkbox — nothing else), Recharts, Firebase JS SDK.
 - Data: Firestore (derived documents the site reads), Google Cloud Storage (raw XML + Parquet), Firebase Hosting.
-- CI: GitHub Actions — monthly ingest cron (idempotent; catches late filers) and deploy on push to `main`.
+- CI: GitHub Actions — monthly ingest cron (idempotent; catches late filers) and deploy on push to `main`. `ci.yml` runs ruff and pytest on a push that touches `ingest/`.
 
 ## Commands
 

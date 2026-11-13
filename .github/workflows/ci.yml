@@ -1,0 +1,37 @@
+name: CI
+
+# The ingest workflows run pytest before each scheduled run, which catches a broken commit a
+# day (or, for ingest.yml, a month) late. This catches it at the push. The web side is checked
+# by deploy.yml.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ingest/**"
+      # test_subset_fixture.py compares this file against what the Python derives.
+      - "web/src/fixtures/**"
+      - ".github/workflows/ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r ingest/requirements.txt
+
+      - name: Lint and test
+        working-directory: ingest
+        run: |
+          ruff check .
+          ruff format --check .
+          python -m pytest -q

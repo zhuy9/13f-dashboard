@@ -45,10 +45,14 @@ export function filedDate(isoDate: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
 }
 
-// A 13F is not due until 45 days after the quarter it covers ends.
+// A 13F is not due until 45 days after the quarter it covers ends; a weekend moves it to Monday.
+// Presidents' Day is the only holiday that can hit: a weekend Feb 14 always rolls onto it.
 export function filingDue(period: string): string {
   const [year, month, day] = period.split('-').map(Number)
-  return filedDate(new Date(Date.UTC(year, month - 1, day + 45)).toISOString().slice(0, 10))
+  const due = new Date(Date.UTC(year, month - 1, day + 45))
+  const weekend = [1, 0, 0, 0, 0, 0, 2][due.getUTCDay()]
+  const shift = weekend && due.getUTCMonth() === 1 ? weekend + 1 : weekend
+  return filedDate(new Date(Date.UTC(year, month - 1, day + 45 + shift)).toISOString().slice(0, 10))
 }
 
 // Every period is a quarter end, i.e. the last day of a month, and day 0 of month n is the last

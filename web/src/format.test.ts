@@ -60,7 +60,15 @@ describe('SECTOR_COLORS', () => {
 describe('filingDue', () => {
   it('is 45 days after the quarter ends', () => {
     expect(filingDue('2026-06-30')).toBe('Aug 14, 2026')
-    expect(filingDue('2026-12-31')).toBe('Feb 14, 2027')
+  })
+
+  it('moves a weekend due date to Monday', () => {
+    expect(filingDue('2026-09-30')).toBe('Nov 16, 2026')
+  })
+
+  it('moves a weekend February due date past Presidents Day', () => {
+    expect(filingDue('2025-12-31')).toBe('Feb 17, 2026')
+    expect(filingDue('2026-12-31')).toBe('Feb 16, 2027')
   })
 })
 

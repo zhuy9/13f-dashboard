@@ -71,3 +71,12 @@ jobs:
           # job whose real work already succeeded. The marker only has to land eventually.
           git pull --rebase
           git push
+
+      # No status function in `if:`, so the implicit success() still skips this after a failure.
+      - name: Build quarterly issue
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+          GCS_BUCKET: ${{ vars.GCS_BUCKET }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python ingest/quarterly.py

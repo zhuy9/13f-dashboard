@@ -11,6 +11,7 @@ import { ManagerPage } from '@/pages/ManagerPage'
 import { ManagersPage } from '@/pages/ManagersPage'
 import { OwnershipPage } from '@/pages/OwnershipPage'
 import { PatternsPage } from '@/pages/PatternsPage'
+import { QuarterlyPage } from '@/pages/QuarterlyPage'
 import { WatchlistPage } from '@/pages/WatchlistPage'
 import { StockPage } from '@/pages/StockPage'
 
@@ -27,6 +28,8 @@ export function App() {
             <Route path="/" element={<Navigate to="/patterns" replace />} />
             <Route path="/watchlist" element={<WatchlistPage />} />
             <Route path="/patterns" element={<PatternsPage />} />
+            <Route path="/quarterly" element={<QuarterlyPage />} />
+            <Route path="/quarterly/:period" element={<QuarterlyPage />} />
             <Route path="/managers" element={<ManagersPage />} />
             <Route path="/manager/:cik" element={<ManagerPage />} />
             <Route path="/stock/:symbol" element={<StockPage />} />

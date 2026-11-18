@@ -6,6 +6,7 @@ import { db } from './firebase'
 import type { Manager, ManagerQuarter, Meta, Signals, Stock, StockLatest, SymbolIndex } from './types'
 import type { OwnershipFeed, OwnershipInvestor, OwnershipIssuer } from './ownershipTypes'
 import type { InsiderClusters, InsiderFeed, InsiderIssuer, InsiderPerson } from './insiderTypes'
+import type { QuarterlyIndex, QuarterlyIssue } from './quarterlyTypes'
 
 async function fetchDoc<T>(path: string): Promise<T | null> {
   const snap = await getDoc(doc(db, path))
@@ -96,4 +97,13 @@ export function getInsiderIssuer(symbol: string): Promise<InsiderIssuer | null> 
 
 export function getInsiderPerson(cik: string): Promise<InsiderPerson | null> {
   return fetchDoc<InsiderPerson>(`insider_people/${cik}`)
+}
+
+// Written in place after each ingest, like insider/* above -- not under datasets/.
+export function getQuarterlyIndex(): Promise<QuarterlyIndex | null> {
+  return fetchDoc<QuarterlyIndex>('quarterly/index')
+}
+
+export function getQuarterlyIssue(period: string): Promise<QuarterlyIssue | null> {
+  return fetchDoc<QuarterlyIssue>(`quarterly/${period}`)
 }

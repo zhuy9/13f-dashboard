@@ -3,6 +3,7 @@ import { SymbolSearch } from '@/components/SymbolSearch'
 
 const NAV_LINKS = [
   { to: '/patterns', label: 'Patterns' },
+  { to: '/quarterly', label: 'Quarterly' },
   { to: '/managers', label: 'Managers' },
   { to: '/ownership', label: 'Ownership' },
   { to: '/insiders', label: 'Insiders' },

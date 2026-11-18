@@ -154,6 +154,20 @@ Each event also shows how many tracked managers already held the stock. That num
 
 The [Insiders](https://13f.darren-zhu.com/insiders) page tracks Form 4 filings — the SEC form officers, directors, and 10%+ owners file when they buy or sell their own company's stock. It only covers issuers a tracked manager holds, since the SEC gets around 500 of these a day and fetching every one of them for every public company is not something this site's budget covers. Every transaction is classified by its SEC code, never by edgartools' own label: a stock award or option exercise is never shown as a purchase, and tax withholding or a gift is never shown as a sale. Sales split into Planned (a pre-scheduled Rule 10b5-1 trade) and Discretionary, with "not stated" kept as its own honest answer when a filing does not say. See [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for the full code table.
 
+Some Form 4s are filed jointly. A fund, its partners and the people behind it all sign one filing. They count as one buyer or seller, and each trade is shown once.
+
+## Quarterly issue
+
+The [Quarterly](https://13f.darren-zhu.com/quarterly) page is a short report for each 13F quarter. It shows what the tracked managers bought and sold. It shows where they disagreed. It also lists notable 13D and 13G filings and insider trades.
+
+Every number comes from the filings. Python counts them. Fixed templates turn the counts into sentences.
+
+An AI summary can be added on top. It is optional. Each line it writes is checked against the numbers. A line with a number, a ticker or a word that is not allowed is dropped. Without an API key, the page uses the template text only.
+
+The issue is rebuilt after each monthly ingest. The 13D/13G and insider sections show two time spans: filed during the quarter, and filed since it ended. "No data" means our filing log does not reach back that far. It does not mean nothing was filed.
+
+To preview it from `ingest/`: `python quarterly.py --dry-run`. This reads the live data and writes nothing.
+
 ## The signals
 
 The site computes these signals once per quarter.
@@ -232,6 +246,7 @@ You need a Google account and a GitHub account. Some values are **secret**. Neve
 7. Create a public GitHub repository. Push the code. Add the secrets and variables under Settings → Secrets and variables → Actions.
 8. In the Firebase console, open Hosting. Add your custom domain. Add the DNS records it shows you at your domain registrar.
 9. Run `npx firebase-tools login` once. Then run `npx firebase-tools deploy --only firestore:rules`. This makes the data readable by the site.
+10. Optional: get an API key from console.anthropic.com for the AI notes in the quarterly issue. This is **secret**. Save it as the GitHub secret `ANTHROPIC_API_KEY`. Set a low monthly spend limit. Without it, the issue uses template text only.
 
 ## Run locally
 

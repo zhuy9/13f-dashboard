@@ -186,6 +186,28 @@ downloaded at all, since fetching every issuer's insider filings is not
 fetchable on this budget. If that document is missing, the insider pipeline
 stops with an error rather than guessing at a universe-wide fetch.
 
+The quarterly issue (`ingest/quarterly*.py`) is the one place the three
+pipelines are combined into a single document. It runs as the last step of
+the monthly ingest job, reads only what the pipelines already stored, and
+makes no SEC request:
+
+```mermaid
+flowchart LR
+    A[("Cloud Storage\n13F Parquet for the quarter")] --> D
+    B[("Cloud Storage\n13D/13G log")] -->|"ownership_derive.events"| D
+    C[("Cloud Storage\nForm 4 log")] -->|"insider_derive.trades"| D
+    M[("Firestore\nmeta/latest")] -->|"which quarter, coverage,\nstale-table check"| D
+
+    D["quarterly_derive.py\ncounts and sums only"] --> T["quarterly_text.py\ntemplate sentences"]
+    T -->|"optional"| L["quarterly_llm.py\nAI notes, each field checked"]
+    T --> E[("Firestore\nquarterly/{period}, quarterly/index")]
+    L --> E
+    E -->|"2 reads per page"| G["Website\nQuarterly page"]
+```
+
+If any 13F table is missing or older than the published snapshot, the run
+stops before writing anything.
+
 The website never mixes the three pipelines' data at read time — a stock page
 does up to three separate one-document reads (13F holders, 13D/13G
 shareholders, Form 4 insiders) and renders whichever ones exist.

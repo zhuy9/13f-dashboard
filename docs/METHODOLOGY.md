@@ -197,7 +197,14 @@ lookback period. It reads `null`, not `false`, when the data on file does not re
 enough to know for certain — the same rule as a `null` position status in the 13F table: absence
 of evidence is not evidence.
 
-**Cluster buying**: three or more distinct insiders buying the same stock within the same
+**Joint filings count once.** A Form 4 can list several reporting owners: a fund, its general
+partner, its adviser and the people behind them. Owners who ever file together form one filer
+group, and every count of buyers or sellers counts groups, not owners. Every share or dollar sum,
+and every trade list, keeps one copy of each transaction. A person's own page still shows every
+filing they signed. One known limit: a group never splits, so a consortium that filed jointly once
+counts as one buyer on every stock.
+
+**Cluster buying**: three or more distinct insiders (filer groups) buying the same stock within the same
 window. A single insider buying is noise more often than not; this is the one insider signal
 with real published support, which is why it is called out separately.
 
@@ -207,6 +214,31 @@ at least one tracked 13F manager — a statement neither pipeline can make alone
 The 13F holder count shown beside an insider trade works exactly like the one beside an
 ownership event: from the most recent 13F quarter, always older than the transaction next to it,
 and a dash means the 13F pipeline has not run yet.
+
+## Quarterly issue
+
+One issue per 13F quarter. It adds no new signal; every number is a count or a sum over the
+tables above.
+
+- **Which quarter.** The newest quarter that at least 80% of tracked managers have filed. A
+  quarter with only a few early filers is not an issue yet.
+- **Net buyers and sellers.** Per stock: managers who opened or added, minus those who trimmed or
+  sold out, by share count. "Most net buyers" needs at least three buyers and more buyers than
+  sellers; "Most net sellers" is the mirror. A **near-tie** (three or more on each side and a gap
+  under three) goes to "Where they disagree" instead, so the three lists never overlap.
+  **Contested** marks a net row with three or more managers on the other side.
+- **Filing dates, two windows.** The 13D/13G and insider sections count what was **filed** during
+  the quarter and what was filed since it ended (up to the next quarter end). They key on the
+  filing date, never the trade date, which can be missing or mistyped.
+- **No data is not zero.** A window that starts before a log's start date (13D/13G: 2024-12-18;
+  Form 4: 2025-09-01) reads "no data".
+- **Planned and discretionary sales** use the definitions above and are never added together.
+- **Holder counts** for an issue come from that issue's own quarter. A back issue still reads
+  the 13D/13G and Form 4 logs as they are on file today.
+- **AI notes** are optional. The model only sees the issue's counts, symbols, sector names and
+  tracked managers' names — never a filer's stated purpose, a footnote, or a person's name. Each
+  field it writes is dropped if it holds a number or ticker that is not in those facts, markup or
+  a link, advice words, or the word "short".
 
 ## Copyability
 

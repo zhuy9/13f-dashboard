@@ -34,5 +34,12 @@
     "max_trades_per_doc": 500,
     "refetch_overlap_days": 3,
     "footnote_max_chars": 300
+  },
+  "quarterly": {
+    "rows_per_section": 10,
+    "min_coverage": 0.8,
+    "cross_min_insider_buyers": 2,
+    "ai_model": "claude-fable-5-1",
+    "ai_max_tokens": 1500
   }
 }

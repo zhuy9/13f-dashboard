@@ -6,7 +6,8 @@ service cloud.firestore {
     // ingest-only: the admin SDK bypasses these rules. No client writes anywhere.
     match /{coll}/{rest=**} {
       allow read: if coll in ['meta', 'datasets', 'ownership', 'ownership_issuers',
-                              'ownership_investors', 'insider', 'insider_issuers', 'insider_people'];
+                              'ownership_investors', 'insider', 'insider_issuers', 'insider_people',
+                              'quarterly'];
     }
   }
 }

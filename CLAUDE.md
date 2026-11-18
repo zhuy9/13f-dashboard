@@ -28,6 +28,7 @@ ruff format .
 ruff check .
 python ingest.py --dry-run
 python ownership.py --dry-run
+python quarterly.py --dry-run
 
 # web
 cd web
@@ -49,6 +50,7 @@ This repository is PUBLIC.
 | `FIREBASE_SERVICE_ACCOUNT` | secret | GitHub Actions secret only |
 | `EDGAR_IDENTITY` | secret (it is the user's email) | GitHub secret + `ingest/.env` |
 | `OPENFIGI_API_KEY` | secret | GitHub secret + `ingest/.env` |
+| `ANTHROPIC_API_KEY` | secret, optional (quarterly AI notes) | GitHub secret + `ingest/.env` |
 | `GCS_BUCKET`, `FIREBASE_PROJECT_ID` | public variable | GitHub variable + `.env` |
 | `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID` | public variable | GitHub variables + `web/.env` |
 
@@ -61,6 +63,7 @@ This repository is PUBLIC.
 ## Where logic lives
 
 - 13F signal math: `ingest/derive.py`. 13D/13G event math: `ingest/ownership_derive.py`. Thresholds and score constants for both: `ingest/signals_config.json`.
+- Quarterly issue facts: `ingest/quarterly_derive.py`; its sentences: `ingest/quarterly_text.py`; optional AI notes and their checks: `ingest/quarterly_llm.py`.
 - Published signals are computed in Python. The browser only formats and renders, except for Milestone 16A's explicit manager/style subsets: `web/src/subsetSignals.ts` aggregates published manager-quarter rows with published thresholds, verified against Python parity fixtures. It never infers trades or changes position status.
 - The Firestore document shapes in `docs/PLAN.md` are the contract between Python and TypeScript. If a shape must change, change the plan first, then both sides.
 
@@ -120,6 +123,18 @@ This repository is PUBLIC.
 - `G` = `GIFT`. Never a sale.
 - The insider universe comes from `meta/holder_counts`. If that document is absent, the pipeline stops with an error — it never falls back to a universe-wide fetch.
 - Never sum planned (`aff10b5_one is True`) and discretionary (`aff10b5_one is not True`) sales into one number; they are tracked and reported apart.
+- A joint Form 4 lists several reporting owners (a fund, its GP, the people behind it), and the log holds each transaction once per owner. Count buyers and sellers by `filer_group`; sum and list `is_primary` rows only. Person docs keep every row.
+
+## Quarterly issue gotchas
+
+- No new signal math. Every number is a count or sum over rows sections A–K of `docs/PLAN.md` define; change section M first.
+- Event sections key on `filed_at`, never the event or transaction date.
+- A window that starts before a pipeline's `start_date` goes in `noData` and reads "no data", never 0.
+- `holders13f` comes from `stock_quarter_summary` at the issue's period, not `meta/holder_counts`.
+- A missing or stale Parquet table means exit 1 and write nothing. Never publish half an issue.
+- Never put a 13D `purpose`, a Form 4 footnote or a person's name in the issue or a prompt.
+- No puts in the issue. Never the word "short".
+- AI text is untrusted model output: checked field by field, dropped (never repaired) on any failure, rendered as plain text.
 
 ## Adding a manager
 

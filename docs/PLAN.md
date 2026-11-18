@@ -39,6 +39,7 @@ Data changes 4×/year. So: **all derived tables are computed once at ingest in P
 | Managers | Tracked list lives in `ingest/funds.json`, all in the signal set. Cluster labels are manual. See "Adding a manager" in `CLAUDE.md` for the (code-free) process. |
 | 13D/13G | Milestone 8: a sibling event pipeline (`ingest/ownership*.py`, daily cron). All `SCHEDULE 13D`/`13D/A` on EDGAR; `SCHEDULE 13G`/`13G/A` only from roster managers (CIK or `aliases`). Structured-XML filings only (from 2024-12-18). Contract in section J. |
 | Form 4 | Milestone 17: a third event pipeline (`ingest/insider*.py`, daily cron). Scoped to issuers held by the tracked managers at the latest 13F quarter — universe-wide Form 4 is ~509 filings/day and not fetchable here. Contract in section K. |
+| Quarterly | Milestone 20 (**proposed 2026-11-17, not started**): one issue per 13F quarter at `/quarterly` that joins the three pipelines — what managers bought and sold, 13D/13G filings, insider trades. Python computes every number and writes every sentence from templates; an optional LLM pass may add short notes, each checked field by field against the numbers. Contract in section M. |
 | History | Last **12 quarters** per manager, then trimmed to the newest 12 periods overall so one stale filer cannot add near-empty quarters. QoQ status on quarters that have a prior quarter in the window. |
 | Frontend | Vite + React + TS + **react-router-dom** + **Tailwind v4 + shadcn/ui** (7 components) + Recharts + Firebase JS. Pages: `/patterns`, `/managers`, `/manager/:cik`, `/stock/:symbol`; Milestone 8 adds `/ownership`, `/investor/:cik`; Milestone 17 adds `/insiders`, `/insider/:cik`. No auth. No per-user manager selection in MVP. |
 | Agent docs | `CLAUDE.md` = agent instructions. `AGENTS.md` = symlink to it, recorded in git (real on Linux/GitHub; pointer file on Windows without the symlink privilege). `docs/PLAN.md` = this plan. |
@@ -66,6 +67,13 @@ GitHub Actions (daily cron + manual)            # Milestone 17
        ├─ insider_fetch.py   : meta/holder_counts ──► issuer CIKs ──► Form 4/4A index ──► one row per transaction
        ├─ insider_derive.py  : transactions ──► trades (BUY / SELL / AWARD / EXERCISE / TAX / …) ──► clusters, summaries, vs_13f
        └─ insider_store.py   : GCS state (parquet/insider_transactions.parquet) + Firestore (insider/, insider_issuers/, insider_people/)
+
+GitHub Actions (last step of the monthly ingest job)   # Milestone 20, proposed
+  └─ ingest/quarterly.py
+       ├─ quarterly_derive.py : 13F Parquet (C, E, F) + ownership events + insider trades ──► issue facts
+       ├─ quarterly_text.py   : facts ──► headline, lede, one sentence per section (fixed templates)
+       ├─ quarterly_llm.py    : optional (20.5); facts ──► AI notes, validated field by field
+       └─ Firestore quarterly/{period} + quarterly/index (written in place, not under datasets/)
 
 GitHub Actions (on push to main, paths web/**) ──► npm run build ──► Firebase Hosting ──► custom domain
 
@@ -99,6 +107,10 @@ Browser: one Firestore read per page (signals/{period}, manager_quarters/{cik}_{
     ownership_fetch.py     # EDGAR index listing + structured 13D/13G parsing → one row per filing
     ownership_derive.py    # 13D/13G events, stakes, recent (pure pandas, no I/O)
     ownership_store.py     # Firestore ownership docs (state I/O lives in pipeline.py)
+    quarterly.py           # CLI + orchestration (quarterly issue, Milestone 20; no SEC request)
+    quarterly_derive.py    # issue facts from 13F tables, ownership events, insider trades (pure)
+    quarterly_text.py      # template sentences (pure)
+    quarterly_llm.py       # optional AI notes + validator (Milestone 20.5)
     test_fetch.py  test_derive.py  test_enrich.py  test_store.py  conftest.py
     test_ownership_fetch.py  test_ownership_derive.py  test_ownership_store.py
     fixtures/holdings_small.csv  fixtures/ownership_small.csv  fixtures/ownership_13d.xml  fixtures/ownership_13g.xml
@@ -107,6 +119,7 @@ Browser: one Firestore read per page (signals/{period}, manager_quarters/{cik}_{
     src/
       main.tsx  App.tsx  index.css  firebase.ts  types.ts  format.ts  format.test.ts
       ownershipTypes.ts  ownership.ts  ownership.test.ts   # 13D/13G doc types + pure filter/label helpers
+      quarterlyTypes.ts  quarterly.ts  quarterly.test.ts   # Milestone 20: issue doc types + pure helpers
       data.ts                       # Firestore reads (one function per doc type)
       lib/utils.ts                  # shadcn cn()
       hooks/                        # useAsyncData, useSortableRows, useActiveSection
@@ -329,13 +342,22 @@ authoritative; edgartools' own `Transaction Type` label is not (it reports code 
   `event = null` in J.
 - `holders13f`: tracked managers holding this symbol at the last 13F quarter, from
   `meta/holder_counts`. Identical field, meaning and null-semantics as the J event row.
+- `filer_group`, `is_primary` (Milestone 20.0): a joint Form 4 lists several reporting owners (a
+  fund, its general partner, its adviser, the people behind them), and the base table holds each
+  transaction line once **per owner**. `filer_group` = the smallest `owner_cik` among owners linked
+  by filing together (owners on one accession are linked; links chain across accessions).
+  `is_primary` = the row's owner is the smallest `owner_cik` on its accession, so exactly one copy
+  of each transaction line is primary.
+- Every count of buyers or sellers counts distinct `filer_group`, never `owner_cik`. Every share or
+  value sum, every trade list on an issuer doc or the feed, and every trade count uses `is_primary`
+  rows only. Person docs (`insider_people/{cik}`) keep all of that owner's rows.
 
 **Priority** (exactly this table, first match wins):
 `HIGH` if `kind == BUY` and `is_open_market` and (`value >= min_open_market_value` or
 `first_buy_in_window is True`); else `MEDIUM` if `kind == BUY`, or (`is_discretionary_sale` and
 `value >= min_open_market_value`); else `LOW`.
 
-**Derived `insider_clusters`** — per symbol, distinct `owner_cik` with a `BUY` whose
+**Derived `insider_clusters`** — per symbol, distinct `filer_group` with a `BUY` whose
 `transaction_date` falls in the last `cluster_window_days`, counted back from the newest `filed_at`
 on file (not the newest `transaction_date`: one filer's mistyped future date would move the window
 past every real trade); kept when the count is `>= cluster_min_insiders`. Cluster buying is the one insider signal with real published support;
@@ -371,6 +393,101 @@ new_held_after4   share of NEW positions still held (value > 0) four quarters la
 ```
 Published as `meta/latest.copyability[]`.
 
+### M. Quarterly issue — the contract for `quarterly_derive.py` (Milestone 20, proposed)
+
+One document per 13F quarter. It says in short tables and plain sentences what changed: what the
+tracked managers bought and sold, where they disagree, which large holders filed a 13D/13G, and
+what insiders did. It joins the three pipelines and adds no signal math of its own: every number
+is a count or a sum over rows that sections A–K already define.
+
+**Issue period `P`.** The newest period in `meta/latest.periods` that (1) has
+`len(filed) / len(managers) >= min_coverage`, from `meta/latest.coverage`, and (2) is not the
+oldest period in the list. A quarter that only a few early filers have reported is never an issue.
+`prev` = the period just before `P` in that list.
+
+**Windows** — pure `windows(period, prev_period, today) -> dict`, all dates `YYYY-MM-DD`, both
+ends inclusive:
+```
+quarter = { start: prev_period + 1 day, end: period }                               # the quarter the 13F reports
+since   = { start: period + 1 day,      end: min(today, next quarter end after period) }   # what was filed after it
+```
+- 13F sections describe `quarter` only.
+- Event sections (13D/13G, Form 4) report both windows and key on **`filed_at`**, never the event
+  or transaction date: `event_date` can be null, and one mistyped transaction date sits years away
+  (see `insider_derive._window`). The page says "filed between".
+- A window that starts before a pipeline's `start_date` (`ownership.start_date`,
+  `insider.start_date`) is listed in that section's `noData`. The log does not cover it, and "no
+  data" is not "nothing happened" — the same rule as `status = null` in A.
+
+**Inputs** (read-only):
+- GCS `parquet/<table>/<P>.parquet` for `stock_quarter_summary` (C), `biggest_new` and
+  `high_conviction` (E), `sector_rotation` (F); plus `parquet/high_conviction/<prev>.parquet`.
+- GCS `parquet/ownership_filings.parquet` → `ownership_derive.events(log, funds, cfg["ownership"], holders)`.
+- GCS `parquet/insider_transactions.parquet` → `insider_derive.trades(log, cfg["insider"], holders)`.
+- `holders` = `{symbol: manager_count}` from C at `P`, rows with `manager_count > 0`. **Not**
+  `meta/holder_counts`: that doc is the latest quarter only, and a back issue must count holders
+  at its own quarter.
+- `meta/latest`: `periods`, `managers`, `coverage`, `datasetId`, `updatedAt`.
+
+**Stale-table guard.** Each per-period Parquet above must exist, and its GCS `updated` time must
+be no older than `meta/latest.updatedAt − 6 hours` (the archive is written minutes before the
+snapshot is published, in the same ingest run). If not: exit 1, write nothing. `write_gcs` is
+best-effort per object, so an old table can sit beside a new snapshot, and an issue built from it
+would be wrong without looking wrong.
+
+**Sections.** Fixed ids, fixed order — the array order is the page order. Rows whose symbol
+starts with `_` (no ticker) are dropped everywhere. `total` = rows that passed the filter;
+`rows` = the first `rows_per_section` after sorting (for an event section: per window), unless
+"no cap". Event sections (`stakes`, `insider_buys`, `insider_sales`) also carry
+`windowTotals{quarter, since}`: rows that passed, per covered window, before the cap. `min` = `consensus_min_managers`. From C: `buyers = new_count + added_count`,
+`sellers = trimmed_count + sold_out_count`, `net = buyers − sellers`. A **split** row is one with
+`buyers >= min and sellers >= min and abs(net) < min` — a near-tie. The three 13F lists are
+disjoint: a split row is never in `bought` or `sold`.
+
+| id | Source and filter | Sort | Row fields (camelCase in Firestore) |
+|---|---|---|---|
+| `bought` | C at `P`; `buyers >= min and net > 0`, not a split row | net desc, buyers desc, symbol | symbol, name, buyers, sellers, net, newCount, addedCount, trimmedCount, soldOutCount, managerCount, avgWeight, buyerManagers[{cik, short}] (holders with status NEW or ADDED, weight desc), contested (`sellers >= min`) |
+| `sold` | C at `P`; `sellers >= min and net < 0`, not a split row | net asc, sellers desc, symbol | as `bought`, with sellerManagers[{cik, short}] (holders with status TRIMMED, then `sold_out[]`) in place of buyerManagers; contested = `buyers >= min` |
+| `split` | C at `P`; split rows | buyers + sellers desc, symbol | symbol, name, buyers, sellers, net, buyerManagers[], sellerManagers[] |
+| `new_positions` | E `biggest_new` at `P`, as is | (already weight desc) | cik, short, symbol, name, weight, value |
+| `conviction` | E `high_conviction` at `P` and `prev`; no cap | ENTERED, STAYED, LEFT; then managers desc, avgWeight desc | symbol, name, managers, avgWeight, maxWeight, change: `ENTERED` (on `P`'s list only), `STAYED` (both), `LEFT` (on `prev`'s only; values from `prev`) |
+| `sectors` | F at `P`, as is; no cap | (already avg_change desc) | sector, avgWeight, avgPrevWeight, avgChange, increasing, decreasing |
+| `stakes` | J events with `filed_at` in a covered window and `event` not null; keep (`is_roster` and event != `UPDATED`) or (`priority == "HIGH"` and `holders13f >= 1`) | is_roster desc, filed_at desc, accession desc | window, filedAt, form, event, priority, investorCik, investorName, short, isRoster, isActivist, symbol, issuerName, pct, changePp, holders13f, url. **Never `purpose`** — it is free text from the filer |
+| `insider_buys` | K `is_primary` trades with `kind == "BUY"` and `filed_at` in a covered window, grouped by symbol | buyers desc, value desc, symbol | window, symbol, issuerName, buyers (distinct `filer_group`), value (sum), holders13f, isCluster (`buyers >= insider.cluster_min_insiders`) |
+| `insider_sales` | K `is_primary` trades with `code == "S"`, same windows, grouped by symbol; sellers are distinct `filer_group`; keep `discretionarySellers >= 1` | discretionarySellers desc, discretionaryValue desc, symbol | window, symbol, issuerName, discretionarySellers, discretionaryValue (over `is_discretionary_sale` rows), plannedSellers, plannedValue (over `is_planned` rows), holders13f |
+| `cross` | symbols in at least two of the three sets below | number of signals desc, net desc (nulls last), symbol | symbol, name, signals[] (subset of `"13F"`, `"13D"`, `"INSIDER"`, in that order), buyers, net (both null without `13F`), investor, investorCik, isRoster (the `short` else `investorName`, the CIK and the roster flag of the newest matching event; all null without `13D`), insiderBuyers (0 without `INSIDER`) |
+
+`cross` sets: `13F` = every `bought` row **before** the cap. `13D` = a J event with
+`priority == "HIGH"` and event in {`NEW`, `INCREASED`, `SWITCHED_TO_13D`} in either covered
+window. `INSIDER` = at least `cross_min_insider_buyers` distinct BUY filer groups over the
+covered windows together. `name` comes from C at `P` when the symbol is there, else the issuer name on
+the event or trade.
+
+Rules that carry over and must not be re-decided here: planned and discretionary sales use
+`is_planned` / `is_discretionary_sale` exactly as section K defines them and are never summed;
+event rows with `event = null` are unknown, not new; puts are not in this issue at all (options
+are left out of v1).
+
+**`totals`** = sums over C at `P`: `opened` = `new_count`, `closed` = `sold_out_count`, `added`,
+`trimmed`, `unchanged`. **`coverage`** = `{filed: len(filed), total: len(managers), missing: [short]}`
+for `P`.
+
+**Text** — `quarterly_text.py`, pure. `headline`, `lede`, and one `summary` sentence per section
+come from fixed templates over the facts (Milestone 20.3 lists them). The browser never writes a
+sentence. Template text is always present.
+
+**AI notes** — optional (Milestone 20.5). `ai` is `null`, or
+`{model, generatedAt, factsHash, headline|null, lede|null, notes{sectionId: text}}`. Each field is
+model output that passed the validator on its own; a field that fails is dropped, never repaired.
+When `ai` or a field is missing the page shows the template text.
+
+Config keys (`signals_config.json` → `quarterly`): `rows_per_section` (10), `min_coverage` (0.8),
+`cross_min_insider_buyers` (2), `ai_model` (`"claude-fable-5-1"`), `ai_max_tokens` (1500).
+
+Known limit (mark it with a `# ponytail:` comment in `quarterly.py`): a back issue counts
+`holders13f` at its own quarter, but reads the ownership and insider logs as they are on file
+today. An issue is a view that can be rebuilt, not an archive of what was known then.
+
 ## Firestore documents (what the browser reads)
 
 13F paths below (except `meta/latest` and `securities/`) are relative to
@@ -395,6 +512,8 @@ unprefixed pre-snapshot paths (removed 2026-09-25, see "Legacy stock latest").
 | `insider/clusters` | `symbols[]` — the symbols in `insider/feed.clusters`, rewritten with it every run | stock page cluster badge (so a stock page does not download the whole feed) |
 | `insider_issuers/{symbol}` | `symbol, issuerCik, issuerName, sector, summary{K issuer_summary}, people[{ownerCik, ownerName, role, buys, sells, netShares, lastTradeAt}], trades[newest first, ≤ max_trades_per_doc]` | stock page (third read; absent ⇒ section hidden) |
 | `insider_people/{cik}` | `cik, name, roles[], issuers[{symbol, issuerName, role, netShares}], trades[newest first, ≤ max_trades_per_doc]` | insider person page |
+| `quarterly/index` (Milestone 20) | `updatedAt, issues[{period, label, headline, builtAt}]` newest first | quarterly page (first read; issue picker) |
+| `quarterly/{period}` (Milestone 20) | `period, prevPeriod, label, builtAt, datasetId, windows{quarter{start, end}, since{start, end}}, coverage{filed, total, missing[short]}, totals{opened, closed, added, trimmed, unchanged}, headline, lede, sections[{id, title, summary, total, windowTotals?, noData[], rows[M rows]}], ai` (`null`, or `{model, generatedAt, factsHash, headline\|null, lede\|null, notes{sectionId: text}}`) | quarterly page (second read) |
 
 J event row (camelCase): `accession, form, isAmendment, amendmentNo, filedAt, eventDate, investorCik, investorName, short, isRoster, isActivist, issuerCik, issuerName, symbol, sector, shares, pct, prevPct, changePp, event, priority, purpose, url, holders13f`. `holders13f` is the one field that joins the two pipelines: `ingest.py` writes `meta/holder_counts` from C at its latest period, `ownership.py` reads that doc once per run and passes the map into `ownership_derive.events`, which stays pure. It is a count as of the last 13F quarter, always older than the filing it sits beside; `null` means the map was missing (the ownership pipeline ran before ingest ever did), which is not the same as `0`. J stake row: `investorCik, investorName, short, isRoster, isActivist, issuerCik, issuerName, symbol, sector, form, pct, shares, changePp, event, filedAt, accession, url`. `ownership_issuers` ids use `quote(symbol, safe='')` / `encodeURIComponent`, like `stocks/`. Each run rewrites `ownership/feed` and **only** the issuer/investor docs touched by that run's new filings (Firestore free tier: 20K writes/day); `--rebuild` rewrites all.
 
@@ -420,6 +539,7 @@ The repo is PUBLIC. Follow exactly.
 | `FIREBASE_SERVICE_ACCOUNT` | **secret** | GitHub Actions secret | Service-account JSON. Writes Firestore + GCS, deploys Hosting. |
 | `EDGAR_IDENTITY` | **secret** | GitHub secret + `ingest/.env` | `"Your Name you@email"`. SEC requires it. Your email — never in the repo. |
 | `OPENFIGI_API_KEY` | **secret** | GitHub secret + `ingest/.env` | Free key. Batch size 10 → 100. |
+| `ANTHROPIC_API_KEY` | **secret**, optional | GitHub secret + `ingest/.env` | Milestone 20.5 only. Pays for the AI notes in the quarterly issue. Unset = template text only. |
 | `GCS_BUCKET` | variable | GitHub variable + `ingest/.env` | Bucket name. Unset = skip archive. |
 | `FIREBASE_PROJECT_ID` | variable | GitHub variable | Used by deploy. |
 | `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID` | variable | GitHub variables + `web/.env` | Firebase **web** config. Public by design (ships in the JS bundle). Access is controlled by `firestore.rules`. |
@@ -461,7 +581,8 @@ service cloud.firestore {
     // ingest-only: the admin SDK bypasses these rules. No client writes anywhere.
     match /{coll}/{rest=**} {
       allow read: if coll in ['meta', 'datasets', 'ownership', 'ownership_issuers',
-                              'ownership_investors', 'insider', 'insider_issuers', 'insider_people'];
+                              'ownership_investors', 'insider', 'insider_issuers', 'insider_people',
+                              'quarterly'];
     }
   }
 }
@@ -477,7 +598,8 @@ service cloud.firestore {
 6. Secret `EDGAR_IDENTITY` = `Your Name your@email.com`.
 7. Create the public GitHub repo. Push `main`. Add the secrets/variables. **Before Milestone 6.**
 8. Custom domain: Firebase console → Hosting → Add custom domain → TXT + A records at your registrar.
-9. One-time: `npx firebase-tools login`, then `npx firebase-tools deploy --only firestore:rules` (after Milestone 1).
+9. One-time: `npx firebase-tools login`, then `npx firebase-tools deploy --only firestore:rules` (after Milestone 1). Run the deploy again after Milestone 20.1 adds `quarterly` to the allow-list.
+10. Optional, Milestone 20.5: create an Anthropic API key (console.anthropic.com; a paid account, separate from a Claude subscription) with a low monthly spend limit → secret `ANTHROPIC_API_KEY`.
 
 ---
 
@@ -1945,6 +2067,431 @@ Verification: `pytest` 172 green, `ruff check` clean. Insider backfill `2025-09-
 (run 39327472075): universe 1,552 issuers (one more: the predecessor CIK), 51 new transaction rows,
 0 failed filings; `insider_issuers/XOM` holds 51 trades by 23 insiders.
 
+## Milestone 20 — Quarterly issue (`/quarterly`)  (planned by the planning model; built by the dev model)
+
+Status: in progress. The user confirmed every default below on 2026-11-18.
+
+One page per 13F quarter, in a new tab, that says in short tables and plain sentences what
+changed: what the tracked managers bought and sold, where they split, who filed a 13D/13G, and what
+insiders did. Contract: **section M**, the two `quarterly/*` rows in the Firestore table, and the
+`quarterly` block in `signals_config.json`. Sub-milestones 20.0 → 20.6 are sequential; 20.5 is
+optional. Do not start the next until every AC box of the current one is checked.
+
+**Decisions — the user confirmed each default on 2026-11-18:**
+1. Tab label "Quarterly", route `/quarterly`. The header goes to six links.
+2. Storage: a new top-level collection `quarterly/` (the user runs one rules deploy). Or
+   `meta/quarterly_index` + `meta/quarterly_{period}`: no deploy, but it crowds `meta/`.
+3. Event sections report two windows: filed during the quarter, and filed since it ended. Or the
+   quarter only.
+4. The 13F lists count **net** buyers and sellers (`bought`, `sold`, `split`). They are not the
+   Patterns page's consensus tables, and Patterns does not change. The two differ on purpose:
+   Patterns lists AMZN as both a consensus buy and a consensus exit at 2026 Q3; the issue lists it
+   once, under "Where they disagree" (10 buying, 11 selling).
+5. AI notes (20.5): the Anthropic Messages API, model `claude-fable-5-1`, secret
+   `ANTHROPIC_API_KEY`. That is a paid API account, separate from a Claude subscription; about one
+   small call per monthly run. Or skip 20.5: the issue is complete with template text only.
+6. Back issues: only the current issue at launch. `quarterly.py --period` builds an older one by hand.
+7. Font: Geist only. A serif headline face would be a new dependency.
+8. Insider buyer counts (found 2026-11-18, affects section K, not only this milestone): a joint
+   Form 4 lists several reporting owners (a fund, its GP, its adviser, the people behind them),
+   and each becomes its own row and its own "insider". 18 of the 63 published clusters are one
+   filing group counted 3–9 times (KOD and MDGL are Baker Bros' six entities; the other 16 were
+   there before the roster change), and KOD's issuer doc fills its 500-trade cap with six copies
+   of each trade; its bought value is six times too high. Default: fix section K first (Milestone
+   20.0); `insider_buys`, `isCluster` and the `cross` `INSIDER` set then inherit it.
+
+**Decisions (locked by the user, 2026-11-17):** a page on the site, in a new tab; template text is
+the base; an LLM may be blended in, because it runs rarely; not only 13F — 13D/13G and Form 4 too.
+
+**Decisions (locked by this plan):**
+- Python computes every number and writes every template sentence. The browser renders. Same rule
+  as "Where logic lives".
+- No new signal math. Every number is a count or a sum over rows that sections A–K already define.
+- No SEC request. The issue reads only what the three pipelines already stored.
+- No new Python or npm dependency. 20.5 uses `requests`, already installed for OpenFIGI.
+- No new workflow. The issue is built in the last step of the monthly ingest job. Each monthly run
+  rebuilds the current issue, so its `since` window grows. When a newer quarter becomes the issue
+  period, the old issue is no longer rebuilt.
+- Written in place (`quarterly/{period}`, `quarterly/index`), not under `datasets/`: an issue is
+  built after the snapshot switch, and old issues must outlive `prune_datasets`.
+
+**Verified facts — do not re-derive, do not deviate without asking** (checked live, read-only,
+against the production archive on 2026-11-17):
+- GCS has `parquet/<table>/<period>.parquet` for every period in `meta/latest.periods`. It also
+  has `2023-09-30`, which left the 12-quarter window and is no longer rewritten (last updated
+  2026-10-19). Read only periods listed in `meta/latest.periods`.
+- The archive is written 5–6 minutes before `meta/latest.updatedAt`, in the same run
+  (2026-11-17: Parquet 03:08:35–03:08:46 UTC, `updatedAt` 03:14:17 UTC). firebase-admin returns
+  `updatedAt` as a timezone-aware datetime, and `blob.updated` is timezone-aware too, so they
+  subtract directly. `bucket.get_blob(name)` returns `None` for a missing object and fills
+  `updated`; `bucket.blob(name)` does neither.
+- `stock_quarter_summary` (C) columns: `period, symbol, name, manager_count, managers_total,
+  pct_holding, avg_weight, median_weight, max_weight, total_value, new_count, added_count,
+  trimmed_count, unchanged_count, sold_out_count, holders, sold_out, avg_change, raw, score,
+  score_peak`. `holders` cells are numpy arrays of `{cik, short, value, shares, weight,
+  prev_weight, change, status}`; `sold_out` cells are numpy arrays of `{cik, short, prev_weight}`.
+  Iterate them; never test one with `if cell:` (an array's truth value raises).
+- `biggest_new`: `period, cik, short, symbol, name, weight, value`. `high_conviction`: `period,
+  symbol, name, managers, avg_weight, max_weight, new, added, manager_names`. `sector_rotation`:
+  `period, sector, avg_weight, avg_prev_weight, avg_change, increasing, decreasing`.
+- 13F weights and `avg_change` are fractions (`0.032` = 3.2%). 13D `pct` and `change_pp` are
+  already percent and percentage points.
+- At 2026-09-30, with `consensus_min_managers` 3: C has 1,942 rows, 1,727 with
+  `manager_count > 0`, 3 symbols starting with `_`. `bought` 55 rows (META 13 buyers / 7 sellers,
+  INTC 6/1, MOD 5/0, SKHY 5/0), 2 contested; `sold` 79 (GOOGL 3/16, GOOG 2/9, SNOW 0/6, MSFT 4/9),
+  4 contested; `split` 24 (AMZN 10/11, TSM 9/7, NVDA 8/6, SPCX 6/7, UBER 5/5). Totals: opened 590,
+  closed 620, added 949, trimmed 869, unchanged 499. Conviction: entered AVGO, CRM, INTC, KKR,
+  SPGI; left AMAT, EA, LRCX, MU, WBD; 15 stayed. Coverage 40 of 40. These are the 20.3 dry-run
+  check (they move if the archive is rebuilt).
+- `meta/latest.coverage` is a list of `{period, filed[short], missing[short]}`.
+- `ownership_derive.events()` rows carry `filed_at` (ISO date text, so text comparison is date
+  order — `ownership_store` relies on this), `form` (`13D`/`13G`), `event`, `priority`,
+  `investor_cik`, `investor_name`, `short`, `is_roster`, `is_activist`, `symbol`, `issuer_name`,
+  `pct`, `change_pp`, `holders13f`, `accession`, `url`, `purpose`. `insider_derive.trades()` rows
+  carry `filed_at`, `code`, `kind`, `owner_cik`, `symbol`, `issuer_name`, `value`, `is_planned`,
+  `is_discretionary_sale`, `holders13f`; it turns placeholder symbols into `_ISSUER<cik>`, so the
+  `_` rule drops them. `is_discretionary_sale` is false when `aff10b5_one` is None: such a sale
+  counts as neither planned nor discretionary.
+- `pipeline.publish(db, {"quarterly": {P: issue}}, "quarterly/index", index)` writes the pages,
+  then the index last. Two writes per run.
+- Web: `quarterLabel("2026-09-30")` in `format.ts` is `"2026 Q3"`; Python's `label` must match.
+  `QuarterSelect({periods, value, onChange})` labels with `quarterLabel`. `fetchDoc<T>(path)` in
+  `data.ts` returns `null` for a missing doc. `ManagerLink` needs `cik` and `label`; `StockLink`
+  needs `symbol`. The footer already says "Not investment advice."
+- `firestore.rules` allows reads only on a fixed list of collections. A new top-level collection
+  is denied until it is listed and deployed.
+
+Naming: Python `quarterly.py`, `quarterly_derive.py`, `quarterly_text.py`, `quarterly_llm.py`
+(20.5); tests `test_quarterly_derive.py`, `test_quarterly_text.py`, `test_quarterly.py`,
+`test_quarterly_llm.py`; Firestore `quarterly/{period}`, `quarterly/index`; web
+`quarterlyTypes.ts`, `quarterly.ts`, `quarterly.test.ts`, `pages/QuarterlyPage.tsx`,
+`pages/quarterly/*.tsx`; config block `quarterly`; workflow step "Build quarterly issue" in
+`ingest.yml`.
+
+#### Milestone 20.0 — Joint Form 4 filers count once
+Status: not started
+
+Tasks
+1. Section K: `filer_group` and `is_primary`; clusters count `filer_group` (already in this file).
+2. `insider_derive.trades()` adds both columns. `clusters`, `issuer_summary` and `vs_13f` count
+   distinct `filer_group` and run on `is_primary` rows; `recent` keeps `is_primary` rows; `people`
+   keeps every row.
+3. `insider_store`: issuer docs and the feed list and count `is_primary` rows; person docs keep
+   every row. No document shape changes (a cluster's `buyers[]` now holds group CIKs).
+4. Tests: three owners on one filing are one buyer and one copy of the value; two owners who never
+   file together are two; a group links through a shared owner across two filings.
+5. After the push, refresh production from the log with no SEC request: every `insider_issuers`
+   doc, `insider/clusters` and `insider/feed`.
+
+Acceptance criteria
+- [ ] `pytest` green, `ruff` clean.
+- [ ] On the production log, the 18 joint-filer clusters of 2026-11-18 are gone, none is added,
+      and each of the five largest filer groups is one sponsor's entities or a consortium that
+      filed together (2026-11-18: Blackstone 56, Advent with ADIA 34, Insight 34, a family
+      office 29, Carlyle 26). The step stays well under a second on the full log.
+- [ ] `insider_issuers/KOD` lists each transaction once.
+
+#### Milestone 20.1 — Contract, config, rules
+Status: not started
+
+Tasks
+1. Section M, the Decisions row, the architecture branch, the repo-layout entries, the two
+   `quarterly/*` Firestore rows, the `ANTHROPIC_API_KEY` secrets row and Manual setup 9–10 are
+   already in this file. Read them; change nothing without asking.
+2. `ingest/signals_config.json`: a `"quarterly"` block with exactly the 5 keys at the end of
+   section M, with those defaults. Do not bump `methodology_version`: no published signal changes.
+3. `firestore.rules`: add `'quarterly'` to the allow-list. Update the copy of the rules in this
+   file to match.
+4. `CLAUDE.md`:
+   - "Where logic lives": quarterly facts in `ingest/quarterly_derive.py`; its sentences in
+     `ingest/quarterly_text.py`.
+   - Commands: `python quarterly.py --dry-run`.
+   - A "Quarterly issue gotchas" section, one line each: no new signal math (change section M
+     first); event sections key on `filed_at`; a window before a pipeline's `start_date` is
+     `noData`, shown as "no data", never 0; `holders13f` comes from C at the issue period, not
+     `meta/holder_counts`; a missing or stale table means exit 1 and write nothing; never put a
+     13D `purpose` or a Form 4 footnote in the issue or a prompt; no puts in the issue, never the
+     word "short"; planned and discretionary sales are never summed; AI text is untrusted model
+     output, checked field by field, rendered as plain text.
+5. Commit `docs: plan milestone 20 — quarterly issue`.
+6. Stop and ask the user to run `npx firebase-tools deploy --only firestore:rules`. The dev agent
+   never deploys.
+
+Acceptance criteria
+- [ ] This file contains "### M. Quarterly issue", two `quarterly/*` rows in the Firestore table,
+      and Milestones 20.1–20.6.
+- [ ] `python -c "import json; print(sorted(json.load(open('ingest/signals_config.json'))['quarterly']))"`
+      prints the 5 keys.
+- [ ] `firestore.rules` and the copy in this file both list `'quarterly'`; no other rules change.
+- [ ] After the user's deploy, an unauthenticated REST read of
+      `quarterly/index` returns `NOT_FOUND`, not `PERMISSION_DENIED`:
+      `curl.exe -s "https://firestore.googleapis.com/v1/projects/$env:FIREBASE_PROJECT_ID/databases/(default)/documents/quarterly/index"`.
+- [ ] `CLAUDE.md` has "Quarterly issue gotchas" naming `filed_at`, `noData`, `purpose` and the
+      stale-table guard.
+- [ ] `pytest` and `npm run test` still green.
+
+#### Milestone 20.2 — Facts (`quarterly_derive.py`)
+Status: not started
+
+Tasks
+1. `ingest/quarterly_derive.py`: typed, pure (frames and dicts in, dicts out; no network, no file,
+   no Firestore). Public functions, the ones the tests call:
+   - `label(period: str) -> str` → `"2026 Q3"`.
+   - `issue_period(periods: list[str], coverage: list[dict], total: int, min_coverage: float) -> Optional[tuple[str, str]]`
+     → `(P, prev)` per section M, or `None`.
+   - `windows(period: str, prev_period: str, today: str) -> dict` per section M.
+   - `stale_tables(updated: dict[str, Optional[datetime]], published_at: datetime) -> list[str]`
+     → the table names that are missing (`None`) or older than `published_at − STALE_HOURS`
+     (`STALE_HOURS = 6`, a code constant).
+   - `facts(tables: dict[str, pd.DataFrame], events: pd.DataFrame, trades: pd.DataFrame, meta: dict, period: str, prev: str, today: str, cfg: dict) -> dict`
+     → the issue doc of section M without the text fields (`headline`, `lede`, each section's
+     `title` and `summary`) and with `ai` = `None`. `tables` keys: `stock_quarter_summary`,
+     `biggest_new`, `high_conviction`, `high_conviction_prev`, `sector_rotation`. `cfg` is the
+     whole config. camelCase keys; JSON-safe values (no NaN, no numpy types — reuse
+     `store.records`). `builtAt` is set by the CLI, not here.
+2. `ingest/test_quarterly_derive.py`, hand-made frames, made-up tickers only:
+   - `windows("2026-09-30", "2026-06-30", "2026-11-17")` → quarter 2026-07-01..2026-09-30, since
+     2026-10-01..2026-11-17; with today `2027-02-16` the since end is 2026-12-31.
+   - `issue_period`: a newest period with 30 of 40 filed is skipped for an older one with 40 of
+     40; the oldest period is never picked; nothing qualifies → `None`.
+   - `stale_tables`: missing → listed; 7 h older → listed; 5 min older → not listed.
+   - `label`: 2026-09-30 → "2026 Q3"; 2026-12-31 → "2026 Q4".
+   - 13F lists, min 3 (buyers/sellers): 5/5 → `split` only; 5/1 → `bought`, not contested;
+     5/3 → `split` (net 2 < 3); 7/3 → `bought`, contested; 2/0 → in no list; 1/5 → `sold`.
+     `bought` order: net desc, then buyers desc, then symbol.
+   - `rows_per_section` 1 caps `rows` while `total` counts every row that passed.
+   - A symbol starting with `_` in C, in the events and in the trades appears in no section.
+   - `conviction`: ENTERED, STAYED and LEFT rows, in that order; a LEFT row carries `prev`'s values.
+   - `stakes`: a roster `UPDATED` event is dropped; a non-roster `HIGH` event with `holders13f` 0
+     is dropped and one with 2 is kept; `event` None is dropped; an event filed on a window's
+     first or last day is kept (inclusive); no row has a `purpose` key.
+   - `noData`: with `insider.start_date` after the quarter window's start, `insider_buys` and
+     `insider_sales` list `"quarter"` in `noData` and have no quarter rows.
+   - `insider_sales`: one planned sale and one discretionary sale on a symbol → 1 and 1, values
+     apart; a symbol with only planned sales is dropped; a sale with `aff10b5_one` None counts in
+     neither.
+   - `insider_buys`: the same owner twice counts once; `isCluster` at exactly
+     `insider.cluster_min_insiders` buyers.
+   - `cross`: a `bought` symbol with a HIGH 13D `NEW` → `["13F", "13D"]`; a symbol with insider
+     buys only is not in `cross`; a `bought` row past the cap still counts.
+   - `totals` sums; `json.dumps(facts(...), allow_nan=False)` succeeds.
+3. Commit `feat: quarterly issue facts`.
+
+Acceptance criteria
+- [ ] `pytest` green, `ruff format --check .` and `ruff check .` clean.
+- [ ] `quarterly_derive.py` does no I/O and stays under 300 lines.
+- [ ] Every case in task 2 has a test.
+
+#### Milestone 20.3 — Text, CLI, workflow step, first issue
+Status: not started
+
+Tasks
+1. `ingest/quarterly_text.py`, pure: `add_text(issue: dict, cfg: dict) -> dict` returns a new
+   dict with `headline`, `lede`, and each section's `title` and `summary`.
+   - Helpers: `pct1(0.0321)` → `"3.2%"`; `pp1(0.008)` → `"+0.8 pts"`;
+     `names(["A", "B", "C", "D"])` → `"A, B, C and 1 more"`, `names(["A", "B"])` → `"A and B"`,
+     `names(rows, total=16)` counts rows past the cap; `window_counts(section)` →
+     `"12 during the quarter, 5 since it ended"` from `windowTotals`, with `"no data"` in place
+     of a number for a window in `noData`. (No dollar helper: no sentence uses a dollar figure.)
+   - Titles: `bought` "Most net buyers", `sold` "Most net sellers", `split` "Where they disagree",
+     `new_positions` "Biggest new positions", `conviction` "High-conviction list", `sectors`
+     "Sector shifts", `stakes` "Large-holder filings (13D/13G)", `insider_buys` "Insider buying",
+     `insider_sales` "Insider sales (discretionary)", `cross` "Across filings".
+   - Headline: `Managers bought {B1}, {B2} and {B3}; sold {S1}, {S2} and {S3}` (top 3 symbols of
+     `bought` and `sold`). One side empty: `Managers bought {…}` or `Managers sold {…}`. Both
+     empty: `A quiet quarter: no stock had {min} or more managers buying or selling on net`.
+   - Lede: `{filed} of {total} tracked managers have filed for {label}. Together they opened
+     {opened} positions, closed {closed}, added to {added} and trimmed {trimmed}.` Then
+     ` Not yet filed: {names(missing)}.` when any are missing.
+   - Section summaries (`n` = `total`, `X1` = the first row; the second sentence after "None:" is
+     the empty case):
+     - `bought`: `{n} stocks had more managers buying than selling. {X1} led: {buyers} bought or
+       added, {sellers} trimmed or sold.` None: `No stock had {min} or more managers buying on net.`
+     - `sold`: `{n} stocks had more managers selling than buying. {X1} led: {sellers} trimmed or
+       sold, {buyers} bought or added.` None: `No stock had {min} or more managers selling on net.`
+     - `split`: `Managers were close to evenly split on {n} stocks. The largest: {X1}, {buyers}
+       buying and {sellers} selling.` None: `No stock split the managers.`
+     - `new_positions`: `The largest new position: {short} opened {symbol} at {pct1(weight)} of
+       its portfolio.` None: `No manager opened a new position.`
+     - `conviction`: `{k} stocks are held at {pct1(min_weight)} or more of the portfolio by at
+       least {min_managers} managers.` (`k` = ENTERED + STAYED rows) then ` Joined: {names}.` and
+       ` Left: {names}.` when not empty. None: `No stock met the high-conviction bar.`
+     - `sectors`: `{top} gained the most average weight ({pp1}).` when the first row's
+       `avgChange` > 0, then ` {bottom} lost the most ({pp1}).` when the last row's < 0. Neither:
+       `No sector moved.`
+     - `stakes`: `Notable 13D/13G filings: {window_counts}.`
+     - `insider_buys`: `Companies with open-market insider buying: {window_counts}.` (The cluster
+       count is left to the page's badge: rows are capped, so a count from them would be short.)
+     - `insider_sales`: `Companies with discretionary insider sales: {window_counts}. Planned
+       (Rule 10b5-1) sales are counted apart.`
+     - `cross`: `{n} stocks showed up in more than one kind of filing: {names}.` None: `No stock
+       showed up in more than one kind of filing.`
+   - Language rules: no advice words; never the word "short"; planned and discretionary sales
+     named apart; a `noData` window reads "no data", never 0.
+2. `ingest/test_quarterly_text.py`: each helper; the three headline cases; the lede with and
+   without missing managers; each section's empty sentence; a `noData` window reads "no data";
+   no output for the test issues contains `\bshort\b`.
+3. `ingest/quarterly.py`:
+   - Flags: `--dry-run` (print, write nothing), `--period YYYY-MM-DD` (build that issue; must be in
+     `meta/latest.periods` and not the oldest).
+   - Flow: `load_dotenv(HERE / ".env")`, `load_config`, `init_firestore`,
+     `gcs_bucket("quarterly")`; `read_published` → meta; `issue_period` (or `--period`); read the
+     five tables with `get_blob` and run `stale_tables` against `meta["updatedAt"]` — on any hit,
+     print the names and exit 1 before anything else; `read_state` the ownership and insider logs;
+     `holders` from C; `ownership_derive.events(log, load_funds(), cfg["ownership"], holders)`;
+     `insider_derive.trades(log, cfg["insider"], holders)`; `facts`; `add_text`; set `builtAt`.
+   - Dry run: print label, `P`/`prev`, windows, coverage, totals, headline, lede, and per section
+     the id, `total`, `noData`, the first 3 symbols and the summary; then
+     `len(json.dumps(issue))` bytes. No write.
+   - Real run: read `quarterly/index` (missing → empty), `merge_index(index, issue) -> dict`
+     (replace the entry for `P` or add it; newest period first; `updatedAt`), then
+     `publish(db, {"quarterly": {P: issue}}, "quarterly/index", index)`.
+   - `step_summary("Quarterly issue", [...])` with the label, the headline and per-section totals.
+   - Exit 1 when no period qualifies or a table is stale; 0 otherwise.
+4. `ingest/test_quarterly.py`: `merge_index` replaces the same period, adds a new one, keeps
+   newest first.
+5. `.github/workflows/ingest.yml`, after "Commit keepalive marker":
+   ```yaml
+   - name: Build quarterly issue
+     if: ${{ github.event.inputs.dry_run != 'true' }}
+     env:
+       GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+       GCS_BUCKET: ${{ vars.GCS_BUCKET }}
+     run: python ingest/quarterly.py
+   ```
+   No other workflow change; `permissions` unchanged. (An `if:` without a status function keeps
+   the implicit `success()`, so a failed ingest skips this step.)
+6. First issue, after the 20.1 rules deploy: `python quarterly.py --dry-run`, compare it to the
+   verified facts, then `python quarterly.py`.
+7. Commits: `feat: quarterly issue text and builder`, `ci: build the quarterly issue after each ingest`.
+
+Acceptance criteria
+- [ ] `pytest` green, `ruff format --check .` and `ruff check .` clean.
+- [ ] `python quarterly.py --dry-run` prints label `2026 Q3`, coverage 40 of 40, and the verified
+      counts (or each difference explained); `quarterly/index` is still `NOT_FOUND` afterwards.
+- [ ] The dry-run doc size is under 100 KB.
+- [ ] `python quarterly.py` writes `quarterly/2026-09-30` and `quarterly/index`; the
+      unauthenticated REST read now returns the index.
+- [ ] `ingest.yml` has the step; no secret is printed; `permissions` unchanged.
+
+#### Milestone 20.4 — Web: `/quarterly`
+Status: not started
+
+Tasks
+1. `web/src/quarterlyTypes.ts`: the index and issue types from section M; section rows as a
+   union keyed on `id`. No `any`.
+2. `data.ts`: `getQuarterlyIndex()` → `fetchDoc('quarterly/index')`;
+   `getQuarterlyIssue(period)` → `fetchDoc('quarterly/' + period)`.
+3. `web/src/quarterly.ts`, pure, with `quarterly.test.ts`:
+   - `issueText(issue)` → `{headline, lede, isAi}`: each field from `ai` when present, else the
+     template; `isAi` true when either came from `ai`.
+   - `windowLabel(window)` → `"Filed Jul 1 – Sep 30, 2026"`.
+4. `web/src/pages/QuarterlyPage.tsx` plus `web/src/pages/quarterly/*.tsx` (one small component
+   per section shape; each file under ~300 lines). Routes `/quarterly` (newest issue in the
+   index) and `/quarterly/:period`. `NAV_LINKS` gains `{ to: '/quarterly', label: 'Quarterly' }`;
+   the `/` redirect stays `/patterns`.
+5. Look: an editorial page with the existing paper/ink tokens and Geist only. A masthead (kicker
+   "Quarterly", the large label, a dateline with `builtAt` and coverage, and the issue picker
+   using `QuarterSelect` over the index periods); headline and lede; `StatTile`s for opened,
+   closed, added, trimmed; numbered section kickers (`01` …) with rules between sections;
+   `bought`/`sold` and `insider_buys`/`insider_sales` side by side at ≥ 1024 px; tabular numbers.
+   Reuse `StockLink`, `ManagerLink`, `ColorBadge`, `StatTile`, `Explain`, `AsyncStates`,
+   `useAsyncData` and `format.ts`; shadcn `table` for rows.
+6. Each section shows its template `summary`. An AI note, when present, shows under it. When
+   `isAi`, one line under the lede: "AI-written summary · checked against the numbers below · not
+   investment advice". Every text field renders as plain text; never `dangerouslySetInnerHTML`.
+7. `noData` windows render "No data for this window", never an empty table or 0. Contested rows
+   carry a small badge ("contested"). Stakes rows link the roster `short` to `/manager/:cik`;
+   outside filers show `investorName` as plain text; insider rows link only the symbol (no person
+   names in the issue).
+8. Empty states: no index → "No issue yet"; an unknown period → "No issue for this quarter" with a
+   link to the newest one.
+9. Commit `feat(web): quarterly issue page`.
+
+Acceptance criteria
+- [ ] `npm run test`, `npm run lint` and `npm run build` green.
+- [ ] `quarterly.test.ts` covers `issueText` (AI field wins; template fallback per field),
+      and `windowLabel`; a render test covers every section kind, a no-data window, and an AI
+      note with markup rendered as text.
+- [ ] `/quarterly` and `/quarterly/2026-09-30` render the issue in two reads; an unknown period
+      and a missing index show their empty states.
+- [ ] At 375 px: no page-level horizontal scroll, and the six-link header wraps cleanly.
+- [ ] No `dangerouslySetInnerHTML`, no new npm dependency (`git diff web/package.json` is empty),
+      no shadcn component beyond the 7.
+
+#### Milestone 20.5 — AI notes (`quarterly_llm.py`), optional
+Status: not started — build only if the user picks the API in open decision 5.
+
+Tasks
+1. Before writing code, check the request shape below against the current Anthropic API docs.
+   If anything differs, stop and ask.
+2. `ingest/quarterly_llm.py`:
+   - `facts_text(issue) -> str`: label, template headline, lede, and per section the title, the
+     template summary and compact row lines with only symbols, roster `short`s, sector names,
+     counts and percents. A non-roster filer is "an outside filer". Never a 13D `purpose`, a
+     Form 4 footnote, a person's name, an issuer name or an outside investor's name. The same
+     text is the prompt, the hash input and the validator's reference.
+   - `factsHash` = sha256 of `facts_text` + model id + `PROMPT_VERSION` (a code constant). An
+     unchanged hash reuses the stored `ai` with no call.
+   - The call: `POST https://api.anthropic.com/v1/messages` (a code constant); headers
+     `x-api-key`, `anthropic-version: 2023-06-01`, `content-type: application/json`; body
+     `model` and `max_tokens` from config, a `system` prompt constant, one user message with
+     `facts_text`, one tool `write_notes` with input schema `{headline: string, lede: string,
+     notes: {sectionId: string}}`, and `tool_choice: {"type": "tool", "name": "write_notes"}`.
+     No extended thinking. 60 s timeout. Send it through the retrying session `enrich._HTTP`.
+     Read the `tool_use` block's `input`.
+   - System prompt constant: "You write short, neutral summaries of SEC filing statistics for a
+     public dashboard. Use only the facts given. Do not add numbers, companies, causes, opinions,
+     predictions, or advice. Do not say why anyone traded. Do not use the word 'short'. Plain text
+     only."
+   - The key: `os.environ.get("ANTHROPIC_API_KEY")`. Never printed, never in a URL. On a failed
+     call print only the HTTP status and the API error type.
+   - Validator, field by field, fail-closed (a failing field is dropped, never repaired):
+     plain text only (no `<`, `>`, URL, backtick or markdown link); length caps (headline ≤ 90,
+     lede ≤ 400, note ≤ 240 chars; code constants); every number token
+     (`(?<![A-Za-z0-9.])\d[\d,]*(?:\.\d+)?(?![A-Za-z])`, commas stripped) must appear in
+     `facts_text`; every caps token (`\b[A-Z][A-Z0-9.\-]{1,6}\b`) must be an issue symbol, an
+     all-caps roster short, or in the allow-list `SEC, ETF, CEO, CFO, US, AI, Q1, Q2, Q3, Q4`;
+     no banned phrase (`should`, `recommend`, `advice`, `advise`, `price target`, `guarantee`,
+     `will rise`, `will fall`, `undervalued`, `overvalued`, `bullish`, `bearish`, `\bshort\b`,
+     `because`, `due to`); note keys must be section ids.
+   - Result: `ai = {model, generatedAt, factsHash, headline|None, lede|None, notes}`, or `None`
+     when the key is missing, the call fails or every field fails.
+3. `quarterly.py`: call it after `add_text` on a real run only. `--dry-run` makes no API call.
+   `--no-ai` publishes template-only and drops a stored `ai`. (No `--regenerate`: the model id
+   and `PROMPT_VERSION` are in the hash, so changing either forces a new call.)
+   A missing key or a failed call never fails the run (exit 0, template only).
+4. `ingest.yml`: `ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}` on the "Build quarterly
+   issue" step only. `ingest/.env.example`: `ANTHROPIC_API_KEY=`.
+5. `ingest/test_quarterly_llm.py` with a fake `post` (no network): a valid answer passes; an
+   invented number, an unknown ticker, markup, a URL, a banned phrase and an over-length field
+   are each dropped alone; an HTTP error → `ai` None; an unchanged hash → no call; a missing key
+   → no call; `facts_text` holds no `purpose` text and no outside investor name.
+6. Commit `feat: optional AI notes for the quarterly issue`.
+
+Acceptance criteria
+- [ ] `pytest` green, `ruff` clean.
+- [ ] With a fake key (`sk-test-not-real`), no output line contains the key.
+- [ ] After the user adds the secret, one real run stores `ai` with at least the headline, and
+      the page shows the AI label; a second run with no new filings makes no call.
+
+#### Milestone 20.6 — Docs and close-out
+Status: not started
+
+Tasks
+1. README: a short "Quarterly issue" section in simple English — what it is, that every number
+   comes from the filings, that AI notes are optional and checked.
+2. ARCHITECTURE.md: the quarterly branch in the pipeline diagram.
+3. METHODOLOGY.md: each section in plain words — net buyers, the split rule, windows keyed on
+   filing date, "no data" versus zero, planned versus discretionary sales.
+4. This file, "Skipped on purpose": options in the issue; email or RSS; a per-manager issue;
+   prices or returns; automatic back issues; a serif font.
+5. Set each 20.x `Status:` line to `done <short sha>`.
+
+Acceptance criteria
+- [ ] README, ARCHITECTURE.md, METHODOLOGY.md and CLAUDE.md each mention the quarterly issue.
+- [ ] Every 20.x `Status:` line is set.
+
 ## Doc specs
 
 ### README.md (humans)
@@ -2007,3 +2554,5 @@ The live site URL lives in the GitHub repo's own "website" field (repo Settings 
 - **Legacy `SC 13D` / `SC 13G` text filings (pre 2024-12-18)** — need an HTML/text parser; structured XML only for now.
 - **Universe-wide 13G** — drop the roster filter in `ownership_fetch.list_filings` and add a passive-giant exclusion list (Vanguard, BlackRock, State Street, …) when wanted.
 - **Item 4 purpose classification, feed pagination** — the purpose text is shown verbatim (truncated); the feed is one doc of `recent_events` rows.
+- **Quarterly issue extras (Milestone 20)** — options and puts in the issue; email or RSS; a per-manager issue; prices or returns; automatic back issues (`quarterly.py --period` by hand); a serif headline font (a new dependency). Add each when someone asks for it.
+- **A value floor for quarterly insider buys** — every open-market `P` trade counts, so small regular purchases (TSMC officers' monthly buys, dividend reinvestment at Simon Property) rank next to real conviction buys. Add a per-symbol minimum value when it gets in the way; it is a signal change, so decide it in section M first.

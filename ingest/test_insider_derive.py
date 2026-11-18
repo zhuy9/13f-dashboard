@@ -130,3 +130,42 @@ def test_derive_all_has_every_table(transactions):
 
 def test_every_code_is_classified():
     assert set(CODE_KINDS) == {"P", "S", "A", "M", "X", "F", "G", "C", "D"}
+
+
+def _buys(filings: list[tuple[str, list[str]]]) -> pd.DataFrame:
+    """One 100-share, $10 open-market buy of JNT per filing, emitted once per owner the way
+    parse_filing does for a joint Form 4."""
+    return pd.DataFrame(
+        [
+            {
+                "accession": acc, "form": "4", "filed_at": "2026-01-02", "transaction_date": "2026-01-01",
+                "issuer_cik": "9", "issuer_name": "Joint", "symbol": "JNT", "owner_cik": owner,
+                "owner_name": owner, "is_director": False, "is_officer": False, "is_ten_pct_owner": True,
+                "officer_title": None, "code": "P", "shares": 100, "price": 10, "value": 1000, "aff10b5_one": False,
+            }
+            for acc, owners in filings
+            for owner in owners
+        ]
+    )  # fmt: skip
+
+
+def test_owners_on_one_joint_filing_are_one_buyer_and_one_copy_of_the_value():
+    t = trades(_buys([("J1", ["1", "2", "3"])]), CFG, {"JNT": 1})
+    summary = issuer_summary(t, CFG).set_index("symbol").loc["JNT"]
+    assert (summary["buyers"], summary["boughtShares"], summary["boughtValue"]) == (1, 100, 1000)
+    assert clusters(t, CFG).empty
+    assert vs_13f(t, clusters(t, CFG), CFG).set_index("symbol").loc["JNT", "boughtValue"] == 1000
+    assert len(derive_all(_buys([("J1", ["1", "2", "3"])]), CFG, {"JNT": 1})["recent"]) == 1
+
+
+def test_owners_who_file_apart_are_separate_buyers():
+    t = trades(_buys([("A1", ["1"]), ("A2", ["2"]), ("A3", ["3"])]), CFG, None)
+    assert issuer_summary(t, CFG).set_index("symbol").loc["JNT", "buyers"] == 3
+    assert clusters(t, CFG).set_index("symbol").loc["JNT", "buyer_count"] == 3
+
+
+def test_a_filer_group_links_through_a_shared_owner():
+    t = trades(_buys([("A1", ["1", "2"]), ("A2", ["2", "3"]), ("A3", ["4"])]), CFG, None)
+    assert t.groupby("owner_cik")["filer_group"].first().to_dict() == {"1": "1", "2": "1", "3": "1", "4": "4"}
+    assert issuer_summary(t, CFG).set_index("symbol").loc["JNT", "buyers"] == 2
+    assert len(people(t)) == 4  # each owner keeps a person row

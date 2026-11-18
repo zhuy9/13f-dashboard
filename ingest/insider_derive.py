@@ -62,6 +62,25 @@ def _first_buy_in_window(trades: pd.DataFrame, cfg: dict) -> pd.Series:
     return out
 
 
+def _joint_filers(trades: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
+    """(filer_group, is_primary). The group is the smallest owner CIK among owners linked by
+    filing together: owners on one accession are linked, and links chain across accessions
+    (min-label propagation until it settles). Primary is the accession's smallest owner CIK, so
+    each transaction line has one primary copy. Integer codes sorted like the CIKs keep it fast.
+    # ponytail: links never expire, so a consortium that filed jointly once is one buyer
+    # everywhere; scope links to the issuer if that ever splits real separate buyers."""
+    codes, ciks = pd.factorize(trades["owner_cik"], sort=True)
+    filing = pd.factorize(trades["accession"])[0]
+    own = pd.Series(codes, index=trades.index)
+    is_primary = own.eq(own.groupby(filing).transform("min"))
+    group = own
+    while True:
+        settled = group.groupby(filing).transform("min").groupby(codes).transform("min")
+        if settled.equals(group):
+            return pd.Series(ciks[settled.to_numpy()], index=trades.index), is_primary
+        group = settled
+
+
 def trades(transactions: pd.DataFrame, cfg: dict, holder_counts: Optional[dict[str, int]]) -> pd.DataFrame:
     out = transactions.copy()
     # A few real filers' transactionDate values carry a trailing UTC offset (e.g. "-05:00") on
@@ -78,6 +97,9 @@ def trades(transactions: pd.DataFrame, cfg: dict, holder_counts: Optional[dict[s
     out["is_discretionary_sale"] = (out["code"] == "S") & (out["aff10b5_one"] == False)  # noqa: E712
     out["first_buy_in_window"] = _first_buy_in_window(out, cfg)
     out["holders13f"] = out["symbol"].map(holder_counts).fillna(0).astype(int) if holder_counts is not None else None
+    # A joint Form 4 lists every reporting owner (a fund, its GP, the people behind it), and the
+    # log holds each transaction once per owner. Counts use the group; sums and lists one copy.
+    out["filer_group"], out["is_primary"] = _joint_filers(out)
 
     threshold = cfg["min_open_market_value"]
     meets_value = out["value"].fillna(0) >= threshold
@@ -123,14 +145,14 @@ def _window(trades: pd.DataFrame, days: int) -> tuple[pd.Series, pd.Timestamp, p
 
 
 def clusters(trades: pd.DataFrame, cfg: dict) -> pd.DataFrame:
-    """Per symbol, distinct buyers in the last `cluster_window_days`; kept when the count is
-    >= `cluster_min_insiders`."""
+    """Per symbol, distinct buyers (filer groups) in the last `cluster_window_days`; kept when
+    the count is >= `cluster_min_insiders`."""
     dates, window_start, as_of = _window(trades, cfg["cluster_window_days"])
     buys = trades[(trades["kind"] == "BUY") & dates.between(window_start, as_of)]
 
     rows = []
     for symbol, group in buys.groupby("symbol"):
-        buyers = sorted(group["owner_cik"].unique())
+        buyers = sorted(group["filer_group"].unique())
         if len(buyers) < cfg["cluster_min_insiders"]:
             continue
         meta = group.iloc[0]
@@ -150,7 +172,7 @@ def clusters(trades: pd.DataFrame, cfg: dict) -> pd.DataFrame:
 def issuer_summary(trades: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     """Per symbol, over open-market rows only. Planned and discretionary sales are counted
     separately and never summed into one "insider selling" number."""
-    market = trades[trades["is_open_market"]]
+    market = trades[trades["is_open_market"] & trades["is_primary"]]
     rows = []
     for symbol, group in market.groupby("symbol"):
         buys = group[group["code"] == "P"]
@@ -161,14 +183,14 @@ def issuer_summary(trades: pd.DataFrame, cfg: dict) -> pd.DataFrame:
                 "symbol": symbol,
                 "issuer_cik": meta["issuer_cik"],
                 "issuer_name": meta["issuer_name"],
-                "buyers": buys["owner_cik"].nunique(),
-                "sellers": sells["owner_cik"].nunique(),
+                "buyers": buys["filer_group"].nunique(),
+                "sellers": sells["filer_group"].nunique(),
                 "boughtShares": buys["shares"].sum(),
                 "soldShares": sells["shares"].sum(),
                 "boughtValue": buys["value"].sum(),
                 "soldValue": sells["value"].sum(),
-                "discretionarySellers": sells[sells["is_discretionary_sale"]]["owner_cik"].nunique(),
-                "plannedSellers": sells[sells["is_planned"]]["owner_cik"].nunique(),
+                "discretionarySellers": sells[sells["is_discretionary_sale"]]["filer_group"].nunique(),
+                "plannedSellers": sells[sells["is_planned"]]["filer_group"].nunique(),
                 "lastTradeAt": group["transaction_date"].max(),
             }
         )
@@ -179,7 +201,9 @@ def vs_13f(trades: pd.DataFrame, clusters: pd.DataFrame, cfg: dict) -> pd.DataFr
     """Symbols with >= 1 open-market BUY in `cluster_window_days` and `holders13f >= 1` --
     "insiders are buying something the tracked managers already own", the cross-pipeline table."""
     dates, window_start, as_of = _window(trades, cfg["cluster_window_days"])
-    buys = trades[(trades["code"] == "P") & dates.between(window_start, as_of) & (trades["holders13f"] >= 1)]
+    buys = trades[
+        (trades["code"] == "P") & trades["is_primary"] & dates.between(window_start, as_of) & (trades["holders13f"] >= 1)
+    ]
 
     clustered_symbols = set(clusters["symbol"])
     rows = []
@@ -190,7 +214,7 @@ def vs_13f(trades: pd.DataFrame, clusters: pd.DataFrame, cfg: dict) -> pd.DataFr
                 "symbol": symbol,
                 "issuer_cik": meta["issuer_cik"],
                 "issuer_name": meta["issuer_name"],
-                "buyers": group["owner_cik"].nunique(),
+                "buyers": group["filer_group"].nunique(),
                 "boughtValue": group["value"].sum(),
                 "holders13f": int(meta["holders13f"]),
                 "hasCluster": symbol in clustered_symbols,
@@ -227,7 +251,7 @@ def people(trades: pd.DataFrame) -> pd.DataFrame:
 
 
 def recent(trades: pd.DataFrame, n: int) -> pd.DataFrame:
-    return trades.sort_values(["filed_at", "accession"], ascending=[False, False]).head(n)
+    return trades[trades["is_primary"]].sort_values(["filed_at", "accession"], ascending=[False, False]).head(n)
 
 
 def derive_all(transactions: pd.DataFrame, cfg: dict, holder_counts: Optional[dict[str, int]]) -> dict:

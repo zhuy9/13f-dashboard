@@ -48,6 +48,7 @@ def headline_counts(
 
 def build_feed(tables: dict, cfg: dict, universe: dict, now: Optional[date] = None) -> dict:
     trades, clusters, vs_13f = tables["trades"], tables["clusters"], tables["vs_13f"]
+    one_copy = trades[trades["is_primary"]]
     return {
         "updatedAt": firestore.SERVER_TIMESTAMP,
         "startDate": cfg["start_date"],
@@ -55,11 +56,11 @@ def build_feed(tables: dict, cfg: dict, universe: dict, now: Optional[date] = No
         "universe": universe,
         "counts": {
             "filings": int(trades["accession"].nunique()),
-            "trades": int(len(trades)),
+            "trades": int(len(one_copy)),
             "issuers": int(trades["symbol"].nunique()),
             "people": int(trades["owner_cik"].nunique()),
         },
-        "headline": headline_counts(trades, clusters, cfg["start_date"], now),
+        "headline": headline_counts(one_copy, clusters, cfg["start_date"], now),
         "trades": records(tables["recent"][TRADE_FIELDS]),
         "clusters": records(clusters),
         "vsThirteenF": records(vs_13f),
@@ -77,7 +78,8 @@ def build_issuer_docs(tables: dict, cfg: dict, only_symbols: Optional[set] = Non
     people = tables["people"]
     people_by_symbol = dict(tuple(people.groupby("symbol")))
     docs = {}
-    for symbol, trades in newest_first(tables["trades"], "symbol", only_symbols):
+    one_copy = tables["trades"][tables["trades"]["is_primary"]]
+    for symbol, trades in newest_first(one_copy, "symbol", only_symbols):
         meta = trades.iloc[0]
         docs[symbol] = {
             "symbol": symbol,

@@ -2069,7 +2069,7 @@ Verification: `pytest` 172 green, `ruff check` clean. Insider backfill `2025-09-
 
 ## Milestone 20 — Quarterly issue (`/quarterly`)  (planned by the planning model; built by the dev model)
 
-Status: in progress. The user confirmed every default below on 2026-11-18.
+Status: in progress. The user confirmed every default below on 2026-11-18. Code done (e2930ba..f6a15fd); open: the push, the rules deploy, the insider refresh, the first real issue, the page check with live data, and the API key.
 
 One page per 13F quarter, in a new tab, that says in short tables and plain sentences what
 changed: what the tracked managers bought and sold, where they split, who filed a 13D/13G, and what
@@ -2169,7 +2169,7 @@ Naming: Python `quarterly.py`, `quarterly_derive.py`, `quarterly_text.py`, `quar
 `ingest.yml`.
 
 #### Milestone 20.0 — Joint Form 4 filers count once
-Status: not started
+Status: code done f0b8ae0; the production refresh (task 5) waits on the push.
 
 Tasks
 1. Section K: `filer_group` and `is_primary`; clusters count `filer_group` (already in this file).
@@ -2184,15 +2184,15 @@ Tasks
    doc, `insider/clusters` and `insider/feed`.
 
 Acceptance criteria
-- [ ] `pytest` green, `ruff` clean.
-- [ ] On the production log, the 18 joint-filer clusters of 2026-11-18 are gone, none is added,
+- [x] `pytest` green, `ruff` clean.
+- [x] On the production log, the 18 joint-filer clusters of 2026-11-18 are gone, none is added,
       and each of the five largest filer groups is one sponsor's entities or a consortium that
       filed together (2026-11-18: Blackstone 56, Advent with ADIA 34, Insight 34, a family
       office 29, Carlyle 26). The step stays well under a second on the full log.
 - [ ] `insider_issuers/KOD` lists each transaction once.
 
 #### Milestone 20.1 — Contract, config, rules
-Status: not started
+Status: done e2930ba, except the rules deploy, which the user runs.
 
 Tasks
 1. Section M, the Decisions row, the architecture branch, the repo-layout entries, the two
@@ -2218,20 +2218,20 @@ Tasks
    never deploys.
 
 Acceptance criteria
-- [ ] This file contains "### M. Quarterly issue", two `quarterly/*` rows in the Firestore table,
+- [x] This file contains "### M. Quarterly issue", two `quarterly/*` rows in the Firestore table,
       and Milestones 20.1–20.6.
-- [ ] `python -c "import json; print(sorted(json.load(open('ingest/signals_config.json'))['quarterly']))"`
+- [x] `python -c "import json; print(sorted(json.load(open('ingest/signals_config.json'))['quarterly']))"`
       prints the 5 keys.
-- [ ] `firestore.rules` and the copy in this file both list `'quarterly'`; no other rules change.
+- [x] `firestore.rules` and the copy in this file both list `'quarterly'`; no other rules change.
 - [ ] After the user's deploy, an unauthenticated REST read of
       `quarterly/index` returns `NOT_FOUND`, not `PERMISSION_DENIED`:
       `curl.exe -s "https://firestore.googleapis.com/v1/projects/$env:FIREBASE_PROJECT_ID/databases/(default)/documents/quarterly/index"`.
-- [ ] `CLAUDE.md` has "Quarterly issue gotchas" naming `filed_at`, `noData`, `purpose` and the
+- [x] `CLAUDE.md` has "Quarterly issue gotchas" naming `filed_at`, `noData`, `purpose` and the
       stale-table guard.
-- [ ] `pytest` and `npm run test` still green.
+- [x] `pytest` and `npm run test` still green.
 
 #### Milestone 20.2 — Facts (`quarterly_derive.py`)
-Status: not started
+Status: done 51e8da2
 
 Tasks
 1. `ingest/quarterly_derive.py`: typed, pure (frames and dicts in, dicts out; no network, no file,
@@ -2278,12 +2278,12 @@ Tasks
 3. Commit `feat: quarterly issue facts`.
 
 Acceptance criteria
-- [ ] `pytest` green, `ruff format --check .` and `ruff check .` clean.
-- [ ] `quarterly_derive.py` does no I/O and stays under 300 lines.
-- [ ] Every case in task 2 has a test.
+- [x] `pytest` green, `ruff format --check .` and `ruff check .` clean.
+- [x] `quarterly_derive.py` does no I/O and stays under 300 lines.
+- [x] Every case in task 2 has a test.
 
 #### Milestone 20.3 — Text, CLI, workflow step, first issue
-Status: not started
+Status: code done 51e8da2 (text), 5aa9985 (CLI), b91b174 (workflow step); the first real issue waits on the push and the rules deploy.
 
 Tasks
 1. `ingest/quarterly_text.py`, pure: `add_text(issue: dict, cfg: dict) -> dict` returns a new
@@ -2366,16 +2366,18 @@ Tasks
 7. Commits: `feat: quarterly issue text and builder`, `ci: build the quarterly issue after each ingest`.
 
 Acceptance criteria
-- [ ] `pytest` green, `ruff format --check .` and `ruff check .` clean.
+- [x] `pytest` green, `ruff format --check .` and `ruff check .` clean.
 - [ ] `python quarterly.py --dry-run` prints label `2026 Q3`, coverage 40 of 40, and the verified
       counts (or each difference explained); `quarterly/index` is still `NOT_FOUND` afterwards.
-- [ ] The dry-run doc size is under 100 KB.
+- [x] The dry-run doc size is under 100 KB.
 - [ ] `python quarterly.py` writes `quarterly/2026-09-30` and `quarterly/index`; the
       unauthenticated REST read now returns the index.
-- [ ] `ingest.yml` has the step; no secret is printed; `permissions` unchanged.
+- [x] `ingest.yml` has the step; no secret is printed; `permissions` unchanged.
+
+Verification (2026-11-18, dry run against production, reads only): `2026 Q3`, 40 of 40 filed; `bought` 55, `sold` 79, `split` 24; totals opened 594, closed 620, added 949, trimmed 869, unchanged 499 (the verified facts say 590 opened because that check left out 4 positions without a ticker; totals count every position); conviction entered AVGO, CRM, INTC, KKR, SPGI and left AMAT, EA, LRCX, MU, WBD; 44.7 KB. The `NOT_FOUND` read in the second box waits on the rules deploy (today it would return `PERMISSION_DENIED`).
 
 #### Milestone 20.4 — Web: `/quarterly`
-Status: not started
+Status: code done 0579447; the live-data and 375 px checks wait on the rules deploy and the first issue.
 
 Tasks
 1. `web/src/quarterlyTypes.ts`: the index and issue types from section M; section rows as a
@@ -2409,18 +2411,18 @@ Tasks
 9. Commit `feat(web): quarterly issue page`.
 
 Acceptance criteria
-- [ ] `npm run test`, `npm run lint` and `npm run build` green.
-- [ ] `quarterly.test.ts` covers `issueText` (AI field wins; template fallback per field),
+- [x] `npm run test`, `npm run lint` and `npm run build` green.
+- [x] `quarterly.test.ts` covers `issueText` (AI field wins; template fallback per field),
       and `windowLabel`; a render test covers every section kind, a no-data window, and an AI
       note with markup rendered as text.
 - [ ] `/quarterly` and `/quarterly/2026-09-30` render the issue in two reads; an unknown period
       and a missing index show their empty states.
 - [ ] At 375 px: no page-level horizontal scroll, and the six-link header wraps cleanly.
-- [ ] No `dangerouslySetInnerHTML`, no new npm dependency (`git diff web/package.json` is empty),
+- [x] No `dangerouslySetInnerHTML`, no new npm dependency (`git diff web/package.json` is empty),
       no shadcn component beyond the 7.
 
 #### Milestone 20.5 — AI notes (`quarterly_llm.py`), optional
-Status: not started — build only if the user picks the API in open decision 5.
+Status: code done 5aa9985; the first real call waits on the user's ANTHROPIC_API_KEY. The request shape follows the Messages API as known on 2026-11-18; it was not re-checked against live docs.
 
 Tasks
 1. Before writing code, check the request shape below against the current Anthropic API docs.
@@ -2470,13 +2472,13 @@ Tasks
 6. Commit `feat: optional AI notes for the quarterly issue`.
 
 Acceptance criteria
-- [ ] `pytest` green, `ruff` clean.
-- [ ] With a fake key (`sk-test-not-real`), no output line contains the key.
+- [x] `pytest` green, `ruff` clean.
+- [x] With a fake key (`sk-test-not-real`), no output line contains the key.
 - [ ] After the user adds the secret, one real run stores `ai` with at least the headline, and
       the page shows the AI label; a second run with no new filings makes no call.
 
 #### Milestone 20.6 — Docs and close-out
-Status: not started
+Status: done f6a15fd
 
 Tasks
 1. README: a short "Quarterly issue" section in simple English — what it is, that every number
@@ -2489,8 +2491,8 @@ Tasks
 5. Set each 20.x `Status:` line to `done <short sha>`.
 
 Acceptance criteria
-- [ ] README, ARCHITECTURE.md, METHODOLOGY.md and CLAUDE.md each mention the quarterly issue.
-- [ ] Every 20.x `Status:` line is set.
+- [x] README, ARCHITECTURE.md, METHODOLOGY.md and CLAUDE.md each mention the quarterly issue.
+- [x] Every 20.x `Status:` line is set.
 
 ## Doc specs
 

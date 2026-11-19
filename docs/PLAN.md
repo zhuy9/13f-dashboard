@@ -2069,7 +2069,7 @@ Verification: `pytest` 172 green, `ruff check` clean. Insider backfill `2025-09-
 
 ## Milestone 20 — Quarterly issue (`/quarterly`)  (planned by the planning model; built by the dev model)
 
-Status: in progress. The user confirmed every default below on 2026-11-18. Code done (e2930ba..f6a15fd); open: the push, the rules deploy, the insider refresh, the first real issue, the page check with live data, and the API key.
+Status: done f7978ff, except the optional 20.5 live check, which waits on the user's ANTHROPIC_API_KEY. The user confirmed every default below on 2026-11-18. Pushed, rules deployed and first issue published 2026-11-18; insider pages refreshed 2026-11-19.
 
 One page per 13F quarter, in a new tab, that says in short tables and plain sentences what
 changed: what the tracked managers bought and sold, where they split, who filed a 13D/13G, and what
@@ -2169,7 +2169,7 @@ Naming: Python `quarterly.py`, `quarterly_derive.py`, `quarterly_text.py`, `quar
 `ingest.yml`.
 
 #### Milestone 20.0 — Joint Form 4 filers count once
-Status: code done f0b8ae0; the production refresh (task 5) waits on the push.
+Status: done f0b8ae0; production refresh finished 2026-11-19: all 1,821 `insider_issuers` docs match a fresh build, and KOD went from 6 buyers and 500 rows (98 distinct) to 1 buyer and 130 rows (its one repeat is two identical grant lines the filing itself lists).
 
 Tasks
 1. Section K: `filer_group` and `is_primary`; clusters count `filer_group` (already in this file).
@@ -2189,10 +2189,10 @@ Acceptance criteria
       and each of the five largest filer groups is one sponsor's entities or a consortium that
       filed together (2026-11-18: Blackstone 56, Advent with ADIA 34, Insight 34, a family
       office 29, Carlyle 26). The step stays well under a second on the full log.
-- [ ] `insider_issuers/KOD` lists each transaction once.
+- [x] `insider_issuers/KOD` lists each transaction once.
 
 #### Milestone 20.1 — Contract, config, rules
-Status: done e2930ba, except the rules deploy, which the user runs.
+Status: done e2930ba; rules deployed 2026-11-18.
 
 Tasks
 1. Section M, the Decisions row, the architecture branch, the repo-layout entries, the two
@@ -2223,7 +2223,7 @@ Acceptance criteria
 - [x] `python -c "import json; print(sorted(json.load(open('ingest/signals_config.json'))['quarterly']))"`
       prints the 5 keys.
 - [x] `firestore.rules` and the copy in this file both list `'quarterly'`; no other rules change.
-- [ ] After the user's deploy, an unauthenticated REST read of
+- [x] After the user's deploy, an unauthenticated REST read of
       `quarterly/index` returns `NOT_FOUND`, not `PERMISSION_DENIED`:
       `curl.exe -s "https://firestore.googleapis.com/v1/projects/$env:FIREBASE_PROJECT_ID/databases/(default)/documents/quarterly/index"`.
 - [x] `CLAUDE.md` has "Quarterly issue gotchas" naming `filed_at`, `noData`, `purpose` and the
@@ -2283,7 +2283,7 @@ Acceptance criteria
 - [x] Every case in task 2 has a test.
 
 #### Milestone 20.3 — Text, CLI, workflow step, first issue
-Status: code done 51e8da2 (text), 5aa9985 (CLI), b91b174 (workflow step); the first real issue waits on the push and the rules deploy.
+Status: done 51e8da2 (text), 5aa9985 (CLI), b91b174 (workflow step); first issue published 2026-11-18.
 
 Tasks
 1. `ingest/quarterly_text.py`, pure: `add_text(issue: dict, cfg: dict) -> dict` returns a new
@@ -2367,17 +2367,17 @@ Tasks
 
 Acceptance criteria
 - [x] `pytest` green, `ruff format --check .` and `ruff check .` clean.
-- [ ] `python quarterly.py --dry-run` prints label `2026 Q3`, coverage 40 of 40, and the verified
+- [x] `python quarterly.py --dry-run` prints label `2026 Q3`, coverage 40 of 40, and the verified
       counts (or each difference explained); `quarterly/index` is still `NOT_FOUND` afterwards.
 - [x] The dry-run doc size is under 100 KB.
-- [ ] `python quarterly.py` writes `quarterly/2026-09-30` and `quarterly/index`; the
+- [x] `python quarterly.py` writes `quarterly/2026-09-30` and `quarterly/index`; the
       unauthenticated REST read now returns the index.
 - [x] `ingest.yml` has the step; no secret is printed; `permissions` unchanged.
 
-Verification (2026-11-18, dry run against production, reads only): `2026 Q3`, 40 of 40 filed; `bought` 55, `sold` 79, `split` 24; totals opened 594, closed 620, added 949, trimmed 869, unchanged 499 (the verified facts say 590 opened because that check left out 4 positions without a ticker; totals count every position); conviction entered AVGO, CRM, INTC, KKR, SPGI and left AMAT, EA, LRCX, MU, WBD; 44.7 KB. The `NOT_FOUND` read in the second box waits on the rules deploy (today it would return `PERMISSION_DENIED`).
+Verification (2026-11-18, dry run against production, reads only): `2026 Q3`, 40 of 40 filed; `bought` 55, `sold` 79, `split` 24; totals opened 594, closed 620, added 949, trimmed 869, unchanged 499 (the verified facts say 590 opened because that check left out 4 positions without a ticker; totals count every position); conviction entered AVGO, CRM, INTC, KKR, SPGI and left AMAT, EA, LRCX, MU, WBD; 44.7 KB. After the rules deploy (2026-11-18), the unauthenticated read returned `NOT_FOUND`, so the dry run wrote nothing; after `python quarterly.py --no-ai` it returned the index (`2026 Q3`, 10 sections, `ai` null).
 
 #### Milestone 20.4 — Web: `/quarterly`
-Status: code done 0579447; the live-data and 375 px checks wait on the rules deploy and the first issue.
+Status: done 0579447; live-data and 375 px checks passed 2026-11-18.
 
 Tasks
 1. `web/src/quarterlyTypes.ts`: the index and issue types from section M; section rows as a
@@ -2415,11 +2415,13 @@ Acceptance criteria
 - [x] `quarterly.test.ts` covers `issueText` (AI field wins; template fallback per field),
       and `windowLabel`; a render test covers every section kind, a no-data window, and an AI
       note with markup rendered as text.
-- [ ] `/quarterly` and `/quarterly/2026-09-30` render the issue in two reads; an unknown period
+- [x] `/quarterly` and `/quarterly/2026-09-30` render the issue in two reads; an unknown period
       and a missing index show their empty states.
-- [ ] At 375 px: no page-level horizontal scroll, and the six-link header wraps cleanly.
+- [x] At 375 px: no page-level horizontal scroll, and the six-link header wraps cleanly.
 - [x] No `dangerouslySetInnerHTML`, no new npm dependency (`git diff web/package.json` is empty),
       no shadcn component beyond the 7.
+
+Verification (2026-11-18, live site, headless Edge through the DevTools protocol with 375 px mobile emulation; plain `--window-size` cannot go below about 492 px): both URLs read `quarterly/index` and `quarterly/2026-09-30` (plus the site banner's `meta/latest`); `/quarterly/2020-03-31` shows "No issue for this quarter."; with the index read answered as missing, "No issue yet."; `scrollWidth` equals the 375 px viewport, and wide tables scroll inside their own box.
 
 #### Milestone 20.5 — AI notes (`quarterly_llm.py`), optional
 Status: code done 5aa9985; the first real call waits on the user's ANTHROPIC_API_KEY. The request shape follows the Messages API as known on 2026-11-18; it was not re-checked against live docs.
